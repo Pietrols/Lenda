@@ -18,6 +18,22 @@ importers:
         specifier: ^5.4.0
         version: 5.9.3
 
+  packages/database:
+    dependencies:
+      '@prisma/client':
+        specifier: ^6.0.0
+        version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.37
+      prisma:
+        specifier: ^6.0.0
+        version: 6.19.2(typescript@5.9.3)
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+
   packages/schemas:
     dependencies:
       '@lenda/types':
@@ -39,15 +55,15 @@ importers:
 
   services/auth-service:
     dependencies:
+      '@lenda/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@lenda/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
       '@lenda/types':
         specifier: workspace:*
         version: link:../../packages/types
-      '@prisma/client':
-        specifier: ^6.0.0
-        version: 6.19.2(prisma@6.19.2(typescript@5.9.3))(typescript@5.9.3)
       bcryptjs:
         specifier: ^2.4.3
         version: 2.4.3
@@ -103,14 +119,60 @@ importers:
       '@types/uuid':
         specifier: ^9.0.8
         version: 9.0.8
-      prisma:
-        specifier: ^6.0.0
-        version: 6.19.2(typescript@5.9.3)
       tsx:
         specifier: ^4.7.0
         version: 4.21.0
       typescript:
         specifier: ^5.4.0
+        version: 5.9.3
+
+  services/booking-service:
+    dependencies:
+      '@lenda/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@lenda/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
+      '@lenda/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      cors:
+        specifier: ^2.8.6
+        version: 2.8.6
+      dotenv:
+        specifier: ^16.0.0
+        version: 16.6.1
+      express:
+        specifier: ^4.22.1
+        version: 4.22.1
+      helmet:
+        specifier: ^7.2.0
+        version: 7.2.0
+      morgan:
+        specifier: ^1.10.1
+        version: 1.10.1
+      zod:
+        specifier: ^3.22.0
+        version: 3.25.76
+    devDependencies:
+      '@types/cors':
+        specifier: ^2.8.19
+        version: 2.8.19
+      '@types/express':
+        specifier: ^4.17.25
+        version: 4.17.25
+      '@types/morgan':
+        specifier: ^1.9.10
+        version: 1.9.10
+      '@types/node':
+        specifier: ^20.0.0
+        version: 20.19.37
+      tsx:
+        specifier: ^4.0.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.0.0
         version: 5.9.3
 
 packages:
