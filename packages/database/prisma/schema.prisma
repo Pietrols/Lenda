@@ -72,18 +72,24 @@ enum LikeTargetType {
 // ── Models ────────────────────────────────────────────────────────────────────
 
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  phone         String?   @unique
-  passwordHash  String
-  roles         Role[]
-  emailVerified Boolean   @default(false)
-  phoneVerified Boolean   @default(false)
-  kycStatus     KycStatus @default(PENDING)
-  isActive      Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  id               String    @id @default(uuid())
+  email            String    @unique
+  phone            String?   @unique
+  passwordHash     String
+  roles            Role[]
+  emailVerified    Boolean   @default(false)
+  phoneVerified    Boolean   @default(false)
+  kycStatus        KycStatus @default(PENDING)
+  isActive         Boolean   @default(true)
+  fullName         String?
+  photoUrl         String?
+  bio              String?
+  location         String?
+  listingTier      Int       @default(0)
+  listingTierSetBy String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
 
   listings             Listing[]
   bookingsAsGuest      Booking[]              @relation("GuestBookings")
