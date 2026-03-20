@@ -1,5 +1,5 @@
 import { prisma, ListingStatus, Prisma } from "@lenda/database";
-import { CreateListingInput } from "@lenda/schemas";
+import type { CreateListingInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
 
 const TIER_LIMITS: Record<number, number> = {
@@ -9,7 +9,7 @@ const TIER_LIMITS: Record<number, number> = {
   3: Infinity,
 };
 
-export async function createListing(hostId: string, data: CreateListingInput: Promise<{ id: string; title: string; status: ListingStatus }> {
+export async function createListing(hostId: string, data: CreateListingInput) {
   const host = await prisma.user.findUnique({
     where: { id: hostId },
     select: { listingTier: true, kycStatus: true },
