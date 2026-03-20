@@ -2,7 +2,10 @@ import { Router, IRouter } from "express";
 import { authenticate, requireRole } from "../middleware/authenticate";
 import { validate } from "../middleware/validate";
 import { CreateBookingSchema } from "@lenda/schemas";
-import { createBookingHandler } from "../controllers/booking.controller";
+import {
+  createBookingHandler,
+  transitionBookingHandler,
+} from "../controllers/booking.controller";
 
 const router: IRouter = Router();
 
@@ -13,5 +16,7 @@ router.post(
   validate(CreateBookingSchema),
   createBookingHandler,
 );
+
+router.patch("/:id/status", authenticate, transitionBookingHandler);
 
 export default router;

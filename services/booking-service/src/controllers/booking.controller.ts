@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { createBooking } from "../services/booking.service";
+import { transitionBookingStatus } from "../services/booking.service";
+import { BookingStatus } from "@lenda/database";
 
 export async function createBookingHandler(
   req: Request,
@@ -10,6 +12,35 @@ export async function createBookingHandler(
     const guestId = req.user!.sub;
     const booking = await createBooking(guestId, req.body);
     res.status(201).json({ booking });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function transitionBookingHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body;
+    const changedById = req.user!.sub;
+    const roles = req.user!.roles as ("GUEST" | "HOST" | "ADMIN")[];
+
+    if (!Object.values(BookingStatus).includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
+
+    const booking = await transitionBookingStatus(
+      id,
+      status as BookingStatus,
+      changedById,
+      roles,
+      reason,
+    );
+
+    res.json({ booking });
   } catch (err) {
     next(err);
   }

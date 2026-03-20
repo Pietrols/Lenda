@@ -2,6 +2,8 @@ import { prisma, BookingStatus, ListingStatus, Prisma } from "@lenda/database";
 import type { CreateBookingInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
 
+type Role = "GUEST" | "HOST" | "ADMIN";
+
 export async function createBooking(
   guestId: string,
   data: CreateBookingInput,
@@ -101,4 +103,100 @@ export async function createBooking(
   });
 
   return booking;
+}
+
+type TransitionMap = {
+  [key in BookingStatus]: { to: BookingStatus[]; allowedRoles: Role[] }[];
+};
+
+const VALID_TRANSITIONS: TransitionMap = {
+  [BookingStatus.PENDING]: [
+    { to: [BookingStatus.CONFIRMED], allowedRoles: ["HOST"] },
+    { to: [BookingStatus.CANCELLED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.CONFIRMED]: [
+    { to: [BookingStatus.EN_ROUTE], allowedRoles: ["HOST", "GUEST"] },
+    { to: [BookingStatus.CANCELLED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.EN_ROUTE]: [
+    { to: [BookingStatus.HANDED_OVER], allowedRoles: ["HOST", "GUEST"] },
+    { to: [BookingStatus.DISPUTED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.HANDED_OVER]: [
+    { to: [BookingStatus.ACTIVE], allowedRoles: ["ADMIN"] },
+    { to: [BookingStatus.DISPUTED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.ACTIVE]: [
+    { to: [BookingStatus.RETURN_PENDING], allowedRoles: ["HOST", "GUEST"] },
+    { to: [BookingStatus.DISPUTED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.RETURN_PENDING]: [
+    { to: [BookingStatus.RETURNED], allowedRoles: ["ADMIN"] },
+    { to: [BookingStatus.DISPUTED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.RETURNED]: [
+    { to: [BookingStatus.COMPLETED], allowedRoles: ["ADMIN"] },
+  ],
+  [BookingStatus.COMPLETED]: [],
+  [BookingStatus.CANCELLED]: [],
+  [BookingStatus.DISPUTED]: [
+    { to: [BookingStatus.COMPLETED], allowedRoles: ["ADMIN"] },
+    { to: [BookingStatus.CANCELLED], allowedRoles: ["ADMIN"] },
+  ],
+};
+
+export async function transitionBookingStatus(
+  bookingId: string,
+  toStatus: BookingStatus,
+  changedById: string,
+  roles: Role[],
+  reason?: string,
+) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { id: true, status: true, guestId: true, hostId: true },
+  });
+
+  if (!booking) throw new AppError(404, "Booking not found");
+
+  const isParty =
+    booking.guestId === changedById || booking.hostId === changedById;
+  const isAdmin = roles.includes("ADMIN");
+
+  if (!isParty && !isAdmin) {
+    throw new AppError(403, "You are not a party to this booking");
+  }
+
+  const allowedTransitions = VALID_TRANSITIONS[booking.status];
+  const match = allowedTransitions.find((t) => t.to.includes(toStatus));
+
+  if (!match) {
+    throw new AppError(
+      400,
+      `Invalid transition from ${booking.status} to ${toStatus}`,
+    );
+  }
+
+  const hasRole = roles.some((r) => match.allowedRoles.includes(r));
+  if (!hasRole) {
+    throw new AppError(403, "Your role is not allowed to make this transition");
+  }
+
+  const updated = await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      status: toStatus,
+      history: {
+        create: {
+          fromStatus: booking.status,
+          toStatus,
+          changedById,
+          reason: reason ?? null,
+        },
+      },
+    },
+    include: { history: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
+
+  return updated;
 }
