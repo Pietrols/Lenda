@@ -1,4 +1,10 @@
-import { prisma, BookingStatus, ListingStatus, Prisma } from "@lenda/database";
+import {
+  prisma,
+  BookingStatus,
+  ListingStatus,
+  Prisma,
+  HandoverType,
+} from "@lenda/database";
 import type { CreateBookingInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
 
@@ -197,6 +203,92 @@ export async function transitionBookingStatus(
     },
     include: { history: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
+
+  // Auto-create handover record on relevant transitions
+  if (toStatus === BookingStatus.HANDED_OVER) {
+    await createHandover(bookingId, HandoverType.PICKUP);
+  }
+
+  if (toStatus === BookingStatus.RETURN_PENDING) {
+    await createHandover(bookingId, HandoverType.RETURN);
+  }
+
+  return updated;
+}
+
+export async function createHandover(bookingId: string, type: HandoverType) {
+  return prisma.handover.create({
+    data: { bookingId, type },
+  });
+}
+
+export async function confirmHandover(
+  bookingId: string,
+  userId: string,
+  type: HandoverType,
+) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    select: { guestId: true, hostId: true, status: true },
+  });
+
+  if (!booking) throw new AppError(404, "Booking not found");
+
+  const isGuest = booking.guestId === userId;
+  const isHost = booking.hostId === userId;
+
+  if (!isGuest && !isHost) {
+    throw new AppError(403, "You are not a party to this booking");
+  }
+
+  const handover = await prisma.handover.findFirst({
+    where: { bookingId, type },
+  });
+
+  if (!handover) throw new AppError(404, "Handover record not found");
+  if (handover.guestConfirmedAt && handover.hostConfirmedAt) {
+    throw new AppError(400, "Handover already completed");
+  }
+
+  const updateData = isGuest
+    ? { guestConfirmed: true, guestConfirmedAt: new Date() }
+    : { hostConfirmed: true, hostConfirmedAt: new Date() };
+
+  const updated = await prisma.handover.update({
+    where: { id: handover.id },
+    data: updateData,
+  });
+
+  const bothConfirmed =
+    (isGuest && updated.guestConfirmed && handover.hostConfirmed) ||
+    (isHost && updated.hostConfirmed && handover.guestConfirmed);
+
+  if (bothConfirmed) {
+    const now = new Date();
+    const updateData = isGuest
+      ? { guestConfirmed: true, guestConfirmedAt: now }
+      : { hostConfirmed: true, hostConfirmedAt: now };
+
+    const nextStatus =
+      type === HandoverType.PICKUP
+        ? BookingStatus.ACTIVE
+        : BookingStatus.RETURNED;
+
+    await prisma.booking.update({
+      where: { id: bookingId },
+      data: {
+        status: nextStatus,
+        history: {
+          create: {
+            fromStatus: booking.status,
+            toStatus: nextStatus,
+            changedById: userId,
+            reason: `${type === HandoverType.PICKUP ? "Pickup" : "Return"} handover confirmed by both parties`,
+          },
+        },
+      },
+    });
+  }
 
   return updated;
 }

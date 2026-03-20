@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { createBooking } from "../services/booking.service";
 import { transitionBookingStatus } from "../services/booking.service";
 import { BookingStatus } from "@lenda/database";
+import { confirmHandover } from "../services/booking.service";
+import { HandoverType } from "@lenda/database";
 
 export async function createBookingHandler(
   req: Request,
@@ -41,6 +43,27 @@ export async function transitionBookingHandler(
     );
 
     res.json({ booking });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function confirmHandoverHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { id } = req.params;
+    const { type } = req.body;
+    const userId = req.user!.sub;
+
+    if (!Object.values(HandoverType).includes(type)) {
+      return res.status(400).json({ message: "Invalid handover type" });
+    }
+
+    const handover = await confirmHandover(id, userId, type as HandoverType);
+    res.json({ handover });
   } catch (err) {
     next(err);
   }

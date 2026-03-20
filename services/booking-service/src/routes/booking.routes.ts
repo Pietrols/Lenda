@@ -5,6 +5,7 @@ import { CreateBookingSchema } from "@lenda/schemas";
 import {
   createBookingHandler,
   transitionBookingHandler,
+  confirmHandoverHandler,
 } from "../controllers/booking.controller";
 
 const router: IRouter = Router();
@@ -18,5 +19,7 @@ router.post(
 );
 
 router.patch("/:id/status", authenticate, transitionBookingHandler);
+
+router.post("/:id/handover/confirm", authenticate, confirmHandoverHandler);
 
 export default router;
