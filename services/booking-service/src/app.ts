@@ -4,6 +4,7 @@ import cors from "cors";
 import morgan from "morgan";
 import { config } from "./config";
 import { errorHandler } from "./middleware/errorHandler";
+import listingRoutes from "./routes/listing.routes";
 
 const app: Application = express();
 
@@ -16,6 +17,7 @@ app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "booking-service" });
 });
 
+app.use("/listings", listingRoutes);
 app.use(errorHandler);
 
 export default app;

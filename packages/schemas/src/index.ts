@@ -41,3 +41,17 @@ export type SendPhoneOtpInput = z.infer<typeof SendPhoneOtpSchema>;
 export type VerifyPhoneInput = z.infer<typeof VerifyPhoneSchema>;
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type RefreshTokenInput = z.infer<typeof RefreshTokenSchema>;
+
+export const CreateListingSchema = z.object({
+  title: z.string().min(3, "Title must be at least 3 characters"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  pillar: z.enum(["RENTAL", "SERVICE"]),
+  category: z.string().min(1, "Category is required"),
+  subcategory: z.string().optional(),
+  pricePerDay: z.number().positive("Price must be positive"),
+  currency: z.string().default("USD"),
+  location: z.string().min(1, "Location is required"),
+  metadata: z.record(z.unknown()).default({}),
+});
+
+export type CreateListingInput = z.infer<typeof CreateListingSchema>;
