@@ -1,6 +1,7 @@
 import { prisma, ListingStatus, Prisma } from "@lenda/database";
 import type { CreateListingInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
+import type { GetListingsQueryInput } from "@lenda/schemas";
 
 const TIER_LIMITS: Record<number, number> = {
   0: 0,
@@ -58,5 +59,71 @@ export async function createListing(hostId: string, data: CreateListingInput) {
     },
   });
 
+  return listing;
+}
+
+export async function getListings(query: GetListingsQueryInput) {
+  const { pillar, category, location, minPrice, maxPrice, page, limit } = query;
+  const skip = (page - 1) * limit;
+
+  const where = {
+    status: ListingStatus.ACTIVE,
+    deletedAt: null,
+    ...(pillar && { pillar }),
+    ...(category && { category }),
+    ...(location && {
+      location: { contains: location, mode: "insensitive" as const },
+    }),
+    ...(minPrice !== undefined || maxPrice !== undefined
+      ? {
+          pricePerDay: {
+            ...(minPrice !== undefined && { gte: minPrice }),
+            ...(maxPrice !== undefined && { lte: maxPrice }),
+          },
+        }
+      : {}),
+  };
+
+  const [listings, total] = await Promise.all([
+    prisma.listing.findMany({
+      where,
+      include: { images: { where: { isPrimary: true } } },
+      orderBy: { discoveryScore: "desc" },
+      skip,
+      take: limit,
+    }),
+    prisma.listing.count({ where }),
+  ]);
+
+  return {
+    listings,
+    pagination: {
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit),
+    },
+  };
+}
+
+export async function getListingById(id: string) {
+  const listing = await prisma.listing.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      images: { orderBy: { order: "asc" } },
+      host: {
+        select: {
+          id: true,
+          fullName: true,
+          photoUrl: true,
+          location: true,
+          kycStatus: true,
+          createdAt: true,
+        },
+      },
+    },
+  });
+
+  if (!listing) throw new AppError(404, "Listing not found");
   return listing;
 }
