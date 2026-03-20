@@ -4,6 +4,9 @@ import { transitionBookingStatus } from "../services/booking.service";
 import { BookingStatus } from "@lenda/database";
 import { confirmHandover } from "../services/booking.service";
 import { HandoverType } from "@lenda/database";
+import { getBookings, getBookingById } from "../services/booking.service";
+
+type Role = "GUEST" | "HOST" | "ADMIN";
 
 export async function createBookingHandler(
   req: Request,
@@ -64,6 +67,36 @@ export async function confirmHandoverHandler(
 
     const handover = await confirmHandover(id, userId, type as HandoverType);
     res.json({ handover });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getBookingsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const roles = req.user!.roles as Role[];
+    const bookings = await getBookings(userId, roles);
+    res.json({ bookings });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getBookingByIdHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const roles = req.user!.roles as Role[];
+    const booking = await getBookingById(req.params.id, userId, roles);
+    res.json({ booking });
   } catch (err) {
     next(err);
   }

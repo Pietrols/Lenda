@@ -6,6 +6,8 @@ import {
   createBookingHandler,
   transitionBookingHandler,
   confirmHandoverHandler,
+  getBookingsHandler,
+  getBookingByIdHandler,
 } from "../controllers/booking.controller";
 
 const router: IRouter = Router();
@@ -18,8 +20,11 @@ router.post(
   createBookingHandler,
 );
 
+router.post("/:id/handover/confirm", authenticate, confirmHandoverHandler);
+
 router.patch("/:id/status", authenticate, transitionBookingHandler);
 
-router.post("/:id/handover/confirm", authenticate, confirmHandoverHandler);
+router.get("/", authenticate, getBookingsHandler);
+router.get("/:id", authenticate, getBookingByIdHandler);
 
 export default router;

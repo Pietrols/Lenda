@@ -292,3 +292,69 @@ export async function confirmHandover(
 
   return updated;
 }
+
+export async function getBookings(userId: string, roles: Role[]) {
+  const isHost = roles.includes("HOST");
+  const isGuest = roles.includes("GUEST");
+
+  const where =
+    isHost && !isGuest
+      ? { hostId: userId }
+      : isGuest && !isHost
+        ? { guestId: userId }
+        : { OR: [{ guestId: userId }, { hostId: userId }] };
+
+  const bookings = await prisma.booking.findMany({
+    where,
+    include: {
+      listing: {
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          location: true,
+          images: { where: { isPrimary: true } },
+        },
+      },
+      history: { orderBy: { createdAt: "desc" }, take: 1 },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return bookings;
+}
+
+export async function getBookingById(
+  bookingId: string,
+  userId: string,
+  roles: Role[],
+) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: {
+      listing: {
+        select: {
+          id: true,
+          title: true,
+          category: true,
+          location: true,
+          pricePerDay: true,
+          images: { orderBy: { order: "asc" } },
+        },
+      },
+      history: { orderBy: { createdAt: "asc" } },
+      handovers: { orderBy: { createdAt: "asc" } },
+    },
+  });
+
+  if (!booking) throw new AppError(404, "Booking not found");
+
+  const isAdmin = roles.includes("ADMIN");
+  const isParty = booking.guestId === userId || booking.hostId === userId;
+
+  if (!isParty && !isAdmin) {
+    throw new AppError(403, "You are not a party to this booking");
+  }
+
+  return booking;
+}
