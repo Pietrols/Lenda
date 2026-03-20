@@ -67,3 +67,14 @@ export const GetListingsQuerySchema = z.object({
 });
 
 export type GetListingsQueryInput = z.infer<typeof GetListingsQuerySchema>;
+
+export const CreateBookingSchema = z.object({
+  listingId: z.string().uuid("Invalid listing ID"),
+  startDate: z.string().datetime("Invalid start date"),
+  endDate: z.string().datetime("Invalid end date"),
+  pickupType: z.enum(["CLIENT_TO_HOST", "HOST_TO_CLIENT"]),
+  pickupLocation: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;
