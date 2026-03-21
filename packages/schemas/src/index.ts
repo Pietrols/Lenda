@@ -91,3 +91,11 @@ export const UpdateListingSchema = z.object({
 });
 
 export type UpdateListingInput = z.infer<typeof UpdateListingSchema>;
+
+export const CreateReviewSchema = z.object({
+  bookingId: z.string().uuid("Invalid booking ID"),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().min(10).max(1000).optional(),
+});
+
+export type CreateReviewInput = z.infer<typeof CreateReviewSchema>;

@@ -115,7 +115,7 @@ type TransitionMap = {
   [key in BookingStatus]: { to: BookingStatus[]; allowedRoles: Role[] }[];
 };
 
-const VALID_TRANSITIONS: TransitionMap = {
+const RENTAL_TRANSITIONS: TransitionMap = {
   [BookingStatus.PENDING]: [
     { to: [BookingStatus.CONFIRMED], allowedRoles: ["HOST"] },
     { to: [BookingStatus.CANCELLED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
@@ -149,6 +149,32 @@ const VALID_TRANSITIONS: TransitionMap = {
     { to: [BookingStatus.COMPLETED], allowedRoles: ["ADMIN"] },
     { to: [BookingStatus.CANCELLED], allowedRoles: ["ADMIN"] },
   ],
+};
+
+const SERVICE_TRANSITIONS: TransitionMap = {
+  [BookingStatus.PENDING]: [
+    { to: [BookingStatus.CONFIRMED], allowedRoles: ["HOST"] },
+    { to: [BookingStatus.CANCELLED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.CONFIRMED]: [
+    { to: [BookingStatus.ACTIVE], allowedRoles: ["HOST", "GUEST"] },
+    { to: [BookingStatus.CANCELLED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.ACTIVE]: [
+    { to: [BookingStatus.COMPLETED], allowedRoles: ["HOST", "GUEST"] },
+    { to: [BookingStatus.DISPUTED], allowedRoles: ["HOST", "GUEST", "ADMIN"] },
+  ],
+  [BookingStatus.COMPLETED]: [],
+  [BookingStatus.CANCELLED]: [],
+  [BookingStatus.DISPUTED]: [
+    { to: [BookingStatus.COMPLETED], allowedRoles: ["ADMIN"] },
+    { to: [BookingStatus.CANCELLED], allowedRoles: ["ADMIN"] },
+  ],
+  // These states are unreachable for SERVICE but required by the type
+  [BookingStatus.EN_ROUTE]: [],
+  [BookingStatus.HANDED_OVER]: [],
+  [BookingStatus.RETURN_PENDING]: [],
+  [BookingStatus.RETURNED]: [],
 };
 
 export async function transitionBookingStatus(

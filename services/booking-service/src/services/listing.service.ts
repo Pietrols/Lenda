@@ -149,13 +149,13 @@ export async function updateListing(
     throw new AppError(403, "Suspended listings cannot be edited");
   }
 
+  const { metadata, ...rest } = data;
+
   const updated = await prisma.listing.update({
     where: { id: listingId },
     data: {
-      ...data,
-      ...(data.metadata && {
-        metadata: data.metadata as Prisma.InputJsonValue,
-      }),
+      ...rest,
+      ...(metadata && { metadata: metadata as Prisma.InputJsonValue }),
     },
   });
 
