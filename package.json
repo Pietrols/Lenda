@@ -8,12 +8,19 @@
     "dev:booking": "turbo run dev --filter=booking-service",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "type-check": "turbo run type-check"
+    "type-check": "turbo run type-check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/supertest": "^7.2.0",
+    "@vitest/coverage-v8": "^4.1.0",
+    "supertest": "^7.2.2",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0",
-    "@types/node": "^20.0.0"
+    "vitest": "^4.1.0"
   },
   "engines": {
     "node": ">=18.0.0",

@@ -64,7 +64,7 @@ export async function verifyEmail(
   const user = await prisma.user.findUnique({ where: { email: data.email } });
 
   if (!user) throw Errors.notFound("No account found with this email.");
-  if (user.emailVerified) return { message: "Email is already verified." };
+  if (user.emailVerified) throw new AppError("Email is already verified.", 400);
 
   await verifyOtp(redisKeys.emailOtp(data.email), data.otp);
 
@@ -288,8 +288,6 @@ export async function getMe(userId: string) {
       phoneVerified: true,
       kycStatus: true,
       isActive: true,
-      canDeliver: true,
-      deliveryRadiusKm: true,
       createdAt: true,
       updatedAt: true,
     },
