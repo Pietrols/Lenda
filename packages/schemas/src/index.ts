@@ -106,3 +106,13 @@ export const CreateLikeSchema = z.object({
 });
 
 export type CreateLikeInput = z.infer<typeof CreateLikeSchema>;
+
+export const UpdateProfileSchema = z.object({
+  fullName: z.string().min(2).max(100).optional(),
+  photoUrl: z.string().url("Invalid photo URL").optional(),
+  bio: z.string().max(500).optional(),
+  location: z.string().max(100).optional(),
+  phone: z.string().min(7).max(20).optional(),
+});
+
+export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;

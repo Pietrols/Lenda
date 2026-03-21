@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { config, isDev } from "./config";
 import authRoutes from "./routes/auth.routes";
 import { errorHandler } from "./middleware/errorHandler";
+import profileRoutes from "./routes/profile.routes";
 
 export function createApp(): Express {
   const app = express();
@@ -38,6 +39,7 @@ export function createApp(): Express {
   });
 
   app.use("/auth", authRoutes);
+  app.use("/profiles", profileRoutes);
 
   app.use((_req, res) => {
     res.status(404).json({ message: "Route not found" });
