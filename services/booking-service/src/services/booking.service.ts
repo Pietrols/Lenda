@@ -7,6 +7,7 @@ import {
 } from "@lenda/database";
 import type { CreateBookingInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
+import { recalculateDiscoveryScore } from "./discovery.service";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
@@ -186,7 +187,14 @@ export async function transitionBookingStatus(
 ) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { id: true, status: true, guestId: true, hostId: true },
+    select: {
+      id: true,
+      status: true,
+      guestId: true,
+      hostId: true,
+      listingId: true,
+      listing: { select: { pillar: true } },
+    },
   });
 
   if (!booking) throw new AppError(404, "Booking not found");
@@ -199,7 +207,12 @@ export async function transitionBookingStatus(
     throw new AppError(403, "You are not a party to this booking");
   }
 
-  const allowedTransitions = VALID_TRANSITIONS[booking.status];
+  const transitionMap =
+    booking.listing.pillar === "RENTAL"
+      ? RENTAL_TRANSITIONS
+      : SERVICE_TRANSITIONS;
+
+  const allowedTransitions = transitionMap[booking.status];
   const match = allowedTransitions.find((t) => t.to.includes(toStatus));
 
   if (!match) {
@@ -230,13 +243,18 @@ export async function transitionBookingStatus(
     include: { history: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
 
-  // Auto-create handover record on relevant transitions
-  if (toStatus === BookingStatus.HANDED_OVER) {
-    await createHandover(bookingId, HandoverType.PICKUP);
+  // Auto-create handover records for RENTAL only
+  if (booking.listing.pillar === "RENTAL") {
+    if (toStatus === BookingStatus.HANDED_OVER) {
+      await createHandover(bookingId, HandoverType.PICKUP);
+    }
+    if (toStatus === BookingStatus.RETURN_PENDING) {
+      await createHandover(bookingId, HandoverType.RETURN);
+    }
   }
 
-  if (toStatus === BookingStatus.RETURN_PENDING) {
-    await createHandover(bookingId, HandoverType.RETURN);
+  if (toStatus === BookingStatus.COMPLETED) {
+    await recalculateDiscoveryScore(booking.listingId);
   }
 
   return updated;

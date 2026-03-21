@@ -1,14 +1,7 @@
 import { prisma, BookingStatus, ReviewType } from "@lenda/database";
 import type { CreateReviewInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
-
-const REVIEWABLE_STATUSES = [
-  BookingStatus.HANDED_OVER,
-  BookingStatus.ACTIVE,
-  BookingStatus.RETURN_PENDING,
-  BookingStatus.RETURNED,
-  BookingStatus.COMPLETED,
-];
+import { recalculateDiscoveryScore } from "./discovery.service";
 
 export async function createReview(
   reviewerId: string,
@@ -21,6 +14,7 @@ export async function createReview(
       guestId: true,
       hostId: true,
       status: true,
+      listingId: true,
       listing: { select: { pillar: true } },
     },
   });
@@ -76,6 +70,8 @@ export async function createReview(
       comment: data.comment,
     },
   });
+
+  await recalculateDiscoveryScore(booking.listingId);
 
   return review;
 }

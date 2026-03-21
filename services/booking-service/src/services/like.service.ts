@@ -1,6 +1,7 @@
 import { prisma, LikeTargetType } from "@lenda/database";
 import type { CreateLikeInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
+import { recalculateDiscoveryScore } from "./discovery.service";
 
 export async function toggleLike(userId: string, data: CreateLikeInput) {
   const { targetId, targetType } = data;
@@ -19,6 +20,9 @@ export async function toggleLike(userId: string, data: CreateLikeInput) {
 
   if (existing) {
     await prisma.like.delete({ where: { id: existing.id } });
+    if (targetType === "LISTING") {
+      await recalculateDiscoveryScore(targetId);
+    }
     return { liked: false };
   }
 
@@ -31,6 +35,11 @@ export async function toggleLike(userId: string, data: CreateLikeInput) {
   };
 
   await prisma.like.create({ data: likeData });
+
+  if (targetType === "LISTING") {
+    await recalculateDiscoveryScore(targetId);
+  }
+
   return { liked: true };
 }
 
