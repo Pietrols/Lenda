@@ -9,6 +9,7 @@ import bookingRoutes from "./routes/booking.routes";
 import reviewRoutes from "./routes/review.routes";
 import likeRoutes from "./routes/like.routes";
 import notificationRoutes from "./routes/notification.routes";
+import adminRoutes from "./routes/admin.routes";
 
 const app: Application = express();
 
@@ -21,6 +22,7 @@ app.use("/bookings", bookingRoutes);
 app.use("/reviews", reviewRoutes);
 app.use("/likes", likeRoutes);
 app.use("/notifications", notificationRoutes);
+app.use("/admin", adminRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "booking-service" });
