@@ -1,11 +1,13 @@
 import { Router, IRouter } from "express";
 import { authenticate, requireRole } from "../middleware/authenticate";
 import { validate } from "../middleware/validate";
-import { CreateListingSchema } from "@lenda/schemas";
+import { CreateListingSchema, UpdateListingSchema } from "@lenda/schemas";
 import {
   createListingHandler,
   getListingsHandler,
   getListingByIdHandler,
+  updateListingHandler,
+  deleteListingHandler,
 } from "../controllers/listing.controller";
 
 const router: IRouter = Router();
@@ -19,5 +21,13 @@ router.post(
   validate(CreateListingSchema),
   createListingHandler,
 );
+router.patch(
+  "/:id",
+  authenticate,
+  requireRole("HOST"),
+  validate(UpdateListingSchema),
+  updateListingHandler,
+);
+router.delete("/:id", authenticate, requireRole("HOST"), deleteListingHandler);
 
 export default router;

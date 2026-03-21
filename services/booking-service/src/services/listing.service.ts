@@ -1,7 +1,10 @@
-import { prisma, ListingStatus, Prisma } from "@lenda/database";
-import type { CreateListingInput } from "@lenda/schemas";
+import { prisma, ListingStatus, BookingStatus, Prisma } from "@lenda/database";
+import type {
+  CreateListingInput,
+  GetListingsQueryInput,
+  UpdateListingInput,
+} from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
-import type { GetListingsQueryInput } from "@lenda/schemas";
 
 const TIER_LIMITS: Record<number, number> = {
   0: 0,
@@ -126,4 +129,69 @@ export async function getListingById(id: string) {
 
   if (!listing) throw new AppError(404, "Listing not found");
   return listing;
+}
+
+export async function updateListing(
+  listingId: string,
+  hostId: string,
+  data: UpdateListingInput,
+) {
+  const listing = await prisma.listing.findUnique({
+    where: { id: listingId, deletedAt: null },
+    select: { hostId: true, status: true },
+  });
+
+  if (!listing) throw new AppError(404, "Listing not found");
+  if (listing.hostId !== hostId) {
+    throw new AppError(403, "You do not own this listing");
+  }
+  if (listing.status === ListingStatus.SUSPENDED) {
+    throw new AppError(403, "Suspended listings cannot be edited");
+  }
+
+  const updated = await prisma.listing.update({
+    where: { id: listingId },
+    data: {
+      ...data,
+      ...(data.metadata && {
+        metadata: data.metadata as Prisma.InputJsonValue,
+      }),
+    },
+  });
+
+  return updated;
+}
+
+export async function deleteListing(listingId: string, hostId: string) {
+  const listing = await prisma.listing.findUnique({
+    where: { id: listingId, deletedAt: null },
+    select: { hostId: true },
+  });
+
+  if (!listing) throw new AppError(404, "Listing not found");
+  if (listing.hostId !== hostId) {
+    throw new AppError(403, "You do not own this listing");
+  }
+
+  const activeBooking = await prisma.booking.findFirst({
+    where: {
+      listingId,
+      status: {
+        notIn: [
+          BookingStatus.CANCELLED,
+          BookingStatus.COMPLETED,
+          BookingStatus.DISPUTED,
+        ],
+      },
+    },
+  });
+
+  if (activeBooking) {
+    throw new AppError(400, "Cannot delete a listing with active bookings");
+  }
+
+  await prisma.listing.update({
+    where: { id: listingId },
+    data: { deletedAt: new Date(), status: ListingStatus.ARCHIVED },
+  });
 }

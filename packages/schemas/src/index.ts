@@ -78,3 +78,16 @@ export const CreateBookingSchema = z.object({
 });
 
 export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;
+
+export const UpdateListingSchema = z.object({
+  title: z.string().min(3).optional(),
+  description: z.string().min(10).optional(),
+  category: z.string().optional(),
+  subcategory: z.string().optional(),
+  pricePerDay: z.number().positive().optional(),
+  currency: z.string().optional(),
+  location: z.string().optional(),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+export type UpdateListingInput = z.infer<typeof UpdateListingSchema>;
