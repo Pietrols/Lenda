@@ -8,6 +8,8 @@ import {
 import type { CreateBookingInput } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
 import { recalculateDiscoveryScore } from "./discovery.service";
+import { createNotification } from "./notification.service";
+import { NotificationType } from "@lenda/database";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
@@ -255,6 +257,38 @@ export async function transitionBookingStatus(
 
   if (toStatus === BookingStatus.COMPLETED) {
     await recalculateDiscoveryScore(booking.listingId);
+  }
+
+  // Send notifications based on transition
+  if (toStatus === BookingStatus.CONFIRMED) {
+    await createNotification(
+      booking.guestId,
+      NotificationType.BOOKING_CONFIRMED,
+      "Your booking has been confirmed by the host",
+    );
+  }
+
+  if (toStatus === BookingStatus.CANCELLED) {
+    const otherPartyId =
+      changedById === booking.guestId ? booking.hostId : booking.guestId;
+    await createNotification(
+      otherPartyId,
+      NotificationType.BOOKING_CANCELLED,
+      "A booking has been cancelled",
+    );
+  }
+
+  if (toStatus === BookingStatus.HANDED_OVER) {
+    await createNotification(
+      booking.guestId,
+      NotificationType.HANDOVER_CONFIRMED,
+      "Item handed over — please confirm receipt",
+    );
+    await createNotification(
+      booking.hostId,
+      NotificationType.HANDOVER_CONFIRMED,
+      "Item handed over — awaiting guest confirmation",
+    );
   }
 
   return updated;
