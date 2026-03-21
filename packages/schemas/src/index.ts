@@ -126,3 +126,11 @@ export const MarkNotificationReadSchema = z.object({
 export type MarkNotificationReadInput = z.infer<
   typeof MarkNotificationReadSchema
 >;
+
+export const UpgradeSubscriptionSchema = z.object({
+  plan: z.enum(["PRO_MONTHLY", "PRO_ANNUAL"]),
+});
+
+export type UpgradeSubscriptionInput = z.infer<
+  typeof UpgradeSubscriptionSchema
+>;

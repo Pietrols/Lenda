@@ -13,10 +13,12 @@ const TIER_LIMITS: Record<number, number> = {
   3: Infinity,
 };
 
+const PRO_EXTRA_SLOTS = 3;
+
 export async function createListing(hostId: string, data: CreateListingInput) {
   const host = await prisma.user.findUnique({
     where: { id: hostId },
-    select: { listingTier: true, kycStatus: true },
+    select: { listingTier: true, kycStatus: true, subscriptionPlan: true },
   });
 
   if (!host) throw new AppError(404, "User not found");
@@ -24,7 +26,9 @@ export async function createListing(hostId: string, data: CreateListingInput) {
     throw new AppError(403, "Your account must be verified before listing");
   }
 
-  const limit = TIER_LIMITS[host.listingTier] ?? 0;
+  const baseLimit = TIER_LIMITS[host.listingTier] ?? 0;
+  const isPro = host.subscriptionPlan !== "FREE";
+  const limit = isPro ? baseLimit + PRO_EXTRA_SLOTS : baseLimit;
 
   const activeCount = await prisma.listing.count({
     where: {
