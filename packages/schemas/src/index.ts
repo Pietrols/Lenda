@@ -99,3 +99,10 @@ export const CreateReviewSchema = z.object({
 });
 
 export type CreateReviewInput = z.infer<typeof CreateReviewSchema>;
+
+export const CreateLikeSchema = z.object({
+  targetId: z.string().uuid("Invalid target ID"),
+  targetType: z.enum(["LISTING", "REVIEW", "USER"]),
+});
+
+export type CreateLikeInput = z.infer<typeof CreateLikeSchema>;
