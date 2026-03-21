@@ -1,6 +1,7 @@
 import { prisma } from "@lenda/database";
 import type { UpdateProfileInput } from "@lenda/schemas";
 import { AppError } from "../lib/AppError";
+import { cloudinary } from "../lib/cloudinary";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -55,4 +56,36 @@ export async function getProfile(userId: string) {
 
   if (!user) throw new AppError("User not found", 404);
   return user;
+}
+
+export async function uploadProfilePhoto(
+  userId: string,
+  file: Express.Multer.File,
+) {
+  const result = await new Promise<any>((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream(
+        {
+          folder: `lenda/profiles`,
+          public_id: userId,
+          overwrite: true,
+          transformation: [
+            { width: 400, height: 400, crop: "fill", gravity: "face" },
+          ],
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        },
+      )
+      .end(file.buffer);
+  });
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { photoUrl: result.secure_url },
+    select: { id: true, photoUrl: true },
+  });
+
+  return updated;
 }

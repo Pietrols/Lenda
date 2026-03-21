@@ -6,6 +6,8 @@ import {
   updateProfileHandler,
   getProfileHandler,
 } from "../controllers/profile.controller";
+import { upload } from "../lib/upload";
+import { uploadProfilePhotoHandler } from "../controllers/profile.controller";
 
 const router: IRouter = Router();
 
@@ -15,6 +17,13 @@ router.patch(
   authenticate,
   validate(UpdateProfileSchema),
   updateProfileHandler,
+);
+
+router.post(
+  "/me/photo",
+  authenticate,
+  upload.single("photo"),
+  uploadProfilePhotoHandler,
 );
 
 export default router;

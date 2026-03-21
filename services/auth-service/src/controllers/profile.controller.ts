@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { updateProfile, getProfile } from "../services/profile.service";
+import { uploadProfilePhoto } from "../services/profile.service";
 
 export async function updateProfileHandler(
   req: Request,
@@ -23,6 +24,21 @@ export async function getProfileHandler(
   try {
     const user = await getProfile(req.params.id);
     res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function uploadProfilePhotoHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.file) throw new Error("No file uploaded");
+    const userId = req.user!.sub;
+    const result = await uploadProfilePhoto(userId, req.file);
+    res.json({ user: result });
   } catch (err) {
     next(err);
   }
