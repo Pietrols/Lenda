@@ -11,6 +11,8 @@ export type AuthUser = {
   isActive: boolean;
   fullName: string | null;
   photoUrl: string | null;
+  bio: string | null;
+  location: string | null;
   createdAt: string;
   updatedAt: string;
 };
