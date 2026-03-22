@@ -164,3 +164,50 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Section typography — context-aware */
+.section-label {
+  @apply text-micro text-gold mb-3;
+}
+
+.section-heading-dark {
+  @apply text-section-title text-4xl md:text-5xl text-white;
+}
+
+.section-heading-light {
+  @apply text-section-title text-4xl md:text-5xl text-foreground;
+}
+
+.section-body-dark {
+  @apply text-lg leading-relaxed text-white/60;
+}
+
+.section-body-light {
+  @apply text-lg leading-relaxed text-foreground/60;
+}
+
+/* Cards */
+.card-icon-sm {
+  @apply w-10 h-10 rounded-xl bg-gold/10 flex items-center justify-center;
+}
+
+.card-icon-lg {
+  @apply w-14 h-14 rounded-2xl bg-gold/10 flex items-center justify-center;
+}
+
+.lenda-tag {
+  @apply text-xs font-medium px-3 py-1 rounded-full bg-gold/10 text-gold;
+}
+
+.lenda-link {
+  @apply flex items-center gap-2 text-gold font-semibold text-sm transition-all duration-200;
+}
+
+/* Section header block */
+.section-header {
+  @apply text-center mb-16;
+}
+
+.section-header-left {
+  @apply mb-16;
+}
