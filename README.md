@@ -1,14 +1,15 @@
-# DriveLink
+# Lenda
 
-A peer-to-peer car hire platform connecting drivers who own vehicles with clients who need them. Built as a TypeScript monorepo with a microservices architecture.
+Zambia's peer-to-peer rental and services marketplace. Built as a TypeScript monorepo with a microservices architecture.
 
 ---
 
 ## Project Status
 
-**Phase 1 — Auth Service: Complete**
+**Phase 1 - Backend: Complete**
+**Phase 2 - Web App: In Progress**
 
-The authentication service is fully built, tested, and running. Registration, email verification, login, token refresh, protected routes, and logout are all working end to end.
+Auth service, booking service, subscriptions, image uploads, and the web app scaffold are all built and running. The frontend is actively being developed.
 
 ---
 
@@ -17,13 +18,16 @@ The authentication service is fully built, tested, and running. Registration, em
 ### Monorepo Structure
 
 ```
-drivelink/
-├── apps/                        # Frontend applications (web, mobile — upcoming)
+lenda/
+├── apps/
+│   └── web/                     # React web app (Vite + TypeScript)
 ├── services/
-│   └── auth-service/            # Authentication microservice (complete)
+│   ├── auth-service/            # Identity, auth, profiles, subscriptions (port 3001)
+│   └── booking-service/         # Listings, bookings, reviews, likes, notifications (port 3002)
 ├── packages/
-│   ├── types/                   # Shared TypeScript interfaces and enums
-│   └── schemas/                 # Shared Zod validation schemas
+│   ├── @lenda/types             # Shared TypeScript interfaces and enums
+│   ├── @lenda/schemas           # Shared Zod validation schemas
+│   └── @lenda/database          # Unified Prisma schema and client
 ├── docker-compose.yml           # Redis for local development
 ├── package.json                 # Monorepo root
 ├── pnpm-workspace.yaml          # pnpm workspace config
@@ -33,111 +37,138 @@ drivelink/
 
 ### Tech Stack
 
-| Layer               | Technology                                |
-| ------------------- | ----------------------------------------- |
-| Language            | TypeScript 5.9                            |
-| Runtime             | Node.js 24                                |
-| Package Manager     | pnpm 10 (workspaces)                      |
-| Build Orchestration | Turborepo                                 |
-| Web Framework       | Express                                   |
-| Database            | PostgreSQL (Postgres.app locally)         |
-| Cache / Sessions    | Redis (Docker)                            |
-| ORM                 | Prisma 6                                  |
-| Validation          | Zod                                       |
-| Authentication      | JWT (access + refresh token rotation)     |
-| Password Hashing    | bcryptjs (cost factor 12)                 |
-| Email               | SendGrid (console logging in development) |
+| Layer               | Technology                                    |
+| ------------------- | --------------------------------------------- |
+| Language            | TypeScript 5.9                                |
+| Runtime             | Node.js 24                                    |
+| Package Manager     | pnpm 10 (workspaces)                          |
+| Build Orchestration | Turborepo                                     |
+| Web Framework       | Express                                       |
+| Database            | PostgreSQL (Postgres.app locally)             |
+| Cache / Sessions    | Redis (Docker)                                |
+| ORM                 | Prisma 6                                      |
+| Validation          | Zod                                           |
+| Authentication      | JWT (access + refresh token rotation)         |
+| Password Hashing    | bcryptjs (cost factor 10)                     |
+| Email               | SendGrid (console logging in development)     |
+| Image Storage       | Cloudinary (HEIC/JPEG support)                |
+| Frontend            | React 18, Vite, Tailwind CSS, shadcn/ui, GSAP |
+| State Management    | Zustand (auth), TanStack Query (server state) |
 
 ---
 
 ## Roles
 
-| Role     | Description                                   |
-| -------- | --------------------------------------------- |
-| `CLIENT` | Hires vehicles from drivers                   |
-| `DRIVER` | Lists and manages vehicles, handles handovers |
-| `ADMIN`  | Platform administration, KYC verification     |
+| Role    | Description                                              |
+| ------- | -------------------------------------------------------- |
+| `GUEST` | Browses listings, makes bookings, leaves reviews         |
+| `HOST`  | Lists assets or services, manages bookings and handovers |
+| `ADMIN` | Platform administration, KYC verification, moderation    |
 
 ---
 
-## Auth Service
+## Pillars
+
+| Pillar    | Description                                                  |
+| --------- | ------------------------------------------------------------ |
+| `RENTAL`  | Rent vehicles, property, equipment - full handover lifecycle |
+| `SERVICE` | Hire professionals for jobs - simpler booking flow           |
+
+---
+
+## Auth Service (Port 3001)
 
 ### Endpoints
 
-| Method | Route                    | Auth      | Description                                  |
-| ------ | ------------------------ | --------- | -------------------------------------------- |
-| POST   | `/auth/register`         | Public    | Create account, sends email OTP              |
-| POST   | `/auth/verify-email`     | Public    | Verify email with OTP                        |
-| POST   | `/auth/resend-email-otp` | Public    | Resend email OTP                             |
-| POST   | `/auth/send-phone-otp`   | Public    | Send phone verification OTP                  |
-| POST   | `/auth/verify-phone`     | Public    | Verify phone with OTP                        |
-| POST   | `/auth/login`            | Public    | Login, returns access and refresh tokens     |
-| POST   | `/auth/refresh`          | Public    | Rotate refresh token, issue new access token |
-| POST   | `/auth/logout`           | Protected | Blacklist access token, revoke refresh token |
-| GET    | `/auth/me`               | Protected | Get current user profile                     |
-| GET    | `/health`                | Public    | Service health check                         |
-
-### Token Strategy
-
-**Access Token** — JWT, signed with `JWT_ACCESS_SECRET`, expires in 15 minutes. Stateless — verified by signature alone. Carries user ID, roles, and a unique `jti` for blacklisting.
-
-**Refresh Token** — JWT, signed with `JWT_REFRESH_SECRET`, expires in 7 days. Stored in Redis. Rotated on every use — old token is deleted immediately, new token issued. Revoked on logout.
-
-**OTPs** — 6-digit codes stored in Redis with a 10 minute TTL and a maximum of 5 attempts. Deleted on successful verification.
-
-### Auth Service File Structure
-
-```
-services/auth-service/
-├── prisma/
-│   └── schema.prisma            # User model, Role and KycStatus enums
-├── src/
-│   ├── config/
-│   │   └── index.ts             # Zod-validated environment config
-│   ├── controllers/
-│   │   └── auth.controller.ts   # Thin HTTP layer
-│   ├── lib/
-│   │   ├── AppError.ts          # AppError class and Errors factory
-│   │   ├── jwt.ts               # Sign and verify access/refresh tokens
-│   │   ├── mailer.ts            # SendGrid (console log in development)
-│   │   ├── otp.ts               # OTP generation, storage, verification
-│   │   ├── prisma.ts            # PrismaClient singleton
-│   │   └── redis.ts             # ioredis singleton and key builders
-│   ├── middleware/
-│   │   ├── authenticate.ts      # JWT verification, blacklist check, requireRole
-│   │   ├── errorHandler.ts      # Global error handler and asyncHandler wrapper
-│   │   └── validate.ts          # Zod request body validation
-│   ├── routes/
-│   │   └── auth.routes.ts       # Route definitions
-│   ├── services/
-│   │   └── auth.service.ts      # Business logic
-│   ├── app.ts                   # Express app factory
-│   └── index.ts                 # Entry point, graceful shutdown
-├── .env.example                 # Environment variable template
-├── package.json
-└── tsconfig.json
-```
+| Method | Route                           | Auth      | Description                                  |
+| ------ | ------------------------------- | --------- | -------------------------------------------- |
+| POST   | `/auth/register`                | Public    | Create account, sends email OTP              |
+| POST   | `/auth/verify-email`            | Public    | Verify email with OTP                        |
+| POST   | `/auth/resend-email-otp`        | Public    | Resend email OTP                             |
+| POST   | `/auth/resend-otp`              | Public    | Resend OTP (alias)                           |
+| POST   | `/auth/send-phone-otp`          | Public    | Send phone verification OTP                  |
+| POST   | `/auth/verify-phone`            | Public    | Verify phone with OTP                        |
+| POST   | `/auth/login`                   | Public    | Login, returns access and refresh tokens     |
+| POST   | `/auth/refresh`                 | Public    | Rotate refresh token, issue new access token |
+| POST   | `/auth/logout`                  | Protected | Blacklist access token, revoke refresh token |
+| GET    | `/auth/me`                      | Protected | Get current user (basic fields)              |
+| GET    | `/profiles/me`                  | Protected | Get full profile                             |
+| PATCH  | `/profiles/me`                  | Protected | Update profile                               |
+| POST   | `/profiles/me/photo`            | Protected | Upload profile photo (server-side)           |
+| GET    | `/profiles/me/upload-signature` | Protected | Get Cloudinary signed upload URL             |
+| PATCH  | `/profiles/me/photo-url`        | Protected | Save Cloudinary URL after direct upload      |
+| GET    | `/profiles/:id`                 | Public    | Get public profile                           |
+| GET    | `/subscriptions/status`         | Protected | Get subscription status                      |
+| POST   | `/subscriptions/upgrade`        | Protected | Upgrade to Pro plan                          |
+| POST   | `/subscriptions/cancel`         | Protected | Cancel subscription                          |
+| PATCH  | `/admin/users/:id/kyc`          | Admin     | Approve or reject KYC                        |
+| POST   | `/admin/users/:id/badge`        | Admin     | Award badge to user                          |
+| PATCH  | `/admin/users/:id/suspend`      | Admin     | Suspend user account                         |
 
 ---
 
-## Shared Packages
+## Booking Service (Port 3002)
 
-### `@drivelink/types`
+### Endpoints
 
-TypeScript interfaces and enums shared across all services and apps.
+| Method | Route                            | Auth      | Description                           |
+| ------ | -------------------------------- | --------- | ------------------------------------- |
+| POST   | `/listings`                      | HOST      | Create listing                        |
+| GET    | `/listings`                      | Public    | Browse listings (paginated, filtered) |
+| GET    | `/listings/:id`                  | Public    | Get listing with host info            |
+| PATCH  | `/listings/:id`                  | HOST      | Update listing                        |
+| DELETE | `/listings/:id`                  | HOST      | Soft delete listing                   |
+| POST   | `/listings/:id/images`           | HOST      | Upload listing image                  |
+| DELETE | `/listings/:id/images/:imageId`  | HOST      | Delete listing image                  |
+| POST   | `/bookings`                      | GUEST     | Create booking (price locked)         |
+| GET    | `/bookings`                      | Protected | Get bookings (role-filtered)          |
+| GET    | `/bookings/:id`                  | Protected | Get booking with full history         |
+| PATCH  | `/bookings/:id/status`           | Protected | Transition booking status             |
+| POST   | `/bookings/:id/handover/confirm` | Protected | Dual-confirm handover                 |
+| POST   | `/reviews`                       | Protected | Create review                         |
+| GET    | `/reviews/listing/:id`           | Public    | Get reviews for listing               |
+| GET    | `/reviews/user/:id`              | Public    | Get reviews for user                  |
+| POST   | `/likes`                         | Protected | Toggle like                           |
+| GET    | `/likes/:targetType/:targetId`   | Public    | Get like count                        |
+| GET    | `/notifications`                 | Protected | Get notifications                     |
+| GET    | `/notifications/unread-count`    | Protected | Get unread count                      |
+| PATCH  | `/notifications/read`            | Protected | Mark notifications as read            |
+| PATCH  | `/admin/listings/:id/verify`     | Admin     | Verify listing                        |
+| PATCH  | `/admin/listings/:id/suspend`    | Admin     | Suspend listing                       |
+| PATCH  | `/admin/reviews/:id/remove`      | Admin     | Remove review                         |
 
-- `Role` enum — CLIENT, DRIVER, ADMIN
-- `KycStatus` enum — PENDING, APPROVED, REJECTED
-- `OtpType` enum
-- `User`, `AuthTokens`, `AuthResponse`, `ApiError` interfaces
-- Request payload types — `RegisterPayload`, `LoginPayload`, etc.
+---
 
-### `@drivelink/schemas`
+## Booking State Machine
 
-Zod schemas for request validation, derived from `@drivelink/types`.
+**RENTAL:** `PENDING → CONFIRMED → EN_ROUTE → HANDED_OVER → ACTIVE → RETURN_PENDING → RETURNED → COMPLETED`
 
-- `RegisterSchema`, `LoginSchema`, `VerifyEmailSchema`
-- `VerifyPhoneSchema`, `SendPhoneOtpSchema`, `RefreshTokenSchema`
+**SERVICE:** `PENDING → CONFIRMED → ACTIVE → COMPLETED`
+
+Both support `CANCELLED` and `DISPUTED` from applicable states.
+
+---
+
+## Subscription Plans
+
+| Plan        | Commission | Extra Listing Slots | Discovery Boost |
+| ----------- | ---------- | ------------------- | --------------- |
+| FREE        | 15%        | +0                  | Standard        |
+| PRO_MONTHLY | 10%        | +3                  | Boosted         |
+| PRO_ANNUAL  | 10%        | +3                  | Boosted         |
+
+---
+
+## Listing Tiers
+
+| Tier | Base Limit | How to Reach              |
+| ---- | ---------- | ------------------------- |
+| 0    | 0          | Default (unverified)      |
+| 1    | 2          | KYC approved              |
+| 2    | 5          | 10+ bookings, 4.0+ rating |
+| 3    | Unlimited  | 30+ bookings, 4.5+ rating |
+
+Pro subscription adds 3 slots on top of the tier base limit.
 
 ---
 
@@ -155,8 +186,8 @@ Zod schemas for request validation, derived from `@drivelink/types`.
 **1. Clone the repository**
 
 ```bash
-git clone https://github.com/Pietrols/Drivelink.git
-cd drivelink
+git clone https://github.com/Pietrols/Lenda.git
+cd Lenda
 ```
 
 **2. Install dependencies**
@@ -165,60 +196,63 @@ cd drivelink
 pnpm install
 ```
 
-**3. Build shared packages**
+**3. Set up environment variables**
+
+Copy `.env.example` to `.env` at the root and fill in the required values.
 
 ```bash
-pnpm --filter @drivelink/types build
-pnpm --filter @drivelink/schemas build
+cp .env.example .env
 ```
 
-**4. Set up environment variables**
-
-```bash
-cp services/auth-service/.env.example services/auth-service/.env
-# Fill in JWT secrets and other values
-```
-
-**5. Start Redis**
+**4. Start Redis**
 
 ```bash
 docker compose up -d
 ```
 
-**6. Start Postgres.app**
+**5. Start Postgres.app**
 
 Open Postgres.app and ensure it is running on port 5432. Then create the database:
 
 ```bash
-psql -U postgres -c "CREATE USER drivelink WITH PASSWORD 'your_password';"
-psql -U postgres -c "CREATE DATABASE drivelink_db OWNER drivelink;"
-psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE drivelink_db TO drivelink;"
+psql -c "CREATE DATABASE lenda_dev;"
 ```
 
-**7. Push the database schema**
+**6. Run database migrations**
 
 ```bash
-cd services/auth-service
-pnpm db:push
+cd packages/database && pnpm migrate
 ```
 
-**8. Start the auth service**
+**7. Start all services**
 
 ```bash
 pnpm dev
 ```
 
-The service runs on `http://localhost:3001`.
+Services run at:
 
-### Environment Variables
+- Auth service: `http://localhost:3001`
+- Booking service: `http://localhost:3002`
+- Web app: `http://localhost:5173`
 
-See `services/auth-service/.env.example` for all required variables. Key ones:
+---
+
+## Environment Variables
+
+Key variables required in root `.env`:
 
 ```bash
-DATABASE_URL="postgresql://drivelink:password@localhost:5432/drivelink_db"
-REDIS_URL="redis://:password@localhost:6379"
+DATABASE_URL="postgresql://localhost:5432/lenda_dev"
+REDIS_URL="redis://localhost:6380"
 JWT_ACCESS_SECRET="64-byte-hex-string"
 JWT_REFRESH_SECRET="64-byte-hex-string"
+SENDGRID_API_KEY="your-sendgrid-key"
+CLOUDINARY_CLOUD_NAME="your-cloud-name"
+CLOUDINARY_API_KEY="your-api-key"
+CLOUDINARY_API_SECRET="your-api-secret"
+VITE_API_AUTH_URL="http://localhost:3001"
+VITE_API_BOOKING_URL="http://localhost:3002"
 ```
 
 Generate JWT secrets with:
@@ -229,41 +263,63 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 
 ---
 
-## Commit History
+## Testing
 
-| Commit                                                           | Description                                        |
-| ---------------------------------------------------------------- | -------------------------------------------------- |
-| `chore: initialise monorepo scaffold`                            | Root package.json, pnpm workspace, turbo, tsconfig |
-| `feat: add @drivelink/types shared package`                      | Shared TypeScript interfaces and enums             |
-| `feat: add @drivelink/schemas shared package`                    | Shared Zod validation schemas                      |
-| `chore: add auth service scaffold and gitignore`                 | Auth service directory structure                   |
-| `feat: add auth service lib utilities`                           | prisma, redis, jwt, otp, mailer, AppError          |
-| `fix: align prisma versions and guard sendgrid dynamic import`   | Prisma 6 alignment, dynamic SendGrid import        |
-| `feat: add auth service middleware`                              | validate, authenticate, errorHandler               |
-| `feat: add auth service layer, controller and routes`            | Business logic, HTTP layer, route definitions      |
-| `feat: add auth service app setup and entry point`               | Express app factory, graceful shutdown             |
-| `chore: add docker compose for local development infrastructure` | Redis container                                    |
+```bash
+# Run all tests
+pnpm test
 
----
+# Run auth service tests only
+pnpm --filter auth-service test
 
-## Upcoming — Phase 1 Remaining
+# Run booking service tests only
+pnpm --filter booking-service test
+```
 
-- Booking service — vehicle listings, bookings, dual-confirm handover
-- Web app — React frontend matching the DriveLink design system
-- Mobile app — React Native (iOS and Android)
+Current test coverage: **36/36 passing**
 
 ---
 
-## Design Decisions
+## Commit Convention
 
-**Express over other frameworks** — chosen for language unification (full TypeScript stack), real-time suitability, and ecosystem fit.
+All commits follow the Conventional Commits format:
 
-**Prisma 6** — pinned to version 6 to avoid breaking changes in version 7.
+```
+feat: add new feature
+fix: fix a bug
+refactor: restructure code
+test: add or update tests
+chore: tooling, config, dependencies
+docs: documentation updates
+```
 
-**No transporter role** — vehicle handover is handled directly between driver and client via consent-based location sharing and in-app booking chat.
+---
 
-**Dual-confirm handover** — both driver and client must confirm pickup and return independently before booking state advances.
+## Roadmap
 
-**Soft deletes** — users are never hard deleted. The `deletedAt` field allows account recovery and maintains referential integrity.
+### Done
 
-**Monorepo** — shared packages ensure type safety across service boundaries. A change to `@drivelink/types` surfaces TypeScript errors in every consuming service immediately.
+- [x] Auth service - register, verify, login, refresh, logout, profile, KYC, badges
+- [x] Booking service - listings, bookings, handover, reviews, likes, notifications, discovery, admin
+- [x] Subscriptions - FREE, PRO_MONTHLY, PRO_ANNUAL with commission and listing slot logic
+- [x] Cloudinary image uploads - JPEG and HEIC support
+- [x] Web app scaffold - Vite, React, Tailwind, shadcn/ui, GSAP, TanStack Query, Zustand
+- [x] Homepage - hero, pillars, how it works, host section, footer
+- [x] Auth pages - login, register, verify email
+- [x] Dashboard - layout, overview, profile
+
+### In Progress
+
+- [ ] Dashboard - notifications, bookings, listings, subscription pages
+- [ ] Client-side Cloudinary upload
+- [ ] Partner and Join Our Team pages
+- [ ] Lenda chatbot
+
+### Upcoming
+
+- [ ] Listings browse page
+- [ ] Listing detail page
+- [ ] Stripe payment integration
+- [ ] Mobile app (React Native / Expo)
+- [ ] Deployment (Railway → Oracle Cloud)
+- [ ] CI/CD (GitHub Actions)
