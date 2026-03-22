@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
+import { Footer } from "@/components/Footer";
 import {
   ArrowRight,
   Star,
@@ -365,6 +366,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      <Footer />
     </div>
   );
 }
