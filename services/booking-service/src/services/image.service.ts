@@ -1,6 +1,25 @@
 import { prisma } from "@lenda/database";
 import { cloudinary } from "../lib/cloudinary";
 import { AppError } from "../middleware/errorHandler";
+import heicConvert from "heic-convert";
+
+async function toJpegBuffer(file: Express.Multer.File): Promise<Buffer> {
+  const isHeic =
+    file.mimetype === "image/heic" ||
+    file.mimetype === "image/heif" ||
+    file.originalname.toLowerCase().endsWith(".heic") ||
+    file.originalname.toLowerCase().endsWith(".heif");
+
+  if (!isHeic) return file.buffer;
+
+  const converted = await heicConvert({
+    buffer: file.buffer,
+    format: "JPEG",
+    quality: 0.9,
+  });
+
+  return Buffer.from(converted);
+}
 
 export async function uploadListingImage(
   listingId: string,
@@ -19,6 +38,8 @@ export async function uploadListingImage(
     throw new AppError(403, "You do not own this listing");
   }
 
+  const buffer = await toJpegBuffer(file);
+
   const result = await new Promise<any>((resolve, reject) => {
     cloudinary.uploader
       .upload_stream(
@@ -31,7 +52,7 @@ export async function uploadListingImage(
           else resolve(result);
         },
       )
-      .end(file.buffer);
+      .end(buffer);
   });
 
   if (isPrimary) {

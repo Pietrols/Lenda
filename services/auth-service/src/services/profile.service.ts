@@ -2,6 +2,7 @@ import { prisma } from "@lenda/database";
 import type { UpdateProfileInput } from "@lenda/schemas";
 import { AppError } from "../lib/AppError";
 import { cloudinary } from "../lib/cloudinary";
+import heicConvert from "heic-convert";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -62,11 +63,27 @@ export async function uploadProfilePhoto(
   userId: string,
   file: Express.Multer.File,
 ) {
+  let buffer = file.buffer;
+
+  if (
+    file.mimetype === "image/heic" ||
+    file.mimetype === "image/heif" ||
+    file.originalname.toLowerCase().endsWith(".heic") ||
+    file.originalname.toLowerCase().endsWith(".heif")
+  ) {
+    const converted = await heicConvert({
+      buffer: file.buffer,
+      format: "JPEG",
+      quality: 0.9,
+    });
+    buffer = Buffer.from(converted);
+  }
+
   const result = await new Promise<any>((resolve, reject) => {
     cloudinary.uploader
       .upload_stream(
         {
-          folder: `lenda/profiles`,
+          folder: "lenda/profiles",
           public_id: userId,
           overwrite: true,
           transformation: [
@@ -78,7 +95,7 @@ export async function uploadProfilePhoto(
           else resolve(result);
         },
       )
-      .end(file.buffer);
+      .end(buffer);
   });
 
   const updated = await prisma.user.update({
