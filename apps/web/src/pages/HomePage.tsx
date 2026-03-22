@@ -5,7 +5,15 @@ import { Link } from "react-router-dom";
 import { Navigation } from "@/components/Navigation";
 import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
-import { ArrowRight, Star, Car, Briefcase } from "lucide-react";
+import {
+  ArrowRight,
+  Star,
+  Car,
+  Briefcase,
+  CalendarCheck,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -237,6 +245,89 @@ export default function HomePage() {
                   Browse Services <ArrowRight size={16} />
                 </div>
               </div>
+            </Link>
+          </div>
+        </div>
+      </section>
+      {/* How It Works */}
+      <section className="flowing-section dark-section relative overflow-hidden">
+        {/* Background grain */}
+        <div className="grain-overlay" />
+
+        <div className="relative z-10 container mx-auto px-4">
+          {/* Header */}
+          <div className="text-center mb-16">
+            <p className="text-micro text-gold mb-3">Simple Process</p>
+            <GoldLine className="w-12 mx-auto mb-6" />
+            <h2 className="text-section-title text-4xl md:text-5xl text-white mb-4">
+              How Lenda Works
+            </h2>
+            <p className="text-white/60 max-w-xl mx-auto text-lg">
+              From browsing to booking in minutes. Lenda makes it effortless.
+            </p>
+          </div>
+
+          {/* Steps */}
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {[
+              {
+                step: "01",
+                title: "Browse & Discover",
+                description:
+                  "Search listings by category, location or pillar. Filter by price, rating and availability. Every listing is from a verified host.",
+                icon: <Search size={28} className="text-gold" />,
+              },
+              {
+                step: "02",
+                title: "Book & Lock Price",
+                description:
+                  "Select your dates, choose pickup type, and confirm. Your price is locked at the moment of booking — it never changes.",
+                icon: <CalendarCheck size={28} className="text-gold" />,
+              },
+              {
+                step: "03",
+                title: "Meet & Confirm",
+                description:
+                  "Both parties confirm handover via the app. Once confirmed, your rental or service is officially active and protected.",
+                icon: <ShieldCheck size={28} className="text-gold" />,
+              },
+            ].map((item, index) => (
+              <div key={item.step} className="relative group">
+                {/* Connector line */}
+                {index < 2 && (
+                  <div className="hidden md:block absolute top-10 left-[60%] w-full h-[1px] bg-gold/20 z-0" />
+                )}
+
+                <div className="relative z-10 flex flex-col items-start">
+                  {/* Step number */}
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-14 h-14 rounded-2xl bg-gold/10 border border-gold/20 flex items-center justify-center group-hover:bg-gold/20 transition-colors duration-300">
+                      {item.icon}
+                    </div>
+                    <span className="font-display font-black text-5xl text-gold/20 leading-none">
+                      {item.step}
+                    </span>
+                  </div>
+
+                  <h3 className="font-display font-bold text-xl text-white uppercase tracking-tight mb-3">
+                    {item.title}
+                  </h3>
+                  <GoldLine className="w-8 mb-4" />
+                  <p className="text-white/60 leading-relaxed">
+                    {item.description}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-16">
+            <Link to="/register">
+              <Button variant="gold" size="lg" className="gap-2">
+                Start Now
+                <ArrowRight size={18} />
+              </Button>
             </Link>
           </div>
         </div>
