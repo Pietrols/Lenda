@@ -66,4 +66,11 @@ export const authApi = {
       token,
       AUTH_URL,
     ),
+  resendOtp: (email: string) =>
+    api.post<{ message: string }>(
+      "/auth/resend-otp",
+      { email },
+      undefined,
+      AUTH_URL,
+    ),
 };

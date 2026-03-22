@@ -42,6 +42,11 @@ router.post(
   validate(RefreshTokenSchema),
   asyncHandler(ctrl.refresh),
 );
+router.post(
+  "/resend-otp",
+  validate(z.object({ email: z.string().email() })),
+  asyncHandler(ctrl.resendEmailOtp),
+);
 
 // Protected routes
 router.post("/logout", authenticate, asyncHandler(ctrl.logout));
