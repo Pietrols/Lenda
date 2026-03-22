@@ -76,6 +76,9 @@ export default function LoginPage() {
         <div className="glass-card-dark border border-white/10 p-8">
           <form
             onSubmit={handleSubmit(onSubmit)}
+            method="post"
+            action="#"
+            autoComplete="on"
             className="flex flex-col gap-5"
           >
             {/* Email */}
@@ -85,7 +88,7 @@ export default function LoginPage() {
                 {...register("email")}
                 type="email"
                 placeholder="you@example.com"
-                autoComplete="email"
+                autoComplete="username"
                 className={cn(
                   "w-full h-11 px-4 rounded-xl bg-white/5 border text-white placeholder:text-white/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60",
                   errors.email ? "border-red-500/60" : "border-white/10",
