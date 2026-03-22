@@ -44,12 +44,19 @@ export function Navigation() {
         )}
       >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <span className="font-display font-black text-2xl tracking-tight text-foreground">
+            <span
+              className={cn(
+                "font-display font-black text-2xl tracking-tight transition-colors duration-300",
+                scrolled ? "text-foreground" : "text-white",
+              )}
+            >
               LEN<span className="text-gold">DA</span>
             </span>
           </Link>
 
+          {/* Desktop nav links */}
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
               <Link
@@ -59,7 +66,9 @@ export function Navigation() {
                   "text-sm font-medium transition-colors duration-200 hover:text-gold",
                   location.pathname === link.href
                     ? "text-gold"
-                    : "text-foreground/70",
+                    : scrolled
+                      ? "text-foreground/70"
+                      : "text-white/80",
                 )}
               >
                 {link.label}
@@ -67,12 +76,18 @@ export function Navigation() {
             ))}
           </div>
 
+          {/* Desktop right actions */}
           <div className="hidden md:flex items-center gap-3">
             <Link to="/login">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-foreground/70 hover:text-foreground"
+                className={cn(
+                  "transition-colors duration-300",
+                  scrolled
+                    ? "text-foreground/70 hover:text-foreground"
+                    : "text-white/80 hover:text-white",
+                )}
               >
                 Sign In
               </Button>
@@ -84,14 +99,21 @@ export function Navigation() {
             </Link>
           </div>
 
+          {/* Mobile menu toggle */}
           <button
-            className="md:hidden p-2 text-foreground/70 hover:text-foreground transition-colors"
+            className={cn(
+              "md:hidden p-2 transition-colors",
+              scrolled
+                ? "text-foreground/70 hover:text-foreground"
+                : "text-white/80 hover:text-white",
+            )}
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>
 
+        {/* Mobile menu */}
         {mobileOpen && (
           <div className="md:hidden bg-background/95 backdrop-blur-md border-b border-border">
             <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
