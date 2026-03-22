@@ -1,6 +1,5 @@
 import { Routes, Route } from "react-router-dom";
-
-// Pages — we'll build these out one by one
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
@@ -25,8 +24,15 @@ export default function App() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-      {/* Dashboard */}
-      <Route path="/dashboard/*" element={<DashboardPage />} />
+      {/* Protected */}
+      <Route
+        path="/dashboard/*"
+        element={
+          <ProtectedRoute>
+            <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* 404 */}
       <Route path="*" element={<NotFoundPage />} />
