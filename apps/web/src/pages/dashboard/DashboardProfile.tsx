@@ -65,21 +65,36 @@ export default function DashboardProfile() {
   });
 
   const { mutate: uploadPhoto, isPending: isUploading } = useMutation({
-    mutationFn: (file: File) => {
-      const formData = new FormData();
-      formData.append("photo", file);
-      return fetch(`${AUTH_URL}/profiles/me/photo`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
-      }).then(async (res) => {
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message ?? "Upload failed");
-        return data;
+    mutationFn: async (file: File) => {
+      // 1. Get signed upload URL from server
+      const sig = await api.get<{
+        signedUrl: string;
+        path: string;
+        token: string;
+        supabaseUrl: string;
+      }>("/profiles/me/upload-signature", accessToken, AUTH_URL);
+
+      // 2. Upload directly to Supabase
+      const uploadRes = await fetch(sig.signedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
       });
+
+      if (!uploadRes.ok) throw new Error("Upload failed");
+
+      // 3. Build public URL and save to server
+      const publicUrl = `${sig.supabaseUrl}/storage/v1/object/public/profiles/${sig.path}`;
+
+      return api.patch<{ user: { id: string; photoUrl: string } }>(
+        "/profiles/me/photo-url",
+        { photoUrl: publicUrl },
+        accessToken,
+        AUTH_URL,
+      );
     },
     onSuccess: (data) => {
-      updateUser(data.user);
+      updateUser({ ...user!, photoUrl: data.user.photoUrl });
       queryClient.invalidateQueries({ queryKey: ["profile", "me"] });
       toast.success("Profile photo updated.");
       setPreviewUrl(null);

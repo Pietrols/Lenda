@@ -1,8 +1,7 @@
 import { prisma } from "@lenda/database";
 import type { UpdateProfileInput } from "@lenda/schemas";
 import { AppError } from "../lib/AppError";
-import { cloudinary } from "../lib/cloudinary";
-import heicConvert from "heic-convert";
+import { supabase } from "../lib/supabase";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -63,46 +62,51 @@ export async function uploadProfilePhoto(
   userId: string,
   file: Express.Multer.File,
 ) {
-  let buffer = file.buffer;
+  const ext = file.originalname.split(".").pop()?.toLowerCase() ?? "jpg";
+  const path = `${userId}/avatar.${ext}`;
 
-  if (
-    file.mimetype === "image/heic" ||
-    file.mimetype === "image/heif" ||
-    file.originalname.toLowerCase().endsWith(".heic") ||
-    file.originalname.toLowerCase().endsWith(".heif")
-  ) {
-    const converted = await heicConvert({
-      buffer: file.buffer,
-      format: "JPEG",
-      quality: 0.9,
+  const { error } = await supabase.storage
+    .from("profiles")
+    .upload(path, file.buffer, {
+      contentType: file.mimetype,
+      upsert: true,
     });
-    buffer = Buffer.from(converted);
-  }
 
-  const result = await new Promise<any>((resolve, reject) => {
-    cloudinary.uploader
-      .upload_stream(
-        {
-          folder: "lenda/profiles",
-          public_id: userId,
-          overwrite: true,
-          transformation: [
-            { width: 400, height: 400, crop: "fill", gravity: "face" },
-          ],
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        },
-      )
-      .end(buffer);
-  });
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from("profiles").getPublicUrl(path);
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { photoUrl: result.secure_url },
+    data: { photoUrl: data.publicUrl },
     select: { id: true, photoUrl: true },
   });
 
+  return updated;
+}
+
+export async function getUploadSignature(userId: string) {
+  const path = `${userId}/avatar`;
+
+  const { data, error } = await supabase.storage
+    .from("profiles")
+    .createSignedUploadUrl(path);
+
+  if (error) throw new Error(error.message);
+
+  return {
+    signedUrl: data.signedUrl,
+    path: data.path,
+    token: data.token,
+    supabaseUrl: process.env.SUPABASE_URL,
+  };
+}
+
+export async function saveProfilePhoto(userId: string, photoUrl: string) {
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { photoUrl },
+    select: { id: true, photoUrl: true },
+  });
   return updated;
 }

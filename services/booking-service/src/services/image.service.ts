@@ -1,25 +1,6 @@
 import { prisma } from "@lenda/database";
-import { cloudinary } from "../lib/cloudinary";
 import { AppError } from "../middleware/errorHandler";
-import heicConvert from "heic-convert";
-
-async function toJpegBuffer(file: Express.Multer.File): Promise<Buffer> {
-  const isHeic =
-    file.mimetype === "image/heic" ||
-    file.mimetype === "image/heif" ||
-    file.originalname.toLowerCase().endsWith(".heic") ||
-    file.originalname.toLowerCase().endsWith(".heif");
-
-  if (!isHeic) return file.buffer;
-
-  const converted = await heicConvert({
-    buffer: file.buffer,
-    format: "JPEG",
-    quality: 0.9,
-  });
-
-  return Buffer.from(converted);
-}
+import { supabase } from "../lib/supabase";
 
 export async function uploadListingImage(
   listingId: string,
@@ -38,22 +19,20 @@ export async function uploadListingImage(
     throw new AppError(403, "You do not own this listing");
   }
 
-  const buffer = await toJpegBuffer(file);
+  const ext = file.originalname.split(".").pop()?.toLowerCase() ?? "jpg";
+  const filename = `${Date.now()}.${ext}`;
+  const path = `${listingId}/${filename}`;
 
-  const result = await new Promise<any>((resolve, reject) => {
-    cloudinary.uploader
-      .upload_stream(
-        {
-          folder: `lenda/listings/${listingId}`,
-          transformation: [{ width: 1200, height: 800, crop: "fill" }],
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        },
-      )
-      .end(buffer);
-  });
+  const { error } = await supabase.storage
+    .from("listings")
+    .upload(path, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+
+  if (error) throw new AppError(500, error.message);
+
+  const { data } = supabase.storage.from("listings").getPublicUrl(path);
 
   if (isPrimary) {
     await prisma.listingImage.updateMany({
@@ -73,7 +52,7 @@ export async function uploadListingImage(
   const image = await prisma.listingImage.create({
     data: {
       listingId,
-      url: result.secure_url,
+      url: data.publicUrl,
       altText,
       isPrimary,
       order,
@@ -94,12 +73,10 @@ export async function deleteListingImage(imageId: string, hostId: string) {
     throw new AppError(403, "You do not own this listing");
   }
 
-  const publicId = image.url
-    .split("/upload/")[1]
-    .split(".")
-    .slice(0, -1)
-    .join(".");
+  // Extract path from URL
+  const url = new URL(image.url);
+  const path = url.pathname.split("/listings/")[1];
 
-  await cloudinary.uploader.destroy(publicId);
+  await supabase.storage.from("listings").remove([path]);
   await prisma.listingImage.delete({ where: { id: imageId } });
 }

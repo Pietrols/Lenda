@@ -2,28 +2,36 @@ import { Router, IRouter } from "express";
 import { authenticate } from "../middleware/authenticate";
 import { validate } from "../middleware/validate";
 import { UpdateProfileSchema } from "@lenda/schemas";
+import { upload } from "../lib/upload";
 import {
   updateProfileHandler,
   getProfileHandler,
+  getProfileMeHandler,
+  uploadProfilePhotoHandler,
+  getUploadSignatureHandler,
+  saveProfilePhotoHandler,
 } from "../controllers/profile.controller";
-import { upload } from "../lib/upload";
-import { uploadProfilePhotoHandler } from "../controllers/profile.controller";
 
 const router: IRouter = Router();
 
-router.get("/:id", getProfileHandler);
+// All /me routes must come before /:id to avoid Express matching "me" as an ID
+router.get("/me", authenticate, getProfileMeHandler);
+router.get("/me/upload-signature", authenticate, getUploadSignatureHandler);
 router.patch(
   "/me",
   authenticate,
   validate(UpdateProfileSchema),
   updateProfileHandler,
 );
-
 router.post(
   "/me/photo",
   authenticate,
   upload.single("photo"),
   uploadProfilePhotoHandler,
 );
+router.patch("/me/photo-url", authenticate, saveProfilePhotoHandler);
+
+// Public profile by ID — must be last
+router.get("/:id", getProfileHandler);
 
 export default router;

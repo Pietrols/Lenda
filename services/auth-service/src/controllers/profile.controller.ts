@@ -1,6 +1,11 @@
 import { Request, Response, NextFunction } from "express";
-import { updateProfile, getProfile } from "../services/profile.service";
-import { uploadProfilePhoto } from "../services/profile.service";
+import {
+  updateProfile,
+  getProfile,
+  uploadProfilePhoto,
+  getUploadSignature,
+  saveProfilePhoto,
+} from "../services/profile.service";
 
 export async function updateProfileHandler(
   req: Request,
@@ -11,6 +16,19 @@ export async function updateProfileHandler(
     const userId = req.user!.sub;
     const user = await updateProfile(userId, req.body);
     res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getProfileMeHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = await getProfile(req.user!.sub);
+    res.json(user);
   } catch (err) {
     next(err);
   }
@@ -38,6 +56,35 @@ export async function uploadProfilePhotoHandler(
     if (!req.file) throw new Error("No file uploaded");
     const userId = req.user!.sub;
     const result = await uploadProfilePhoto(userId, req.file);
+    res.json({ user: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getUploadSignatureHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const result = await getUploadSignature(userId);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function saveProfilePhotoHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const { photoUrl } = req.body;
+    const result = await saveProfilePhoto(userId, photoUrl);
     res.json({ user: result });
   } catch (err) {
     next(err);
