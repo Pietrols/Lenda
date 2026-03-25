@@ -51,7 +51,7 @@ lenda/
 | Authentication      | JWT (access + refresh token rotation)         |
 | Password Hashing    | bcryptjs (cost factor 10)                     |
 | Email               | SendGrid (console logging in development)     |
-| Image Storage       | Cloudinary (HEIC/JPEG support)                |
+| Image Storage       | Supabase (HEIC/JPEG support)                |
 | Frontend            | React 18, Vite, Tailwind CSS, shadcn/ui, GSAP |
 | State Management    | Zustand (auth), TanStack Query (server state) |
 
@@ -248,9 +248,6 @@ REDIS_URL="redis://localhost:6380"
 JWT_ACCESS_SECRET="64-byte-hex-string"
 JWT_REFRESH_SECRET="64-byte-hex-string"
 SENDGRID_API_KEY="your-sendgrid-key"
-CLOUDINARY_CLOUD_NAME="your-cloud-name"
-CLOUDINARY_API_KEY="your-api-key"
-CLOUDINARY_API_SECRET="your-api-secret"
 VITE_API_AUTH_URL="http://localhost:3001"
 VITE_API_BOOKING_URL="http://localhost:3002"
 ```
@@ -302,7 +299,6 @@ docs: documentation updates
 - [x] Auth service - register, verify, login, refresh, logout, profile, KYC, badges
 - [x] Booking service - listings, bookings, handover, reviews, likes, notifications, discovery, admin
 - [x] Subscriptions - FREE, PRO_MONTHLY, PRO_ANNUAL with commission and listing slot logic
-- [x] Cloudinary image uploads - JPEG and HEIC support
 - [x] Web app scaffold - Vite, React, Tailwind, shadcn/ui, GSAP, TanStack Query, Zustand
 - [x] Homepage - hero, pillars, how it works, host section, footer
 - [x] Auth pages - login, register, verify email
