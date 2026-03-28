@@ -32,10 +32,11 @@ export default function DashboardProfile() {
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [photoTimestamp, setPhotoTimestamp] = useState(() => Date.now());
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", "me"],
-    queryFn: () => api.get<AuthUser>("/auth/me", accessToken, AUTH_URL),
+    queryFn: () => api.get<AuthUser>("/profiles/me", accessToken, AUTH_URL),
     enabled: !!accessToken,
   });
 
@@ -66,36 +67,30 @@ export default function DashboardProfile() {
 
   const { mutate: uploadPhoto, isPending: isUploading } = useMutation({
     mutationFn: async (file: File) => {
-      // 1. Get signed upload URL from server
-      const sig = await api.get<{
-        signedUrl: string;
-        path: string;
-        token: string;
-        supabaseUrl: string;
-      }>("/profiles/me/upload-signature", accessToken, AUTH_URL);
+      const formData = new FormData();
+      formData.append("photo", file);
 
-      // 2. Upload directly to Supabase
-      const uploadRes = await fetch(sig.signedUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+      const res = await fetch(`${AUTH_URL}/profiles/me/photo`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
       });
 
-      if (!uploadRes.ok) throw new Error("Upload failed");
-
-      // 3. Build public URL and save to server
-      const publicUrl = `${sig.supabaseUrl}/storage/v1/object/public/profiles/${sig.path}`;
-
-      return api.patch<{ user: { id: string; photoUrl: string } }>(
-        "/profiles/me/photo-url",
-        { photoUrl: publicUrl },
-        accessToken,
-        AUTH_URL,
-      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Upload failed");
+      return data;
     },
     onSuccess: (data) => {
       updateUser({ ...user!, photoUrl: data.user.photoUrl });
+      queryClient.setQueryData(
+        ["profile", "me"],
+        (old: AuthUser | undefined) => {
+          if (!old) return old;
+          return { ...old, photoUrl: data.user.photoUrl };
+        },
+      );
       queryClient.invalidateQueries({ queryKey: ["profile", "me"] });
+      setPhotoTimestamp(Date.now());
       toast.success("Profile photo updated.");
       setPreviewUrl(null);
     },
@@ -111,7 +106,7 @@ export default function DashboardProfile() {
 
   const onSubmit = (data: ProfileForm) => updateProfile(data);
 
-  const photoUrl = previewUrl ?? profile?.photoUrl;
+  const photoUrl = profile?.photoUrl ?? previewUrl ?? null;
   const initials = (profile?.fullName ?? profile?.email ?? "U")
     .split(" ")
     .map((n) => n[0])
@@ -134,7 +129,6 @@ export default function DashboardProfile() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      {/* Header */}
       <div>
         <p className="section-label">Account</p>
         <GoldLine className="w-10 mb-3" />
@@ -146,14 +140,12 @@ export default function DashboardProfile() {
         </p>
       </div>
 
-      {/* Photo + KYC */}
       <div className="glass-card p-6 border border-border flex items-center gap-6">
-        {/* Avatar */}
         <div className="relative shrink-0">
           <div className="w-20 h-20 rounded-full overflow-hidden bg-gold/20 flex items-center justify-center">
             {photoUrl ? (
               <img
-                src={photoUrl}
+                src={`${photoUrl}?t=${photoTimestamp}`}
                 alt="Profile"
                 className="w-full h-full object-cover"
               />
@@ -205,10 +197,8 @@ export default function DashboardProfile() {
         </div>
       </div>
 
-      {/* Form */}
       <div className="glass-card p-6 border border-border">
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
-          {/* Full name */}
           <div className="flex flex-col gap-1.5">
             <label className="text-micro text-foreground/60">Full Name</label>
             <input
@@ -225,7 +215,6 @@ export default function DashboardProfile() {
             )}
           </div>
 
-          {/* Phone */}
           <div className="flex flex-col gap-1.5">
             <label className="text-micro text-foreground/60">
               Phone Number
@@ -238,7 +227,6 @@ export default function DashboardProfile() {
             />
           </div>
 
-          {/* Location */}
           <div className="flex flex-col gap-1.5">
             <label className="text-micro text-foreground/60">Location</label>
             <input
@@ -249,7 +237,6 @@ export default function DashboardProfile() {
             />
           </div>
 
-          {/* Bio */}
           <div className="flex flex-col gap-1.5">
             <label className="text-micro text-foreground/60">Bio</label>
             <textarea

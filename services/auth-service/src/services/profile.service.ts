@@ -2,6 +2,7 @@ import { prisma } from "@lenda/database";
 import type { UpdateProfileInput } from "@lenda/schemas";
 import { AppError } from "../lib/AppError";
 import { supabase } from "../lib/supabase";
+import heicConvert from "heic-convert";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -62,13 +63,31 @@ export async function uploadProfilePhoto(
   userId: string,
   file: Express.Multer.File,
 ) {
-  const ext = file.originalname.split(".").pop()?.toLowerCase() ?? "jpg";
+  let buffer = file.buffer;
+  let ext = file.originalname.split(".").pop()?.toLowerCase() ?? "jpg";
+
+  const isHeic =
+    file.mimetype === "image/heic" ||
+    file.mimetype === "image/heif" ||
+    ext === "heic" ||
+    ext === "heif";
+
+  if (isHeic) {
+    const converted = await heicConvert({
+      buffer: file.buffer,
+      format: "JPEG",
+      quality: 0.9,
+    });
+    buffer = Buffer.from(converted);
+    ext = "jpg";
+  }
+
   const path = `${userId}/avatar.${ext}`;
 
   const { error } = await supabase.storage
     .from("profiles")
-    .upload(path, file.buffer, {
-      contentType: file.mimetype,
+    .upload(path, buffer, {
+      contentType: isHeic ? "image/jpeg" : file.mimetype,
       upsert: true,
     });
 
