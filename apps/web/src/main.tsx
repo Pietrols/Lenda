@@ -6,6 +6,7 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import App from "./App.tsx";
 import "./index.css";
+import { LendaChat } from "./components/LendaChat";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,7 @@ createRoot(document.getElementById("root")!).render(
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
         <BrowserRouter>
           <App />
+          <LendaChat />
           <Toaster richColors position="top-right" />
         </BrowserRouter>
       </ThemeProvider>
