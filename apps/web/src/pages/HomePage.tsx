@@ -104,7 +104,7 @@ export default function HomePage() {
               <span className="text-gold">Lenda hand and earn.</span>
             </h1>
             <p ref={subRef} className="section-body-dark max-w-xl mb-10">
-              From cars to property, services to equipment — find trusted hosts
+              From cars to property, services to equipment - find trusted hosts
               and verified listings all in one place.
             </p>
             <div ref={ctaRef} className="flex flex-wrap gap-4 mb-16">
@@ -169,7 +169,7 @@ export default function HomePage() {
                 icon: <Car size={28} className="text-gold" />,
                 label: "Pillar One",
                 title: "Rentals",
-                body: "Rent vehicles, property, equipment and more from verified hosts. Price locked at booking — no surprises.",
+                body: "Rent vehicles, property, equipment and more from verified hosts. Price locked at booking - no surprises.",
                 tags: ["Cars", "Property", "Equipment", "Bikes"],
                 cta: "Browse Rentals",
               },
@@ -235,7 +235,7 @@ export default function HomePage() {
               {
                 step: "02",
                 title: "Book & Lock Price",
-                body: "Select your dates, choose pickup type, and confirm. Your price is locked at the moment of booking — it never changes.",
+                body: "Select your dates, choose pickup type, and confirm. Your price is locked at the moment of booking - it never changes.",
                 icon: <CalendarCheck size={28} className="text-gold" />,
               },
               {
@@ -292,12 +292,12 @@ export default function HomePage() {
               </h2>
               <p className="section-body-light mb-8">
                 List your car, property, equipment or skills and start earning.
-                Lenda handles the bookings, payments and accountability — you
+                Lenda handles the bookings, payments and accountability - you
                 focus on delivering great experiences.
               </p>
               <div className="flex flex-col gap-4 mb-10">
                 {[
-                  "Free to list — only pay when you earn",
+                  "Free to list - only pay when you earn",
                   "Price lock protects you from disputes",
                   "Dual-confirm handover for accountability",
                   "Build your reputation with reviews",

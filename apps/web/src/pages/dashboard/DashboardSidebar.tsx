@@ -9,6 +9,7 @@ import {
   CreditCard,
   LogOut,
   ChevronRight,
+  Wallet,
 } from "lucide-react";
 import type { AuthUser } from "@/api/auth";
 
@@ -55,6 +56,12 @@ const navItems: NavItem[] = [
     href: "/dashboard/profile",
     icon: <User size={18} />,
     roles: ["GUEST", "HOST", "ADMIN"],
+  },
+  {
+    label: "Float",
+    href: "/dashboard/float",
+    icon: <Wallet size={18} />,
+    roles: ["HOST"],
   },
 ];
 
