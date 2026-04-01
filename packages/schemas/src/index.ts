@@ -60,12 +60,14 @@ export const GetListingsQuerySchema = z.object({
   pillar: z.enum(["RENTAL", "SERVICE"]).optional(),
   category: z.string().optional(),
   location: z.string().optional(),
+  search: z.string().optional(),
   minPrice: z.coerce.number().positive().optional(),
   maxPrice: z.coerce.number().positive().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(50).default(20),
 });
-
 export type GetListingsQueryInput = z.infer<typeof GetListingsQuerySchema>;
 
 export const CreateBookingSchema = z.object({

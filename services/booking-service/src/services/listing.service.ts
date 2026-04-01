@@ -70,16 +70,57 @@ export async function createListing(hostId: string, data: CreateListingInput) {
 }
 
 export async function getListings(query: GetListingsQueryInput) {
-  const { pillar, category, location, minPrice, maxPrice, page, limit } = query;
+  const {
+    pillar,
+    category,
+    location,
+    search,
+    minPrice,
+    maxPrice,
+    startDate,
+    endDate,
+    page,
+    limit,
+  } = query;
+
   const skip = (page - 1) * limit;
 
-  const where = {
+  // Find listings that are already booked for the requested dates
+  let excludedListingIds: string[] = [];
+  if (startDate && endDate) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const conflictingBookings = await prisma.booking.findMany({
+      where: {
+        status: {
+          notIn: [
+            BookingStatus.CANCELLED,
+            BookingStatus.COMPLETED,
+            BookingStatus.DISPUTED,
+          ],
+        },
+        AND: [{ startDate: { lt: end } }, { endDate: { gt: start } }],
+      },
+      select: { listingId: true },
+    });
+    excludedListingIds = conflictingBookings.map((b) => b.listingId);
+  }
+
+  const where: Prisma.ListingWhereInput = {
     status: ListingStatus.ACTIVE,
     deletedAt: null,
     ...(pillar && { pillar }),
     ...(category && { category }),
     ...(location && {
       location: { contains: location, mode: "insensitive" as const },
+    }),
+    ...(search && {
+      OR: [
+        { title: { contains: search, mode: "insensitive" as const } },
+        { description: { contains: search, mode: "insensitive" as const } },
+        { category: { contains: search, mode: "insensitive" as const } },
+        { location: { contains: search, mode: "insensitive" as const } },
+      ],
     }),
     ...(minPrice !== undefined || maxPrice !== undefined
       ? {
@@ -89,12 +130,25 @@ export async function getListings(query: GetListingsQueryInput) {
           },
         }
       : {}),
+    ...(excludedListingIds.length > 0 && {
+      id: { notIn: excludedListingIds },
+    }),
   };
 
   const [listings, total] = await Promise.all([
     prisma.listing.findMany({
       where,
-      include: { images: { where: { isPrimary: true } } },
+      include: {
+        images: { where: { isPrimary: true } },
+        host: {
+          select: {
+            id: true,
+            fullName: true,
+            photoUrl: true,
+            kycStatus: true,
+          },
+        },
+      },
       orderBy: { discoveryScore: "desc" },
       skip,
       take: limit,
