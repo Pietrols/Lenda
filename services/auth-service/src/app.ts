@@ -5,10 +5,11 @@ import morgan from "morgan";
 import rateLimit from "express-rate-limit";
 import { config, isDev } from "./config";
 import authRoutes from "./routes/auth.routes";
-import { errorHandler } from "./middleware/errorHandler";
 import profileRoutes from "./routes/profile.routes";
 import adminRoutes from "./routes/admin.routes";
 import subscriptionRoutes from "./routes/subscription.routes";
+import floatRouter from "./routes/float.routes";
+import { errorHandler } from "./middleware/errorHandler";
 
 export function createApp(): Express {
   const app = express();
@@ -19,7 +20,6 @@ export function createApp(): Express {
   app.use(cors({ origin: allowedOrigins, credentials: true }));
 
   app.use(express.json({ limit: "10kb" }));
-
   app.use(morgan(isDev ? "dev" : "combined"));
 
   app.use(
@@ -44,12 +44,12 @@ export function createApp(): Express {
   app.use("/profiles", profileRoutes);
   app.use("/admin", adminRoutes);
   app.use("/subscriptions", subscriptionRoutes);
+  app.use("/float", floatRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ message: "Route not found" });
   });
 
-  // Must be registered last — Express identifies error handlers by their 4 parameters
   app.use(errorHandler);
 
   return app;

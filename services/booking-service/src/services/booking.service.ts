@@ -10,6 +10,7 @@ import { AppError } from "../middleware/errorHandler";
 import { recalculateDiscoveryScore } from "./discovery.service";
 import { createNotification } from "./notification.service";
 import { NotificationType } from "@lenda/database";
+import { config } from "../config";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
@@ -173,7 +174,6 @@ const SERVICE_TRANSITIONS: TransitionMap = {
     { to: [BookingStatus.COMPLETED], allowedRoles: ["ADMIN"] },
     { to: [BookingStatus.CANCELLED], allowedRoles: ["ADMIN"] },
   ],
-  // These states are unreachable for SERVICE but required by the type
   [BookingStatus.EN_ROUTE]: [],
   [BookingStatus.HANDED_OVER]: [],
   [BookingStatus.RETURN_PENDING]: [],
@@ -195,6 +195,7 @@ export async function transitionBookingStatus(
       guestId: true,
       hostId: true,
       listingId: true,
+      totalAmount: true,
       listing: { select: { pillar: true } },
     },
   });
@@ -257,6 +258,31 @@ export async function transitionBookingStatus(
 
   if (toStatus === BookingStatus.COMPLETED) {
     await recalculateDiscoveryScore(booking.listingId);
+
+    try {
+      const host = await prisma.user.findUnique({
+        where: { id: booking.hostId },
+        select: { commissionRate: true },
+      });
+
+      const totalAmount = parseFloat(booking.totalAmount.toString());
+      const commissionRate = host?.commissionRate
+        ? parseFloat(host.commissionRate.toString())
+        : 0.15;
+
+      await fetch(`${config.AUTH_URL}/float/internal/deduct`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hostId: booking.hostId,
+          bookingId: booking.id,
+          bookingAmount: totalAmount,
+          commissionRate,
+        }),
+      });
+    } catch (err) {
+      console.error("Commission deduction failed:", err);
+    }
   }
 
   // Send notifications based on transition

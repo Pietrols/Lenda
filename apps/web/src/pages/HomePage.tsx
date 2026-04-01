@@ -101,7 +101,7 @@ export default function HomePage() {
               <br />
               Hire Anyone.
               <br />
-              <span className="text-gold">Lenda It.</span>
+              <span className="text-gold">Lenda hand and earn.</span>
             </h1>
             <p ref={subRef} className="section-body-dark max-w-xl mb-10">
               From cars to property, services to equipment — find trusted hosts

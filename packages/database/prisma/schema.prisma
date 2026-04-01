@@ -95,6 +95,7 @@ enum NotificationType {
   BOOKING_CONFIRMED
   BOOKING_CANCELLED
   HANDOVER_CONFIRMED
+  FLOAT_LOW_BALANCE
 }
 
 // ── Models ────────────────────────────────────────────────────────────────────
@@ -132,6 +133,8 @@ model User {
   likes                Like[]
   badges               Badge[]
   notifications        Notification[]
+
+  floatAccount    FloatAccount?
 
   @@map("users")
 }
@@ -297,4 +300,86 @@ model Notification {
   createdAt DateTime         @default(now())
 
   @@map("notifications")
+}
+
+enum MobileMoneyProvider {
+  AIRTEL
+  MTN
+  ZAMTEL
+}
+
+enum FloatTransactionType {
+  TOP_UP
+  COMMISSION_DEDUCTION
+  WITHDRAWAL
+  WITHDRAWAL_FEE
+  ADJUSTMENT
+}
+
+enum FloatTransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PROCESSED
+}
+
+model FloatAccount {
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id])
+  balance              Decimal   @default(0) @db.Decimal(10, 2)
+  totalEarned          Decimal   @default(0) @db.Decimal(10, 2)
+  totalDeducted        Decimal   @default(0) @db.Decimal(10, 2)
+  totalWithdrawn       Decimal   @default(0) @db.Decimal(10, 2)
+  bookingCount         Int       @default(0)
+  mobileMoneyProvider  MobileMoneyProvider
+  mobileMoneyNumber    String
+  isActive             Boolean   @default(true)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  transactions         FloatTransaction[]
+  withdrawals          FloatWithdrawal[]
+
+  @@map("float_accounts")
+}
+
+model FloatTransaction {
+  id              String                @id @default(uuid())
+  floatAccountId  String
+  floatAccount    FloatAccount          @relation(fields: [floatAccountId], references: [id])
+  type            FloatTransactionType
+  amount          Decimal               @db.Decimal(10, 2)
+  balanceBefore   Decimal               @db.Decimal(10, 2)
+  balanceAfter    Decimal               @db.Decimal(10, 2)
+  bookingId       String?
+  reference       String?
+  status          FloatTransactionStatus @default(COMPLETED)
+  note            String?
+  createdAt       DateTime              @default(now())
+
+  @@map("float_transactions")
+}
+
+model FloatWithdrawal {
+  id              String           @id @default(uuid())
+  floatAccountId  String
+  floatAccount    FloatAccount     @relation(fields: [floatAccountId], references: [id])
+  amount          Decimal          @db.Decimal(10, 2)
+  fee             Decimal          @db.Decimal(10, 2)
+  netAmount       Decimal          @db.Decimal(10, 2)
+  provider        MobileMoneyProvider
+  mobileNumber    String
+  status          WithdrawalStatus @default(PENDING)
+  reference       String?
+  note            String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@map("float_withdrawals")
 }

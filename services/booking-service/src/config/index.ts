@@ -15,6 +15,7 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z
     .string()
     .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
+  AUTH_URL: z.string().default("http://localhost:3001"),
 });
 
 const result = envSchema.safeParse(process.env);
