@@ -4,11 +4,14 @@ import { gsap } from "gsap";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
   { label: "Browse", href: "/listings" },
   { label: "How It Works", href: "/#how-it-works" },
   { label: "Become a Host", href: "/#host" },
+  { label: "Partner", href: "/partner" },
+  { label: "Join Us", href: "/join" },
 ];
 
 export function Navigation() {
@@ -16,6 +19,7 @@ export function Navigation() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
@@ -78,25 +82,35 @@ export function Navigation() {
 
           {/* Desktop right actions */}
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/login">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={cn(
-                  "transition-colors duration-300",
-                  scrolled
-                    ? "text-foreground/70 hover:text-foreground"
-                    : "text-white/80 hover:text-white",
-                )}
-              >
-                Sign In
-              </Button>
-            </Link>
-            <Link to="/register">
-              <Button variant="gold" size="sm">
-                Get Started
-              </Button>
-            </Link>
+            {isAuthenticated ? (
+              <Link to="/dashboard">
+                <Button variant="gold" size="sm">
+                  Dashboard
+                </Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "transition-colors duration-300",
+                      scrolled
+                        ? "text-foreground/70 hover:text-foreground"
+                        : "text-white/80 hover:text-white",
+                    )}
+                  >
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/register">
+                  <Button variant="gold" size="sm">
+                    Get Started
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile menu toggle */}
@@ -128,16 +142,30 @@ export function Navigation() {
                 </Link>
               ))}
               <div className="flex flex-col gap-2 pt-2 border-t border-border">
-                <Link to="/login" onClick={() => setMobileOpen(false)}>
-                  <Button variant="outlineGold" size="sm" className="w-full">
-                    Sign In
-                  </Button>
-                </Link>
-                <Link to="/register" onClick={() => setMobileOpen(false)}>
-                  <Button variant="gold" size="sm" className="w-full">
-                    Get Started
-                  </Button>
-                </Link>
+                {isAuthenticated ? (
+                  <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
+                    <Button variant="gold" size="sm" className="w-full">
+                      Dashboard
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link to="/login" onClick={() => setMobileOpen(false)}>
+                      <Button
+                        variant="outlineGold"
+                        size="sm"
+                        className="w-full"
+                      >
+                        Sign In
+                      </Button>
+                    </Link>
+                    <Link to="/register" onClick={() => setMobileOpen(false)}>
+                      <Button variant="gold" size="sm" className="w-full">
+                        Get Started
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>

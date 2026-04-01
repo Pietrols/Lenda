@@ -72,7 +72,7 @@ const statusConfig: Record<
 
 export default function DashboardHome() {
   const { user, accessToken } = useAuth();
-  const isHost = user?.roles.includes("HOST");
+  const isHost = user?.roles?.includes("HOST");
 
   const { data, isLoading } = useQuery({
     queryKey: ["bookings"],
@@ -98,6 +98,8 @@ export default function DashboardHome() {
   const completedBookings = bookings.filter(
     (b) => b.status === "COMPLETED",
   ).length;
+
+  if (!user) return null;
 
   return (
     <div className="flex flex-col gap-8">

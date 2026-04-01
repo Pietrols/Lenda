@@ -6,9 +6,11 @@ type AuthState = {
   user: AuthUser | null;
   tokens: AuthTokens | null;
   isAuthenticated: boolean;
+  _hasHydrated: boolean;
   setAuth: (user: AuthUser, tokens: AuthTokens) => void;
   clearAuth: () => void;
   updateUser: (user: AuthUser) => void;
+  setHasHydrated: (value: boolean) => void;
 };
 
 export const useAuthStore = create<AuthState>()(
@@ -17,6 +19,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       tokens: null,
       isAuthenticated: false,
+      _hasHydrated: false,
 
       setAuth: (user, tokens) => set({ user, tokens, isAuthenticated: true }),
 
@@ -24,6 +27,8 @@ export const useAuthStore = create<AuthState>()(
         set({ user: null, tokens: null, isAuthenticated: false }),
 
       updateUser: (user) => set((state) => ({ ...state, user })),
+
+      setHasHydrated: (value) => set({ _hasHydrated: value }),
     }),
     {
       name: "lenda-auth",
@@ -32,6 +37,9 @@ export const useAuthStore = create<AuthState>()(
         tokens: state.tokens,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     },
   ),
 );

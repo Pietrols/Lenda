@@ -72,6 +72,9 @@ export function DashboardSidebar({
   mobile = false,
 }: DashboardSidebarProps) {
   const location = useLocation();
+
+  if (!user) return null;
+
   const userRoles = user?.roles ?? [];
 
   const visibleNavItems = navItems.filter((item) =>

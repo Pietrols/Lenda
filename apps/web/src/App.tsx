@@ -9,6 +9,8 @@ import ListingDetailPage from "./pages/listings/ListingDetailPage";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
 import NotFoundPage from "./pages/NotFoundPage";
+import PartnerPage from "./pages/PartnerPage";
+import JoinTeamPage from "./pages/JoinTeamPage";
 
 export default function App() {
   return (
@@ -18,6 +20,8 @@ export default function App() {
       <Route path="/listings" element={<ListingsPage />} />
       <Route path="/listings/:id" element={<ListingDetailPage />} />
       <Route path="/profiles/:id" element={<ProfilePage />} />
+      <Route path="/partner" element={<PartnerPage />} />
+      <Route path="/join" element={<JoinTeamPage />} />
 
       {/* Auth */}
       <Route path="/login" element={<LoginPage />} />

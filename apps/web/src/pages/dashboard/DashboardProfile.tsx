@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Save } from "lucide-react";
+import { Camera, Save, Pencil, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { api, AUTH_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
@@ -33,6 +33,7 @@ export default function DashboardProfile() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [photoTimestamp, setPhotoTimestamp] = useState(() => Date.now());
+  const [isEditing, setIsEditing] = useState(false);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", "me"],
@@ -61,6 +62,7 @@ export default function DashboardProfile() {
       updateUser(updated);
       queryClient.invalidateQueries({ queryKey: ["profile", "me"] });
       toast.success("Profile updated.");
+      setIsEditing(false);
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -197,74 +199,127 @@ export default function DashboardProfile() {
         </div>
       </div>
 
-      <div className="glass-card p-6 border border-border">
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-micro text-foreground/60">Full Name</label>
-            <input
-              {...register("fullName")}
-              type="text"
-              placeholder="Your full name"
-              className={cn(
-                "w-full h-11 px-4 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60",
-                errors.fullName ? "border-red-500/60" : "border-border",
+      {isEditing ? (
+        <div className="glass-card p-6 border border-border">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-micro text-foreground/60">Full Name</label>
+              <input
+                {...register("fullName")}
+                type="text"
+                placeholder="Your full name"
+                className={cn(
+                  "w-full h-11 px-4 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60",
+                  errors.fullName ? "border-red-500/60" : "border-border",
+                )}
+              />
+              {errors.fullName && (
+                <p className="text-red-400 text-xs">{errors.fullName.message}</p>
               )}
-            />
-            {errors.fullName && (
-              <p className="text-red-400 text-xs">{errors.fullName.message}</p>
-            )}
-          </div>
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-micro text-foreground/60">
-              Phone Number
-            </label>
-            <input
-              {...register("phone")}
-              type="tel"
-              placeholder="+260 97 000 0000"
-              className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60"
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-micro text-foreground/60">
+                Phone Number
+              </label>
+              <input
+                {...register("phone")}
+                type="tel"
+                placeholder="+260 97 000 0000"
+                className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60"
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-micro text-foreground/60">Location</label>
-            <input
-              {...register("location")}
-              type="text"
-              placeholder="e.g. Lusaka, Zambia"
-              className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60"
-            />
-          </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-micro text-foreground/60">Location</label>
+              <input
+                {...register("location")}
+                type="text"
+                placeholder="e.g. Lusaka, Zambia"
+                className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60"
+              />
+            </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-micro text-foreground/60">Bio</label>
-            <textarea
-              {...register("bio")}
-              rows={3}
-              placeholder="Tell others a bit about yourself..."
-              className={cn(
-                "w-full px-4 py-3 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60 resize-none",
-                errors.bio ? "border-red-500/60" : "border-border",
+            <div className="flex flex-col gap-1.5">
+              <label className="text-micro text-foreground/60">Bio</label>
+              <textarea
+                {...register("bio")}
+                rows={3}
+                placeholder="Tell others a bit about yourself..."
+                className={cn(
+                  "w-full px-4 py-3 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60 resize-none",
+                  errors.bio ? "border-red-500/60" : "border-border",
+                )}
+              />
+              {errors.bio && (
+                <p className="text-red-400 text-xs">{errors.bio.message}</p>
               )}
-            />
-            {errors.bio && (
-              <p className="text-red-400 text-xs">{errors.bio.message}</p>
-            )}
-          </div>
+            </div>
 
+            <div className="flex items-center gap-3">
+              <Button
+                type="submit"
+                variant="gold"
+                size="md"
+                className="gap-2"
+                disabled={isSaving || !isDirty}
+              >
+                <Save size={16} />
+                {isSaving ? "Saving..." : "Save Changes"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="md"
+                className="gap-2"
+                onClick={() => setIsEditing(false)}
+              >
+                <X size={16} />
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </div>
+      ) : (
+        <div className="glass-card p-6 border border-border flex flex-col gap-5">
+          <div className="grid grid-cols-2 gap-5">
+            <div className="flex flex-col gap-1">
+              <p className="text-micro text-foreground/60">Full Name</p>
+              <p className="text-sm text-foreground">
+                {profile?.fullName || <span className="text-foreground/30">Not set</span>}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="text-micro text-foreground/60">Phone Number</p>
+              <p className="text-sm text-foreground">
+                {profile?.phone || <span className="text-foreground/30">Not set</span>}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <p className="text-micro text-foreground/60">Location</p>
+              <p className="text-sm text-foreground">
+                {profile?.location || <span className="text-foreground/30">Not set</span>}
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <p className="text-micro text-foreground/60">Bio</p>
+            <p className="text-sm text-foreground leading-relaxed">
+              {profile?.bio || <span className="text-foreground/30">No bio added yet.</span>}
+            </p>
+          </div>
           <Button
-            type="submit"
+            type="button"
             variant="gold"
             size="md"
             className="gap-2 self-start"
-            disabled={isSaving || !isDirty}
+            onClick={() => setIsEditing(true)}
           >
-            <Save size={16} />
-            {isSaving ? "Saving..." : "Save Changes"}
+            <Pencil size={16} />
+            Edit Profile
           </Button>
-        </form>
-      </div>
+        </div>
+      )}
     </div>
   );
 }
