@@ -20,6 +20,7 @@ import DashboardNotifications from "./DashboardNotifications";
 import DashboardProfile from "./DashboardProfile";
 import DashboardSubscription from "./DashboardSubscription";
 import DashboardFloat from "./DashboardFloat";
+import DashboardBookingDetail from "./DashboardBookingDetail";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Overview",
@@ -109,6 +110,7 @@ export default function DashboardPage() {
             <Route path="subscription" element={<DashboardSubscription />} />
             <Route path="profile" element={<DashboardProfile />} />
             <Route path="float" element={<DashboardFloat />} />
+            <Route path="bookings/:id" element={<DashboardBookingDetail />} />
           </Routes>
         </main>
       </div>
