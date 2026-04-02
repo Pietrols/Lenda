@@ -3,6 +3,7 @@ import type { UpdateProfileInput } from "@lenda/schemas";
 import { AppError } from "../lib/AppError";
 import { supabase } from "../lib/supabase";
 import heicConvert from "heic-convert";
+import sharp from "sharp";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -62,7 +63,7 @@ export async function getProfile(userId: string) {
 export async function uploadProfilePhoto(
   userId: string,
   file: Express.Multer.File,
-) {
+): Promise<any> {
   let buffer = file.buffer;
   let ext = file.originalname.split(".").pop()?.toLowerCase() ?? "jpg";
 
@@ -82,12 +83,20 @@ export async function uploadProfilePhoto(
     ext = "jpg";
   }
 
+  // Compress and resize with sharp
+  buffer = await sharp(buffer)
+    .resize(400, 400, { fit: "cover", position: "centre" })
+    .jpeg({ quality: 85, progressive: true })
+    .toBuffer();
+
+  ext = "jpg";
+
   const path = `${userId}/avatar.${ext}`;
 
   const { error } = await supabase.storage
     .from("profiles")
     .upload(path, buffer, {
-      contentType: isHeic ? "image/jpeg" : file.mimetype,
+      contentType: "image/jpeg",
       upsert: true,
     });
 
