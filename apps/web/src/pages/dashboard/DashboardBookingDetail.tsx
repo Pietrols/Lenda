@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { useRef, useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +21,7 @@ import {
   AlertCircle,
   User,
   ArrowRight,
+  Send,
 } from "lucide-react";
 
 type BookingHistory = {
@@ -67,6 +69,20 @@ type Review = {
   rating: number;
   comment: string | null;
   reviewerId: string;
+};
+
+type BookingMessage = {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  message: string;
+  isRead: boolean;
+  createdAt: string;
+  sender: {
+    id: string;
+    fullName: string | null;
+    photoUrl: string | null;
+  };
 };
 
 const statusConfig: Record<
@@ -139,6 +155,39 @@ export default function DashboardBookingDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, accessToken } = useAuth();
   const queryClient = useQueryClient();
+  const [messageInput, setMessageInput] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { data: messagesData, refetch: refetchMessages } = useQuery({
+    queryKey: ["messages", id],
+    queryFn: () =>
+      api.get<{ messages: BookingMessage[] }>(
+        `/bookings/${id}/messages`,
+        accessToken,
+        BOOKING_URL,
+      ),
+    enabled: !!id && !!accessToken,
+    refetchInterval: 10000,
+  });
+
+  const { mutate: sendMessage, isPending: isSending } = useMutation({
+    mutationFn: (message: string) =>
+      api.post<{ message: BookingMessage }>(
+        `/bookings/${id}/messages`,
+        { message },
+        accessToken,
+        BOOKING_URL,
+      ),
+    onSuccess: () => {
+      setMessageInput("");
+      refetchMessages();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messagesData]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["booking", id],
@@ -243,7 +292,6 @@ export default function DashboardBookingDetail() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      {/* Back */}
       <Link
         to="/dashboard/bookings"
         className="inline-flex items-center gap-2 text-sm text-foreground/40 hover:text-foreground transition-colors"
@@ -251,7 +299,6 @@ export default function DashboardBookingDetail() {
         <ChevronLeft size={16} /> Back to bookings
       </Link>
 
-      {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="section-label">Booking</p>
@@ -316,7 +363,6 @@ export default function DashboardBookingDetail() {
           </Link>
         </div>
 
-        {/* Price summary */}
         <div className="border-t border-border p-4 flex items-center justify-between">
           <p className="text-foreground/50 text-sm">
             {booking.currency} {booking.listing.pricePerDay} x{" "}
@@ -411,7 +457,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* Status timeline */}
+      {/* Timeline */}
       <div className="glass-card p-6 border border-border">
         <h3 className="font-display font-bold text-sm text-foreground uppercase tracking-tight mb-4">
           Timeline
@@ -453,6 +499,85 @@ export default function DashboardBookingDetail() {
         </div>
       </div>
 
+      {/* Messages */}
+      <div className="glass-card border border-border overflow-hidden">
+        <div className="px-5 py-4 border-b border-border">
+          <h3 className="font-display font-bold text-sm text-foreground uppercase tracking-tight">
+            Messages
+          </h3>
+        </div>
+
+        <div className="flex flex-col gap-3 p-4 max-h-80 overflow-y-auto">
+          {(messagesData?.messages ?? []).length === 0 ? (
+            <p className="text-foreground/30 text-sm text-center py-6">
+              No messages yet. Start the conversation.
+            </p>
+          ) : (
+            (messagesData?.messages ?? []).map((msg: BookingMessage) => {
+              const isMe = msg.senderId === user?.id;
+              return (
+                <div
+                  key={msg.id}
+                  className={cn("flex", isMe ? "justify-end" : "justify-start")}
+                >
+                  <div
+                    className={cn(
+                      "max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                      isMe
+                        ? "bg-gold text-lenda-dark font-medium rounded-br-sm"
+                        : "bg-foreground/5 text-foreground/80 rounded-bl-sm",
+                    )}
+                  >
+                    {!isMe && (
+                      <p className="text-xs font-semibold mb-1 opacity-60">
+                        {msg.sender?.fullName ?? "User"}
+                      </p>
+                    )}
+                    <p>{msg.message}</p>
+                    <p
+                      className={cn(
+                        "text-xs mt-1",
+                        isMe ? "text-lenda-dark/50" : "text-foreground/30",
+                      )}
+                    >
+                      {new Date(msg.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        <div className="p-3 border-t border-border flex gap-2">
+          <input
+            value={messageInput}
+            onChange={(e) => setMessageInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (messageInput.trim()) sendMessage(messageInput);
+              }
+            }}
+            placeholder="Type a message..."
+            className="flex-1 h-10 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60"
+          />
+          <button
+            onClick={() => {
+              if (messageInput.trim()) sendMessage(messageInput);
+            }}
+            disabled={!messageInput.trim() || isSending}
+            className="w-10 h-10 rounded-xl bg-gold flex items-center justify-center text-lenda-dark hover:bg-gold/80 transition-colors disabled:opacity-40"
+          >
+            <Send size={15} />
+          </button>
+        </div>
+      </div>
+
       {/* Review form */}
       {canReview && (
         <div className="glass-card p-6 border border-gold/20">
@@ -470,7 +595,6 @@ export default function DashboardBookingDetail() {
             onSubmit={handleSubmit((d) => submitReview(d))}
             className="flex flex-col gap-4"
           >
-            {/* Star rating */}
             <div className="flex flex-col gap-1.5">
               <label className="text-micro text-foreground/60">Rating</label>
               <div className="flex items-center gap-2">

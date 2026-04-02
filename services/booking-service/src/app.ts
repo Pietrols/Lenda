@@ -10,6 +10,7 @@ import reviewRoutes from "./routes/review.routes";
 import likeRoutes from "./routes/like.routes";
 import notificationRoutes from "./routes/notification.routes";
 import adminRoutes from "./routes/admin.routes";
+import messageRouter from "./routes/message.routes";
 
 const app: Application = express();
 
@@ -30,5 +31,7 @@ app.get("/health", (_req, res) => {
 
 app.use("/listings", listingRoutes);
 app.use(errorHandler);
+
+app.use("/bookings/:bookingId/messages", messageRouter);
 
 export default app;

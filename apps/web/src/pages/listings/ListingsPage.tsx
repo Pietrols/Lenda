@@ -53,11 +53,11 @@ const categories = [
   "car",
   "property",
   "equipment",
-  "bike",
   "cleaning",
   "repairs",
   "delivery",
   "tutoring",
+  "errands",
 ];
 
 const pillars = [

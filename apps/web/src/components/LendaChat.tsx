@@ -14,7 +14,7 @@ Here is everything you know about Lenda:
 
 WHAT IS LENDA:
 - Zambia's trusted marketplace for rentals and services
-- Two pillars: RENTAL (cars, property, equipment, bikes) and SERVICE (cleaning, repairs, delivery, tutoring)
+- Two pillars: RENTAL (cars, property, equipment) and SERVICE (cleaning, repairs, delivery, tutoring, errands)
 - Connects verified hosts with guests across Zambia
 
 ROLES:
@@ -56,6 +56,12 @@ PARTNERSHIPS:
 CAREERS:
 - Lenda is hiring for marketing, engineering, design, operations, partnerships and trust & safety
 - Apply at lenda.app/join
+
+ERRANDS SERVICE:
+- Busy professionals and households can hire errand runners
+- Examples: school runs, shopping, banking runs, lunch runs, bill payments, pharmacy pickups, post office runs
+- Errand runners set their own availability and pricing
+- Booked like any service — PENDING → CONFIRMED → ACTIVE → COMPLETED
 
 PRICING (ZMW):
 - PRO MONTHLY: K99/month

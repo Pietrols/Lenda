@@ -136,6 +136,8 @@ model User {
 
   floatAccount    FloatAccount?
 
+  sentMessages BookingMessage[] @relation("SentMessages")
+
   @@map("users")
 }
 
@@ -203,6 +205,7 @@ model Booking {
   history   BookingStatusHistory[]
   handovers Handover[]
   reviews   Review[]
+  messages BookingMessage[]
 
   @@map("bookings")
 }
@@ -382,4 +385,18 @@ model FloatWithdrawal {
   updatedAt       DateTime         @updatedAt
 
   @@map("float_withdrawals")
+}
+
+model BookingMessage {
+  id         String   @id @default(uuid())
+  bookingId  String
+  senderId   String
+  message    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+  sender  User    @relation("SentMessages", fields: [senderId], references: [id])
+
+  @@map("booking_messages")
 }
