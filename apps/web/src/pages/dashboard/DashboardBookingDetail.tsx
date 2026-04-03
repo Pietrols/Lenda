@@ -230,7 +230,7 @@ export default function DashboardBookingDetail() {
     mutationFn: (toStatus: string) =>
       api.patch<{ booking: Booking }>(
         `/bookings/${id}/status`,
-        { toStatus },
+        { status: toStatus },
         accessToken,
         BOOKING_URL,
       ),

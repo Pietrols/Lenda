@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import AdminOverview from "./AdminOverview";
 import AdminUsers from "./AdminUsers";
+import AdminUserDetail from "./AdminUserDetail";
 import AdminListings from "./AdminListings";
 import AdminBookings from "./AdminBookings";
 import AdminFloat from "./AdminFloat";
@@ -154,7 +155,9 @@ export default function AdminLayout() {
     },
   });
 
-  const pageTitle = pageTitles[location.pathname] ?? "Admin";
+  const pageTitle =
+    pageTitles[location.pathname] ??
+    (location.pathname.startsWith("/admin/users/") ? "User Detail" : "Admin");
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -208,6 +211,7 @@ export default function AdminLayout() {
           <Routes>
             <Route index element={<AdminOverview />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="users/:id" element={<AdminUserDetail />} />
             <Route path="listings" element={<AdminListings />} />
             <Route path="bookings" element={<AdminBookings />} />
             <Route path="float" element={<AdminFloat />} />

@@ -98,17 +98,27 @@ export async function awardBadge(
   return badge;
 }
 
-export async function suspendUser(userId: string, adminId: string) {
+export async function suspendUser(
+  userId: string,
+  adminId: string,
+  suspend: boolean = true,
+) {
   const user = await prisma.user.findUnique({
     where: { id: userId, deletedAt: null },
   });
 
   if (!user) throw new AppError("User not found", 404);
-  if (!user.isActive) throw new AppError("User is already suspended", 400);
+
+  if (suspend && !user.isActive) {
+    throw new AppError("User is already suspended", 400);
+  }
+  if (!suspend && user.isActive) {
+    throw new AppError("User is not suspended", 400);
+  }
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { isActive: false },
+    data: { isActive: !suspend },
     select: {
       id: true,
       email: true,

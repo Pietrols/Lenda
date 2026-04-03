@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { api, AUTH_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
@@ -18,6 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -305,6 +307,11 @@ export default function AdminUsers() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  <Link to={`/admin/users/${user.id}`}>
+                    <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-border text-foreground/50 hover:text-foreground hover:border-gold/30 transition-colors">
+                      <ExternalLink size={12} /> View
+                    </button>
+                  </Link>
                   {user.kycStatus === "PENDING" && (
                     <>
                       <button

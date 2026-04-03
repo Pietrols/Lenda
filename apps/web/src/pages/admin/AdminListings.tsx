@@ -48,13 +48,22 @@ type ConfirmState = {
 const pillarOptions = ["ALL", "GOODS", "SERVICES", "SPACES", "EXPERIENCES"];
 
 const listingStatusConfig = (listing: AdminListing) => {
-  if (listing.isSuspended) {
-    return { label: "Suspended", className: "text-destructive border-destructive/30 bg-destructive/10" };
+  if (listing.status === "SUSPENDED") {
+    return {
+      label: "Suspended",
+      className: "text-destructive border-destructive/30 bg-destructive/10",
+    };
   }
-  if (listing.isVerified) {
-    return { label: "Verified", className: "text-green-400 border-green-400/30 bg-green-400/10" };
+  if (listing.status === "ACTIVE") {
+    return {
+      label: "Active",
+      className: "text-green-400 border-green-400/30 bg-green-400/10",
+    };
   }
-  return { label: "Unverified", className: "text-gold border-gold/30 bg-gold/10" };
+  return {
+    label: listing.status ?? "Draft",
+    className: "text-gold border-gold/30 bg-gold/10",
+  };
 };
 
 export default function AdminListings() {
@@ -69,7 +78,11 @@ export default function AdminListings() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-listings"],
     queryFn: () =>
-      api.get<AdminListingsResponse>("/admin/listings", accessToken, BOOKING_URL),
+      api.get<AdminListingsResponse>(
+        "/admin/listings",
+        accessToken,
+        BOOKING_URL,
+      ),
     enabled: !!accessToken,
   });
 
@@ -111,8 +124,12 @@ export default function AdminListings() {
 
     const matchesStatus =
       statusFilter === "ALL" ||
-      (statusFilter === "VERIFIED" && listing.isVerified && !listing.isSuspended) ||
-      (statusFilter === "UNVERIFIED" && !listing.isVerified && !listing.isSuspended) ||
+      (statusFilter === "VERIFIED" &&
+        listing.isVerified &&
+        !listing.isSuspended) ||
+      (statusFilter === "UNVERIFIED" &&
+        !listing.isVerified &&
+        !listing.isSuspended) ||
       (statusFilter === "SUSPENDED" && listing.isSuspended);
 
     return matchesSearch && matchesPillar && matchesStatus;
@@ -154,7 +171,10 @@ export default function AdminListings() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30" />
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30"
+          />
           <input
             type="text"
             placeholder="Search listings or hosts..."
@@ -197,13 +217,18 @@ export default function AdminListings() {
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="glass-card p-4 border border-border h-24 animate-pulse" />
+            <div
+              key={i}
+              className="glass-card p-4 border border-border h-24 animate-pulse"
+            />
           ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="glass-card p-10 border border-border text-center">
           <ListChecks size={36} className="text-foreground/20 mx-auto mb-3" />
-          <p className="text-foreground/40 text-sm font-body">No listings match your filters.</p>
+          <p className="text-foreground/40 text-sm font-body">
+            No listings match your filters.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -217,7 +242,9 @@ export default function AdminListings() {
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start gap-2 flex-wrap">
-                    <p className="font-semibold text-sm text-foreground">{listing.title}</p>
+                    <p className="font-semibold text-sm text-foreground">
+                      {listing.title}
+                    </p>
                     <span
                       className={cn(
                         "text-xs font-medium px-2 py-0.5 rounded-full border shrink-0",
@@ -234,10 +261,15 @@ export default function AdminListings() {
                       </span>
                     )}
                     {listing.category && (
-                      <span className="text-xs text-foreground/40 font-body">{listing.category}</span>
+                      <span className="text-xs text-foreground/40 font-body">
+                        {listing.category}
+                      </span>
                     )}
                     <span className="text-xs text-foreground/40 font-body">
-                      Host: {listing.host?.fullName ?? listing.host?.email ?? "Unknown"}
+                      Host:{" "}
+                      {listing.host?.fullName ??
+                        listing.host?.email ??
+                        "Unknown"}
                     </span>
                   </div>
                   <p className="text-xs text-foreground/30 font-body mt-1">
@@ -283,13 +315,23 @@ export default function AdminListings() {
               {confirmState.title}
             </h3>
             <GoldLine className="w-8 mb-4" />
-            <p className="text-foreground/60 text-sm font-body mb-6">{confirmState.message}</p>
+            <p className="text-foreground/60 text-sm font-body mb-6">
+              {confirmState.message}
+            </p>
             <div className="flex gap-3 justify-end">
-              <Button variant="ghost" size="sm" onClick={() => setConfirmState(null)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmState(null)}
+              >
                 Cancel
               </Button>
               <Button
-                variant={confirmState.variant === "destructive" ? "destructive" : "gold"}
+                variant={
+                  confirmState.variant === "destructive"
+                    ? "destructive"
+                    : "gold"
+                }
                 size="sm"
                 onClick={() => {
                   confirmState.onConfirm();

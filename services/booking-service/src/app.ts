@@ -11,6 +11,9 @@ import likeRoutes from "./routes/like.routes";
 import notificationRoutes from "./routes/notification.routes";
 import adminRoutes from "./routes/admin.routes";
 import messageRouter from "./routes/message.routes";
+import { authenticate, requireRole } from "./middleware/authenticate";
+import { Role } from "@lenda/types";
+import { prisma } from "@lenda/database";
 
 const app: Application = express();
 
@@ -33,5 +36,31 @@ app.use("/listings", listingRoutes);
 app.use(errorHandler);
 
 app.use("/bookings/:bookingId/messages", messageRouter);
+
+app.get(
+  "/admin/listings",
+  authenticate,
+  requireRole(Role.ADMIN),
+  async (req, res, next) => {
+    try {
+      const listings = await prisma.listing.findMany({
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          title: true,
+          pillar: true,
+          category: true,
+          status: true,
+          createdAt: true,
+          host: { select: { id: true, fullName: true, email: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      res.json({ listings, total: listings.length });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default app;

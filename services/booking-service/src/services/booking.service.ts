@@ -400,9 +400,11 @@ export async function confirmHandover(
 export async function getBookings(userId: string, roles: Role[]) {
   const isHost = roles.includes("HOST");
   const isGuest = roles.includes("GUEST");
+  const isAdmin = roles.includes("ADMIN");
 
-  const where =
-    isHost && !isGuest
+  const where = isAdmin
+    ? {}
+    : isHost && !isGuest
       ? { hostId: userId }
       : isGuest && !isHost
         ? { guestId: userId }
@@ -420,6 +422,8 @@ export async function getBookings(userId: string, roles: Role[]) {
           images: { where: { isPrimary: true } },
         },
       },
+      guest: { select: { id: true, fullName: true, email: true } },
+      host: { select: { id: true, fullName: true, email: true } },
       history: { orderBy: { createdAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "desc" },
