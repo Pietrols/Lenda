@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { gsap } from "gsap";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -7,17 +7,18 @@ import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
 
 const navLinks = [
-  { label: "Browse", href: "/listings" },
-  { label: "How It Works", href: "/#how-it-works" },
-  { label: "Become a Host", href: "/#host" },
-  { label: "Partner", href: "/partner" },
-  { label: "Join Us", href: "/join" },
+  { label: "Browse", href: "/listings", scroll: null },
+  { label: "How It Works", href: "/#how-it-works", scroll: "how-it-works" },
+  { label: "Become a Host", href: "/#host", scroll: "host" },
+  { label: "Partner", href: "/partner", scroll: null },
+  { label: "Join Us", href: "/join", scroll: null },
 ];
 
 export function Navigation() {
   const navRef = useRef<HTMLElement>(null);
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
 
@@ -35,6 +36,32 @@ export function Navigation() {
       { y: 0, opacity: 1, duration: 0.8, ease: "power3.out", delay: 0.2 },
     );
   }, []);
+
+  // After navigating to homepage with a hash, scroll to the section
+  useEffect(() => {
+    if (location.pathname === "/" && location.hash) {
+      const id = location.hash.replace("#", "");
+      setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+    }
+  }, [location]);
+
+  function handleNavClick(
+    e: React.MouseEvent<HTMLAnchorElement>,
+    link: (typeof navLinks)[number],
+  ) {
+    if (!link.scroll) return;
+    e.preventDefault();
+    setMobileOpen(false);
+    if (location.pathname === "/") {
+      document
+        .getElementById(link.scroll)
+        ?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      navigate(`/#${link.scroll}`);
+    }
+  }
 
   return (
     <>
@@ -63,11 +90,12 @@ export function Navigation() {
           {/* Desktop nav links */}
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
-              <Link
+              <a
                 key={link.href}
-                to={link.href}
+                href={link.href}
+                onClick={(e) => handleNavClick(e, link)}
                 className={cn(
-                  "text-sm font-medium transition-colors duration-200 hover:text-gold",
+                  "text-sm font-medium transition-colors duration-200 hover:text-gold cursor-pointer",
                   location.pathname === link.href
                     ? "text-gold"
                     : scrolled
@@ -76,7 +104,7 @@ export function Navigation() {
                 )}
               >
                 {link.label}
-              </Link>
+              </a>
             ))}
           </div>
 
@@ -132,14 +160,14 @@ export function Navigation() {
           <div className="md:hidden bg-background/95 backdrop-blur-md border-b border-border">
             <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
               {navLinks.map((link) => (
-                <Link
+                <a
                   key={link.href}
-                  to={link.href}
-                  onClick={() => setMobileOpen(false)}
-                  className="text-sm font-medium text-foreground/70 hover:text-gold transition-colors py-2"
+                  href={link.href}
+                  onClick={(e) => handleNavClick(e, link)}
+                  className="text-sm font-medium text-foreground/70 hover:text-gold transition-colors py-2 cursor-pointer"
                 >
                   {link.label}
-                </Link>
+                </a>
               ))}
               <div className="flex flex-col gap-2 pt-2 border-t border-border">
                 {isAuthenticated ? (

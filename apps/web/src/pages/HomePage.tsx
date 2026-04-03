@@ -212,7 +212,10 @@ export default function HomePage() {
       </section>
 
       {/* ── How It Works ──────────────────────────────────── */}
-      <section className="flowing-section dark-section relative overflow-hidden">
+      <section
+        id="how-it-works"
+        className="flowing-section dark-section relative overflow-hidden"
+      >
         <div className="grain-overlay" />
         <div className="relative z-10 container mx-auto px-4">
           <div className="section-header">
@@ -279,7 +282,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Host Section ──────────────────────────────────── */}
-      <section className="flowing-section light-section">
+      <section id="host" className="flowing-section light-section">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-16 items-center max-w-6xl mx-auto">
             <div>

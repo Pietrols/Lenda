@@ -31,7 +31,7 @@ const navItems: NavItem[] = [
     label: "Bookings",
     href: "/dashboard/bookings",
     icon: <CalendarDays size={18} />,
-    roles: ["GUEST", "HOST"],
+    roles: ["GUEST", "HOST", "ADMIN"],
   },
   {
     label: "My Listings",
@@ -52,16 +52,16 @@ const navItems: NavItem[] = [
     roles: ["HOST"],
   },
   {
-    label: "Profile",
-    href: "/dashboard/profile",
-    icon: <User size={18} />,
-    roles: ["GUEST", "HOST", "ADMIN"],
-  },
-  {
     label: "Float",
     href: "/dashboard/float",
     icon: <Wallet size={18} />,
     roles: ["HOST"],
+  },
+  {
+    label: "Profile",
+    href: "/dashboard/profile",
+    icon: <User size={18} />,
+    roles: ["GUEST", "HOST", "ADMIN"],
   },
 ];
 
@@ -146,6 +146,16 @@ export function DashboardSidebar({
           );
         })}
       </nav>
+
+      {userRoles.includes("ADMIN") && (
+        <Link
+          to="/admin"
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gold/60 hover:text-gold hover:bg-gold/5 transition-all duration-200"
+        >
+          <LayoutDashboard size={18} />
+          Admin Panel
+        </Link>
+      )}
 
       {/* Logout */}
       <div className="px-3 py-4 border-t border-white/10">

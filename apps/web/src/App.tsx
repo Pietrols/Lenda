@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { AdminRoute } from "@/components/AdminRoute";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
@@ -8,6 +9,7 @@ import ListingsPage from "./pages/listings/ListingsPage";
 import ListingDetailPage from "./pages/listings/ListingDetailPage";
 import ProfilePage from "./pages/ProfilePage";
 import DashboardPage from "./pages/dashboard/DashboardPage";
+import AdminLayout from "./pages/admin/AdminLayout";
 import NotFoundPage from "./pages/NotFoundPage";
 import PartnerPage from "./pages/PartnerPage";
 import JoinTeamPage from "./pages/JoinTeamPage";
@@ -35,6 +37,16 @@ export default function App() {
           <ProtectedRoute>
             <DashboardPage />
           </ProtectedRoute>
+        }
+      />
+
+      {/* Admin */}
+      <Route
+        path="/admin/*"
+        element={
+          <AdminRoute>
+            <AdminLayout />
+          </AdminRoute>
         }
       />
 
