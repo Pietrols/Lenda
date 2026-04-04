@@ -306,15 +306,12 @@ docs: documentation updates
 
 ### In Progress
 
-- [ ] Dashboard - notifications, bookings, listings, subscription pages
-- [ ] Client-side Cloudinary upload
-- [ ] Partner and Join Our Team pages
-- [ ] Lenda chatbot
-
-### Upcoming
-
-- [ ] Listings browse page
-- [ ] Listing detail page
+- [x] Dashboard - notifications, bookings, listings, subscription pages
+- [x] Client-side Supabase upload
+- [x] Partner and Join Our Team pages
+- [x] Lenda chatbot
+- [x] Listings browse page
+- [x] Listing detail page
 - [ ] Stripe payment integration
 - [ ] Mobile app (React Native / Expo)
 - [ ] Deployment (Railway → Oracle Cloud)
