@@ -13,6 +13,7 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import NotFoundPage from "./pages/NotFoundPage";
 import PartnerPage from "./pages/PartnerPage";
 import JoinTeamPage from "./pages/JoinTeamPage";
+import { GuestRoute } from "@/components/GuestRoute";
 
 export default function App() {
   return (
@@ -26,8 +27,22 @@ export default function App() {
       <Route path="/join" element={<JoinTeamPage />} />
 
       {/* Auth */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/login"
+        element={
+          <GuestRoute>
+            <LoginPage />
+          </GuestRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <GuestRoute>
+            <RegisterPage />
+          </GuestRoute>
+        }
+      />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
 
       {/* Protected */}
