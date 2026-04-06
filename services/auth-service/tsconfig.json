@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
+  "ignoreDeprecations": "6.0",
   "compilerOptions": {
-    "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src"
   },
