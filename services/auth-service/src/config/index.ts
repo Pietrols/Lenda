@@ -18,7 +18,7 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
   OTP_EXPIRES_MINUTES: z.coerce.number().default(10),
   OTP_MAX_ATTEMPTS: z.coerce.number().default(5),
-  SENDGRID_API_KEY: z.string().default(""),
+  RESEND_API_KEY: z.string().default(""),
   EMAIL_FROM: z.string().default("noreply@lenda.app"),
   CORS_ORIGINS: z.string().default("http://localhost:5173"),
   SUPABASE_URL: z.string().min(1, "SUPABASE_URL is required"),
