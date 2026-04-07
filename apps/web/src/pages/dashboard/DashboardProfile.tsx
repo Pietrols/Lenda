@@ -153,7 +153,7 @@ export default function DashboardProfile() {
           </h3>
           <p className="text-foreground/50 text-sm mt-2 mb-4">
             Add the HOST role to your account to create listings and start
-            earning. You keep your GUEST role — both roles work on the same
+            earning. You keep your GUEST role - both roles work on the same
             account.
           </p>
           <Button
@@ -163,7 +163,7 @@ export default function DashboardProfile() {
             disabled={isUpgrading}
             onClick={() => upgradeToHost()}
           >
-            {isUpgrading ? "Upgrading..." : "Confirm — Become a Host"}
+            {isUpgrading ? "Upgrading..." : "Confirm - Become a Host"}
           </Button>
         </div>
       )}

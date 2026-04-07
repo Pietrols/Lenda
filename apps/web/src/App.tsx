@@ -14,6 +14,9 @@ import NotFoundPage from "./pages/NotFoundPage";
 import PartnerPage from "./pages/PartnerPage";
 import JoinTeamPage from "./pages/JoinTeamPage";
 import { GuestRoute } from "@/components/GuestRoute";
+import TermsPage from "./pages/TermsPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import AboutPage from "./pages/AboutPage";
 
 export default function App() {
   return (
@@ -25,6 +28,9 @@ export default function App() {
       <Route path="/profiles/:id" element={<ProfilePage />} />
       <Route path="/partner" element={<PartnerPage />} />
       <Route path="/join" element={<JoinTeamPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/about" element={<AboutPage />} />
 
       {/* Auth */}
       <Route

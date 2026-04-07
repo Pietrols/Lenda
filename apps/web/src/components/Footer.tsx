@@ -12,14 +12,11 @@ const footerLinks = {
   Company: [
     { label: "About Lenda", href: "/about" },
     { label: "Careers", href: "/careers" },
-    { label: "Press", href: "/press" },
-    { label: "Contact", href: "/contact" },
+    { label: "Contact", href: "mailto:hello@lenda.work" },
   ],
   Legal: [
     { label: "Terms of Service", href: "/terms" },
     { label: "Privacy Policy", href: "/privacy" },
-    { label: "Cookie Policy", href: "/cookies" },
-    { label: "Refund Policy", href: "/refunds" },
   ],
 };
 
