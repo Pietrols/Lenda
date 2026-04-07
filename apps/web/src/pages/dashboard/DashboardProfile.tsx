@@ -11,6 +11,8 @@ import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/api/auth";
+import { authApi } from "@/api/auth";
+import { useSearchParams } from "react-router-dom";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -34,6 +36,19 @@ export default function DashboardProfile() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [photoTimestamp, setPhotoTimestamp] = useState(() => Date.now());
   const [isEditing, setIsEditing] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showUpgrade = searchParams.get("upgrade") === "host";
+
+  const { mutate: upgradeToHost, isPending: isUpgrading } = useMutation({
+    mutationFn: () => authApi.addRole("HOST", accessToken ?? ""),
+    onSuccess: (data: { user: AuthUser }) => {
+      updateUser(data.user);
+      setSearchParams({});
+      toast.success("You are now a Host! You can create listings.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", "me"],
@@ -131,6 +146,27 @@ export default function DashboardProfile() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
+      {showUpgrade && !user?.roles?.includes("HOST") && (
+        <div className="glass-card p-6 border border-gold/30 bg-gold/5">
+          <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
+            Become a Host
+          </h3>
+          <p className="text-foreground/50 text-sm mt-2 mb-4">
+            Add the HOST role to your account to create listings and start
+            earning. You keep your GUEST role — both roles work on the same
+            account.
+          </p>
+          <Button
+            variant="gold"
+            size="md"
+            className="gap-2"
+            disabled={isUpgrading}
+            onClick={() => upgradeToHost()}
+          >
+            {isUpgrading ? "Upgrading..." : "Confirm — Become a Host"}
+          </Button>
+        </div>
+      )}
       <div>
         <p className="section-label">Account</p>
         <GoldLine className="w-10 mb-3" />
@@ -201,7 +237,10 @@ export default function DashboardProfile() {
 
       {isEditing ? (
         <div className="glass-card p-6 border border-border">
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            className="flex flex-col gap-5"
+          >
             <div className="flex flex-col gap-1.5">
               <label className="text-micro text-foreground/60">Full Name</label>
               <input
@@ -214,7 +253,9 @@ export default function DashboardProfile() {
                 )}
               />
               {errors.fullName && (
-                <p className="text-red-400 text-xs">{errors.fullName.message}</p>
+                <p className="text-red-400 text-xs">
+                  {errors.fullName.message}
+                </p>
               )}
             </div>
 
@@ -286,26 +327,34 @@ export default function DashboardProfile() {
             <div className="flex flex-col gap-1">
               <p className="text-micro text-foreground/60">Full Name</p>
               <p className="text-sm text-foreground">
-                {profile?.fullName || <span className="text-foreground/30">Not set</span>}
+                {profile?.fullName || (
+                  <span className="text-foreground/30">Not set</span>
+                )}
               </p>
             </div>
             <div className="flex flex-col gap-1">
               <p className="text-micro text-foreground/60">Phone Number</p>
               <p className="text-sm text-foreground">
-                {profile?.phone || <span className="text-foreground/30">Not set</span>}
+                {profile?.phone || (
+                  <span className="text-foreground/30">Not set</span>
+                )}
               </p>
             </div>
             <div className="flex flex-col gap-1">
               <p className="text-micro text-foreground/60">Location</p>
               <p className="text-sm text-foreground">
-                {profile?.location || <span className="text-foreground/30">Not set</span>}
+                {profile?.location || (
+                  <span className="text-foreground/30">Not set</span>
+                )}
               </p>
             </div>
           </div>
           <div className="flex flex-col gap-1">
             <p className="text-micro text-foreground/60">Bio</p>
             <p className="text-sm text-foreground leading-relaxed">
-              {profile?.bio || <span className="text-foreground/30">No bio added yet.</span>}
+              {profile?.bio || (
+                <span className="text-foreground/30">No bio added yet.</span>
+              )}
             </p>
           </div>
           <Button

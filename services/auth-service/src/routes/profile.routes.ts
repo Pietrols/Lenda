@@ -10,6 +10,7 @@ import {
   uploadProfilePhotoHandler,
   getUploadSignatureHandler,
   saveProfilePhotoHandler,
+  addRoleHandler,
 } from "../controllers/profile.controller";
 
 const router: IRouter = Router();
@@ -30,8 +31,9 @@ router.post(
   uploadProfilePhotoHandler,
 );
 router.patch("/me/photo-url", authenticate, saveProfilePhotoHandler);
+router.patch("/me/role", authenticate, addRoleHandler);
 
-// Public profile by ID — must be last
+// Public profile by ID - must be last
 router.get("/:id", getProfileHandler);
 
 export default router;

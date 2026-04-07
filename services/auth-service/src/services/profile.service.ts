@@ -138,3 +138,37 @@ export async function saveProfilePhoto(userId: string, photoUrl: string) {
   });
   return updated;
 }
+
+export async function addRole(userId: string, role: string): Promise<any> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError("User not found", 404);
+
+  const validRoles = ["GUEST", "HOST"];
+  if (!validRoles.includes(role)) throw new AppError("Invalid role", 400);
+
+  if (user.roles.includes(role as any)) {
+    throw new AppError(`You already have the ${role} role`, 400);
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { roles: { set: [...user.roles, role as any] } },
+    select: {
+      id: true,
+      email: true,
+      phone: true,
+      fullName: true,
+      photoUrl: true,
+      bio: true,
+      location: true,
+      roles: true,
+      kycStatus: true,
+      listingTier: true,
+      subscriptionPlan: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return updated;
+}

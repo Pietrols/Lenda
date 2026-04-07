@@ -214,7 +214,7 @@ export default function DashboardHome() {
                 icon: null,
               };
               return (
-                <Link key={booking.id} to={`/dashboard/bookings`}>
+                <Link key={booking.id} to={`/dashboard/bookings/${booking.id}`}>
                   <div className="glass-card p-4 border border-border hover:border-gold/30 transition-all duration-200 flex items-center justify-between gap-4">
                     <div className="overflow-hidden">
                       <p className="font-medium text-sm text-foreground truncate">
@@ -258,9 +258,9 @@ export default function DashboardHome() {
                 List your assets or services and start earning today.
               </p>
             </div>
-            <Link to="/register">
+            <Link to="/dashboard/profile?upgrade=host">
               <Button variant="gold" size="sm" className="gap-2 shrink-0">
-                Get Started <ArrowRight size={14} />
+                Become a Host <ArrowRight size={14} />
               </Button>
             </Link>
           </div>

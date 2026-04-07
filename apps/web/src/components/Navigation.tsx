@@ -51,6 +51,11 @@ export function Navigation() {
     e: React.MouseEvent<HTMLAnchorElement>,
     link: (typeof navLinks)[number],
   ) {
+    if (link.scroll === "host" && isAuthenticated) {
+      e.preventDefault();
+      navigate("/dashboard/profile?upgrade=host");
+      return;
+    }
     if (!link.scroll) return;
     e.preventDefault();
     setMobileOpen(false);

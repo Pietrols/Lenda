@@ -107,8 +107,16 @@ export function DashboardSidebar({
       {/* User info */}
       <div className="px-6 py-4 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-sm shrink-0">
-            {user?.fullName?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "U"}
+          <div className="w-9 h-9 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-sm shrink-0 overflow-hidden">
+            {user?.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt="avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (user?.fullName?.[0] ?? user?.email?.[0]?.toUpperCase() ?? "U")
+            )}
           </div>
           <div className="overflow-hidden">
             <p className="text-sm font-semibold text-white truncate">
@@ -145,17 +153,17 @@ export function DashboardSidebar({
             </Link>
           );
         })}
-      </nav>
 
-      {userRoles.includes("ADMIN") && (
-        <Link
-          to="/admin"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gold/60 hover:text-gold hover:bg-gold/5 transition-all duration-200"
-        >
-          <LayoutDashboard size={18} />
-          Admin Panel
-        </Link>
-      )}
+        {userRoles.includes("ADMIN") && (
+          <Link
+            to="/admin"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-gold/60 hover:text-gold hover:bg-gold/5 transition-all duration-200 mx-0"
+          >
+            <LayoutDashboard size={18} />
+            Admin Panel
+          </Link>
+        )}
+      </nav>
 
       {/* Logout */}
       <div className="px-3 py-4 border-t border-white/10">

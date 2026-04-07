@@ -5,6 +5,7 @@ import {
   uploadProfilePhoto,
   getUploadSignature,
   saveProfilePhoto,
+  addRole,
 } from "../services/profile.service";
 
 export async function updateProfileHandler(
@@ -86,6 +87,22 @@ export async function saveProfilePhotoHandler(
     const { photoUrl } = req.body;
     const result = await saveProfilePhoto(userId, photoUrl);
     res.json({ user: result });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addRoleHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const { role } = req.body;
+    if (!role) throw new Error("Role is required");
+    const user = await addRole(userId, role);
+    res.json({ user });
   } catch (err) {
     next(err);
   }

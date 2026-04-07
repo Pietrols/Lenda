@@ -61,6 +61,14 @@ export const authApi = {
 
   me: (token: string) => api.get<AuthUser>("/auth/me", token, AUTH_URL),
 
+  addRole: (role: string, token: string) =>
+    api.patch<{ user: AuthUser }>(
+      "/profiles/me/role",
+      { role },
+      token,
+      AUTH_URL,
+    ),
+
   logout: (token: string, refreshToken: string) =>
     api.post<{ message: string }>(
       "/auth/logout",
