@@ -13,6 +13,7 @@ import { errorHandler } from "./middleware/errorHandler";
 
 export function createApp(): Express {
   const app = express();
+  app.set("trust proxy", 1);
 
   app.use(helmet());
 

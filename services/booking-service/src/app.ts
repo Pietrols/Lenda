@@ -16,6 +16,7 @@ import { Role } from "@lenda/types";
 import { prisma } from "@lenda/database";
 
 const app: Application = express();
+app.set("trust proxy", 1);
 
 app.use(helmet());
 app.use(cors({ origin: config.CORS_ORIGINS.split(",") }));
