@@ -5,6 +5,7 @@ import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { useAuth } from "@/hooks/useAuth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const navLinks = [
   { label: "Browse", href: "/listings", scroll: null },
@@ -115,6 +116,7 @@ export function Navigation() {
 
           {/* Desktop right actions */}
           <div className="hidden md:flex items-center gap-3">
+            <ThemeToggle />
             {isAuthenticated ? (
               <Link to="/dashboard">
                 <Button variant="gold" size="sm">

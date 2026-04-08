@@ -146,7 +146,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Pillars ───────────────────────────────────────── */}
-      <section className="flowing-section light-section">
+      <section className="flowing-section bg-background">
         <div className="container mx-auto px-4">
           <div className="section-header">
             <p className="section-label">What We Offer</p>
@@ -156,7 +156,7 @@ export default function HomePage() {
               <br />
               <span className="text-gold">Endless Possibilities</span>
             </h2>
-            <p className="section-body-light max-w-xl mx-auto">
+            <p className="text-foreground/60 text-lg leading-relaxed max-w-xl mx-auto">
               Whether you need something rented or a service delivered, Lenda
               connects you with trusted hosts across Zambia.
             </p>
@@ -193,7 +193,9 @@ export default function HomePage() {
                     {pillar.title}
                   </h3>
                   <GoldLine className="w-10 mb-4" />
-                  <p className="section-body-light mb-6">{pillar.body}</p>
+                  <p className="text-foreground/60 text-lg leading-relaxed mb-6">
+                    {pillar.body}
+                  </p>
                   <div className="flex flex-wrap gap-2 mb-6">
                     {pillar.tags.map((tag) => (
                       <span key={tag} className="lenda-tag">
@@ -282,7 +284,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Host Section ──────────────────────────────────── */}
-      <section id="host" className="flowing-section light-section">
+      <section id="host" className="flowing-section bg-background">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-16 items-center max-w-6xl mx-auto">
             <div>
@@ -293,7 +295,7 @@ export default function HomePage() {
                 <br />
                 <span className="text-gold">Into Income</span>
               </h2>
-              <p className="section-body-light mb-8">
+              <p className="text-foreground/60 text-lg leading-relaxed mb-8">
                 List your car, property, equipment or skills and start earning.
                 Lenda handles the bookings, payments and accountability - you
                 focus on delivering great experiences.

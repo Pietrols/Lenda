@@ -21,6 +21,7 @@ import DashboardProfile from "./DashboardProfile";
 import DashboardSubscription from "./DashboardSubscription";
 import DashboardFloat from "./DashboardFloat";
 import DashboardBookingDetail from "./DashboardBookingDetail";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Overview",
@@ -93,6 +94,7 @@ export default function DashboardPage() {
               {pageTitle}
             </h1>
           </div>
+          <ThemeToggle />
           <Link to="/listings">
             <Button variant="outlineGold" size="sm">
               Browse Listings
