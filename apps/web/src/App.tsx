@@ -17,6 +17,8 @@ import { GuestRoute } from "@/components/GuestRoute";
 import TermsPage from "./pages/TermsPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import AboutPage from "./pages/AboutPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 
 export default function App() {
   return (
@@ -50,6 +52,23 @@ export default function App() {
         }
       />
       <Route path="/verify-email" element={<VerifyEmailPage />} />
+
+      <Route
+        path="/forgot-password"
+        element={
+          <GuestRoute>
+            <ForgotPasswordPage />
+          </GuestRoute>
+        }
+      />
+      <Route
+        path="/reset-password"
+        element={
+          <GuestRoute>
+            <ResetPasswordPage />
+          </GuestRoute>
+        }
+      />
 
       {/* Protected */}
       <Route

@@ -35,7 +35,7 @@ export async function register(
     throw Errors.conflict("An account with this email already exists.");
   }
 
-  // bcrypt cost factor 12 = ~300ms. Slow by design — makes brute force expensive.
+  // bcrypt cost factor 12 = ~300ms. Slow by design - makes brute force expensive.
   const passwordHash = await bcrypt.hash(data.password, 12);
 
   const user = await prisma.user.create({
@@ -127,7 +127,7 @@ export async function verifyPhone(
 export async function login(data: LoginPayload): Promise<AuthResponse> {
   const user = await prisma.user.findUnique({ where: { email: data.email } });
 
-  // Same error for "not found" and "wrong password" — prevents user enumeration
+  // Same error for "not found" and "wrong password" - prevents user enumeration
   const invalidCredentials = new AppError(
     "Invalid email or password.",
     401,
@@ -210,7 +210,7 @@ export async function refreshTokens(token: string): Promise<AuthResponse> {
     throw Errors.unauthorized("Account not found or suspended.");
   }
 
-  // Delete old token (rotation — old token is now invalid)
+  // Delete old token (rotation - old token is now invalid)
   await redis.del(redisKeys.refreshToken(payload.sub, payload.jti));
 
   const newAccessToken = signAccessToken(
@@ -267,7 +267,7 @@ export async function logout(
       const payload = verifyRefreshToken(refreshToken);
       await redis.del(redisKeys.refreshToken(userId, payload.jti));
     } catch {
-      // Already invalid — fine, we are logging out anyway
+      // Already invalid - fine, we are logging out anyway
     }
   }
 
@@ -299,4 +299,39 @@ export async function getMe(userId: string) {
 
   if (!user) throw Errors.notFound("User not found.");
   return user;
+}
+
+import { sendPasswordResetEmail } from "../lib/mailer";
+
+export async function forgotPassword(email: string): Promise<MessageResponse> {
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // Don't reveal whether email exists - always return success
+  if (!user)
+    return { message: "If an account exists, a reset code has been sent." };
+
+  const otp = await createOtp(redisKeys.passwordReset(email));
+  await sendPasswordResetEmail(email, otp);
+
+  return { message: "If an account exists, a reset code has been sent." };
+}
+
+export async function resetPassword(
+  email: string,
+  otp: string,
+  newPassword: string,
+): Promise<MessageResponse> {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw Errors.notFound("No account found with this email.");
+
+  await verifyOtp(redisKeys.passwordReset(email), otp);
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+
+  return { message: "Password reset successfully. You can now log in." };
 }

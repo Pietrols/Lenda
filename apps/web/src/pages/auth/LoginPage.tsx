@@ -166,6 +166,14 @@ export default function LoginPage() {
               Create one
             </Link>
           </p>
+          <p className="text-center text-sm text-white/50">
+            <Link
+              to="/forgot-password"
+              className="text-gold hover:text-gold/80 font-medium transition-colors"
+            >
+              Forgot your password?
+            </Link>
+          </p>
         </div>
 
         {/* Back to home */}

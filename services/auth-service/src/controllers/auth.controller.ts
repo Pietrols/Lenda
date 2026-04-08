@@ -53,3 +53,23 @@ export async function getMe(req: Request, res: Response): Promise<void> {
   const user = await AuthService.getMe(req.user!.sub);
   res.json(user);
 }
+
+export async function forgotPassword(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const result = await AuthService.forgotPassword(req.body.email);
+  res.json(result);
+}
+
+export async function resetPassword(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const result = await AuthService.resetPassword(
+    req.body.email,
+    req.body.otp,
+    req.body.newPassword,
+  );
+  res.json(result);
+}

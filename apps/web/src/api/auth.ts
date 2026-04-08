@@ -83,4 +83,20 @@ export const authApi = {
       undefined,
       AUTH_URL,
     ),
+
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>(
+      "/auth/forgot-password",
+      { email },
+      undefined,
+      AUTH_URL,
+    ),
+
+  resetPassword: (email: string, otp: string, newPassword: string) =>
+    api.post<{ message: string }>(
+      "/auth/reset-password",
+      { email, otp, newPassword },
+      undefined,
+      AUTH_URL,
+    ),
 };

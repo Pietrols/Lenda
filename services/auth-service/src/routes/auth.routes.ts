@@ -52,4 +52,21 @@ router.post(
 router.post("/logout", authenticate, asyncHandler(ctrl.logout));
 router.get("/me", authenticate, asyncHandler(ctrl.getMe));
 
+router.post(
+  "/forgot-password",
+  validate(z.object({ email: z.string().email() })),
+  asyncHandler(ctrl.forgotPassword),
+);
+router.post(
+  "/reset-password",
+  validate(
+    z.object({
+      email: z.string().email(),
+      otp: z.string().length(6),
+      newPassword: z.string().min(8).regex(/[A-Z]/).regex(/[0-9]/),
+    }),
+  ),
+  asyncHandler(ctrl.resetPassword),
+);
+
 export default router;
