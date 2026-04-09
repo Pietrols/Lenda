@@ -30,7 +30,7 @@ const kycColors: Record<string, string> = {
 };
 
 export default function DashboardProfile() {
-  const { user, accessToken, updateUser } = useAuth();
+  const { user, tokens, accessToken, updateUser, setAuth } = useAuth();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -42,8 +42,14 @@ export default function DashboardProfile() {
 
   const { mutate: upgradeToHost, isPending: isUpgrading } = useMutation({
     mutationFn: () => authApi.addRole("HOST", accessToken ?? ""),
-    onSuccess: (data: { user: AuthUser }) => {
-      updateUser(data.user);
+    onSuccess: async (data: { user: AuthUser }) => {
+      // Refresh tokens so the new access token includes HOST role
+      try {
+        const refreshed = await authApi.refresh(tokens?.refreshToken ?? "");
+        setAuth(refreshed.user, refreshed.tokens);
+      } catch {
+        updateUser(data.user);
+      }
       setSearchParams({});
       toast.success("You are now a Host! You can create listings.");
     },

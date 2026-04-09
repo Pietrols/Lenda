@@ -69,6 +69,14 @@ export const authApi = {
       AUTH_URL,
     ),
 
+  refresh: (refreshToken: string) =>
+    api.post<AuthResponse>(
+      "/auth/refresh",
+      { refreshToken },
+      undefined,
+      AUTH_URL,
+    ),
+
   logout: (token: string, refreshToken: string) =>
     api.post<{ message: string }>(
       "/auth/logout",
