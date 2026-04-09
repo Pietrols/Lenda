@@ -43,10 +43,10 @@ export default function DashboardProfile() {
   const { mutate: upgradeToHost, isPending: isUpgrading } = useMutation({
     mutationFn: () => authApi.addRole("HOST", accessToken ?? ""),
     onSuccess: async (data: { user: AuthUser }) => {
-      // Refresh tokens so the new access token includes HOST role
       try {
         const refreshed = await authApi.refresh(tokens?.refreshToken ?? "");
-        setAuth(refreshed.user, refreshed.tokens);
+        // Keep existing user data, only update roles and tokens
+        setAuth({ ...user!, roles: data.user.roles }, refreshed.tokens);
       } catch {
         updateUser(data.user);
       }
