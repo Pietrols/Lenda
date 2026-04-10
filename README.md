@@ -332,17 +332,17 @@ docs: documentation updates
 
 ### Done
 
-- [x] Auth service — register, verify, login, refresh, logout, forgot password, reset password
-- [x] Profile management — photo upload, bio, location, phone
-- [x] KYC document upload — NRC, proof of residence, selfie
-- [x] Role management — GUEST → HOST upgrade, token refresh on role change
-- [x] Booking service — listings, bookings, handover, reviews, likes, notifications
-- [x] Subscriptions — FREE, PRO_MONTHLY, PRO_ANNUAL
-- [x] Web app — homepage, auth pages, dashboard redesign
-- [x] Dashboard — role-aware sidebar, become-a-host multi-step flow, KYC upload UI
+- [x] Auth service - register, verify, login, refresh, logout, forgot password, reset password
+- [x] Profile management - photo upload, bio, location, phone
+- [x] KYC document upload - NRC, proof of residence, selfie
+- [x] Role management - GUEST → HOST upgrade, token refresh on role change
+- [x] Booking service - listings, bookings, handover, reviews, likes, notifications
+- [x] Subscriptions - FREE, PRO_MONTHLY, PRO_ANNUAL
+- [x] Web app - homepage, auth pages, dashboard redesign
+- [x] Dashboard - role-aware sidebar, become-a-host multi-step flow, KYC upload UI
 - [x] Dark/light mode toggle
 - [x] Cloudflare Pages deployment
-- [x] Custom domain — lenda.work
+- [x] Custom domain - lenda.work
 - [x] Lenda AI chatbot (Groq)
 - [x] Forgot password / reset password flow
 

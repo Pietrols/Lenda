@@ -398,8 +398,13 @@ export default function DashboardProfile() {
               </div>
             )}
             <KycUploadSlot
-              label="NRC / National ID"
-              docType="NRC"
+              label="NRC / National ID (Front)"
+              docType="NRC_FRONT"
+              accessToken={accessToken ?? ""}
+            />
+            <KycUploadSlot
+              label="NRC / National ID (Back)"
+              docType="NRC_BACK"
               accessToken={accessToken ?? ""}
             />
             <KycUploadSlot
