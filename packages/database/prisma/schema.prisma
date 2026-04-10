@@ -138,6 +138,8 @@ model User {
 
   sentMessages BookingMessage[] @relation("SentMessages")
 
+  kycDocuments     KycDocument[]
+
   @@map("users")
 }
 
@@ -399,4 +401,23 @@ model BookingMessage {
   sender  User    @relation("SentMessages", fields: [senderId], references: [id])
 
   @@map("booking_messages")
+}
+
+enum KycDocType {
+  NRC_FRONT
+  NRC_BACK
+  PROOF_OF_RESIDENCE
+  SELFIE
+}
+
+model KycDocument {
+  id         String     @id @default(uuid())
+  userId     String
+  user       User       @relation(fields: [userId], references: [id])
+  type       KycDocType
+  url        String
+  uploadedAt DateTime   @default(now())
+
+  @@unique([userId, type])
+  @@map("kyc_documents")
 }

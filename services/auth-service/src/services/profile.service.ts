@@ -172,3 +172,65 @@ export async function addRole(userId: string, role: string): Promise<any> {
 
   return updated;
 }
+
+export async function uploadKycDocument(
+  userId: string,
+  docType: string,
+  file: Express.Multer.File,
+) {
+  const validTypes = ["NRC_FRONT", "NRC_BACK", "PROOF_OF_RESIDENCE", "SELFIE"];
+  if (!validTypes.includes(docType)) {
+    throw new AppError("Invalid document type", 400);
+  }
+
+  let buffer = file.buffer;
+  const isPdf =
+    file.mimetype === "application/pdf" ||
+    file.originalname.toLowerCase().endsWith(".pdf");
+  const ext = isPdf ? "pdf" : "jpg";
+  const contentType = isPdf ? "application/pdf" : "image/jpeg";
+
+  if (!isPdf) {
+    const isHeic =
+      file.mimetype === "image/heic" ||
+      file.mimetype === "image/heif" ||
+      file.originalname.toLowerCase().match(/\.(heic|heif)$/);
+
+    if (isHeic) {
+      const converted = await heicConvert({
+        buffer: file.buffer,
+        format: "JPEG",
+        quality: 0.9,
+      });
+      buffer = Buffer.from(converted);
+    }
+
+    buffer = await sharp(buffer)
+      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 85 })
+      .toBuffer();
+  }
+
+  const path = `${userId}/${docType.toLowerCase()}.${ext}`;
+
+  const { error } = await supabase.storage
+    .from("kyc-documents")
+    .upload(path, buffer, {
+      contentType,
+      upsert: true,
+    });
+
+  if (error) throw new Error(error.message);
+
+  const { data } = supabase.storage.from("kyc-documents").getPublicUrl(path);
+
+  await (prisma as any).kycDocument.upsert({
+    where: {
+      userId_type: { userId, type: docType as any },
+    },
+    create: { userId, type: docType as any, url: data.publicUrl },
+    update: { url: data.publicUrl, uploadedAt: new Date() },
+  });
+
+  return { url: data.publicUrl, type: docType };
+}

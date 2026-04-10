@@ -6,6 +6,7 @@ import {
   getUploadSignature,
   saveProfilePhoto,
   addRole,
+  uploadKycDocument,
 } from "../services/profile.service";
 
 export async function updateProfileHandler(
@@ -103,6 +104,23 @@ export async function addRoleHandler(
     if (!role) throw new Error("Role is required");
     const user = await addRole(userId, role);
     res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function uploadKycDocumentHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.file) throw new Error("No file uploaded");
+    const userId = req.user!.sub;
+    const docType = req.body.docType as string;
+    if (!docType) throw new Error("docType is required");
+    const result = await uploadKycDocument(userId, docType, req.file);
+    res.json(result);
   } catch (err) {
     next(err);
   }

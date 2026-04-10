@@ -11,7 +11,9 @@ import {
   getUploadSignatureHandler,
   saveProfilePhotoHandler,
   addRoleHandler,
+  uploadKycDocumentHandler,
 } from "../controllers/profile.controller";
+import { uploadDocument } from "../lib/upload";
 
 const router: IRouter = Router();
 
@@ -32,6 +34,13 @@ router.post(
 );
 router.patch("/me/photo-url", authenticate, saveProfilePhotoHandler);
 router.patch("/me/role", authenticate, addRoleHandler);
+
+router.post(
+  "/me/kyc",
+  authenticate,
+  uploadDocument.single("document"),
+  uploadKycDocumentHandler,
+);
 
 // Public profile by ID - must be last
 router.get("/:id", getProfileHandler);
