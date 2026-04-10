@@ -8,8 +8,16 @@ Zambia's peer-to-peer rental and services marketplace. Built as a TypeScript mon
 
 **Phase 1 - Backend: Complete**
 **Phase 2 - Web App: In Progress**
+**Phase 3 - Deployment: Live**
 
-Auth service, booking service, subscriptions, image uploads, and the web app scaffold are all built and running. The frontend is actively being developed.
+---
+
+## Live
+
+| Service  | URL                    |
+| -------- | ---------------------- |
+| Frontend | https://lenda.work     |
+| API      | https://api.lenda.work |
 
 ---
 
@@ -22,7 +30,7 @@ lenda/
 ├── apps/
 │   └── web/                     # React web app (Vite + TypeScript)
 ├── services/
-│   ├── auth-service/            # Identity, auth, profiles, subscriptions (port 3001)
+│   ├── auth-service/            # Identity, auth, profiles, KYC, subscriptions (port 3001)
 │   └── booking-service/         # Listings, bookings, reviews, likes, notifications (port 3002)
 ├── packages/
 │   ├── @lenda/types             # Shared TypeScript interfaces and enums
@@ -37,23 +45,30 @@ lenda/
 
 ### Tech Stack
 
-| Layer               | Technology                                    |
-| ------------------- | --------------------------------------------- |
-| Language            | TypeScript 5.9                                |
-| Runtime             | Node.js 24                                    |
-| Package Manager     | pnpm 10 (workspaces)                          |
-| Build Orchestration | Turborepo                                     |
-| Web Framework       | Express                                       |
-| Database            | PostgreSQL (Postgres.app locally)             |
-| Cache / Sessions    | Redis (Docker)                                |
-| ORM                 | Prisma 6                                      |
-| Validation          | Zod                                           |
-| Authentication      | JWT (access + refresh token rotation)         |
-| Password Hashing    | bcryptjs (cost factor 10)                     |
-| Email               | SendGrid (console logging in development)     |
-| Image Storage       | Supabase (HEIC/JPEG support)                |
-| Frontend            | React 18, Vite, Tailwind CSS, shadcn/ui, GSAP |
-| State Management    | Zustand (auth), TanStack Query (server state) |
+| Layer               | Technology                                         |
+| ------------------- | -------------------------------------------------- |
+| Language            | TypeScript 5.9                                     |
+| Runtime             | Node.js 20                                         |
+| Package Manager     | pnpm 10 (workspaces)                               |
+| Build Orchestration | Turborepo                                          |
+| Web Framework       | Express                                            |
+| Database            | PostgreSQL 14                                      |
+| Cache / Sessions    | Redis (Docker)                                     |
+| ORM                 | Prisma 6                                           |
+| Validation          | Zod                                                |
+| Authentication      | JWT (access + refresh token rotation)              |
+| Password Hashing    | bcryptjs (cost factor 12)                          |
+| Email               | Resend (console logging in development)            |
+| Profile Storage     | Supabase Storage                                   |
+| KYC Storage         | Supabase Storage (private bucket)                  |
+| Host Images         | Cloudflare R2 (planned)                            |
+| Frontend            | React 18, Vite, Tailwind CSS, shadcn/ui, GSAP      |
+| State Management    | Zustand (auth), TanStack Query (server state)      |
+| AI Chatbot          | Groq (llama-3.3-70b-versatile)                     |
+| Frontend Hosting    | Cloudflare Pages                                   |
+| Backend Hosting     | Oracle Cloud Always Free (AMD micro, Ubuntu 22.04) |
+| Web Server          | Nginx + PM2                                        |
+| DNS                 | Cloudflare                                         |
 
 ---
 
@@ -80,30 +95,33 @@ lenda/
 
 ### Endpoints
 
-| Method | Route                           | Auth      | Description                                  |
-| ------ | ------------------------------- | --------- | -------------------------------------------- |
-| POST   | `/auth/register`                | Public    | Create account, sends email OTP              |
-| POST   | `/auth/verify-email`            | Public    | Verify email with OTP                        |
-| POST   | `/auth/resend-email-otp`        | Public    | Resend email OTP                             |
-| POST   | `/auth/resend-otp`              | Public    | Resend OTP (alias)                           |
-| POST   | `/auth/send-phone-otp`          | Public    | Send phone verification OTP                  |
-| POST   | `/auth/verify-phone`            | Public    | Verify phone with OTP                        |
-| POST   | `/auth/login`                   | Public    | Login, returns access and refresh tokens     |
-| POST   | `/auth/refresh`                 | Public    | Rotate refresh token, issue new access token |
-| POST   | `/auth/logout`                  | Protected | Blacklist access token, revoke refresh token |
-| GET    | `/auth/me`                      | Protected | Get current user (basic fields)              |
-| GET    | `/profiles/me`                  | Protected | Get full profile                             |
-| PATCH  | `/profiles/me`                  | Protected | Update profile                               |
-| POST   | `/profiles/me/photo`            | Protected | Upload profile photo (server-side)           |
-| GET    | `/profiles/me/upload-signature` | Protected | Get Cloudinary signed upload URL             |
-| PATCH  | `/profiles/me/photo-url`        | Protected | Save Cloudinary URL after direct upload      |
-| GET    | `/profiles/:id`                 | Public    | Get public profile                           |
-| GET    | `/subscriptions/status`         | Protected | Get subscription status                      |
-| POST   | `/subscriptions/upgrade`        | Protected | Upgrade to Pro plan                          |
-| POST   | `/subscriptions/cancel`         | Protected | Cancel subscription                          |
-| PATCH  | `/admin/users/:id/kyc`          | Admin     | Approve or reject KYC                        |
-| POST   | `/admin/users/:id/badge`        | Admin     | Award badge to user                          |
-| PATCH  | `/admin/users/:id/suspend`      | Admin     | Suspend user account                         |
+| Method | Route                      | Auth      | Description                                  |
+| ------ | -------------------------- | --------- | -------------------------------------------- |
+| POST   | `/auth/register`           | Public    | Create account, sends email OTP              |
+| POST   | `/auth/verify-email`       | Public    | Verify email with OTP                        |
+| POST   | `/auth/resend-email-otp`   | Public    | Resend email OTP                             |
+| POST   | `/auth/resend-otp`         | Public    | Resend OTP (alias)                           |
+| POST   | `/auth/send-phone-otp`     | Public    | Send phone verification OTP                  |
+| POST   | `/auth/verify-phone`       | Public    | Verify phone with OTP                        |
+| POST   | `/auth/login`              | Public    | Login, returns access and refresh tokens     |
+| POST   | `/auth/refresh`            | Public    | Rotate refresh token, issue new access token |
+| POST   | `/auth/logout`             | Protected | Blacklist access token, revoke refresh token |
+| POST   | `/auth/forgot-password`    | Public    | Send password reset OTP                      |
+| POST   | `/auth/reset-password`     | Public    | Reset password with OTP                      |
+| GET    | `/auth/me`                 | Protected | Get current user (basic fields)              |
+| GET    | `/profiles/me`             | Protected | Get full profile                             |
+| PATCH  | `/profiles/me`             | Protected | Update profile                               |
+| POST   | `/profiles/me/photo`       | Protected | Upload profile photo                         |
+| PATCH  | `/profiles/me/photo-url`   | Protected | Save photo URL after direct upload           |
+| PATCH  | `/profiles/me/role`        | Protected | Add role to account (GUEST → HOST)           |
+| POST   | `/profiles/me/kyc`         | Protected | Upload KYC document                          |
+| GET    | `/profiles/:id`            | Public    | Get public profile                           |
+| GET    | `/subscriptions/status`    | Protected | Get subscription status                      |
+| POST   | `/subscriptions/upgrade`   | Protected | Upgrade to Pro plan                          |
+| POST   | `/subscriptions/cancel`    | Protected | Cancel subscription                          |
+| PATCH  | `/admin/users/:id/kyc`     | Admin     | Approve or reject KYC                        |
+| POST   | `/admin/users/:id/badge`   | Admin     | Award badge to user                          |
+| PATCH  | `/admin/users/:id/suspend` | Admin     | Suspend user account                         |
 
 ---
 
@@ -149,6 +167,20 @@ Both support `CANCELLED` and `DISPUTED` from applicable states.
 
 ---
 
+## KYC Flow
+
+Hosts must complete KYC verification before listing. Documents are uploaded to a private Supabase bucket and reviewed by an admin.
+
+| Document              | Type                      |
+| --------------------- | ------------------------- |
+| NRC / National ID     | `NRC_FRONT` or `NRC_BACK` |
+| Proof of Residence    | `PROOF_OF_RESIDENCE`      |
+| Recent Photo (Selfie) | `SELFIE`                  |
+
+KYC Status: `PENDING` → `APPROVED` / `REJECTED`
+
+---
+
 ## Subscription Plans
 
 | Plan        | Commission | Extra Listing Slots | Discovery Boost |
@@ -176,9 +208,9 @@ Pro subscription adds 3 slots on top of the tier base limit.
 
 ### Prerequisites
 
-- Node.js 24+
+- Node.js 20+
 - pnpm 10+
-- Docker Desktop
+- Docker Desktop (for Redis)
 - Postgres.app (macOS)
 
 ### Getting Started
@@ -198,10 +230,11 @@ pnpm install
 
 **3. Set up environment variables**
 
-Copy `.env.example` to `.env` at the root and fill in the required values.
+Create `.env` files in both service directories:
 
-```bash
-cp .env.example .env
+```
+services/auth-service/.env
+services/booking-service/.env
 ```
 
 **4. Start Redis**
@@ -215,13 +248,13 @@ docker compose up -d
 Open Postgres.app and ensure it is running on port 5432. Then create the database:
 
 ```bash
-psql -c "CREATE DATABASE lenda_dev;"
+psql -U postgres -c "CREATE DATABASE lenda_dev;"
 ```
 
 **6. Run database migrations**
 
 ```bash
-cd packages/database && pnpm migrate
+pnpm --filter database exec prisma migrate dev
 ```
 
 **7. Start all services**
@@ -238,24 +271,31 @@ Services run at:
 
 ---
 
-## Environment Variables
+## Deployment
 
-Key variables required in root `.env`:
+### Infrastructure
+
+| Component           | Provider                                                 |
+| ------------------- | -------------------------------------------------------- |
+| Frontend            | Cloudflare Pages                                         |
+| Backend             | Oracle Cloud Always Free (AMD micro)                     |
+| Database            | PostgreSQL 14 on Oracle server                           |
+| Cache               | Redis (Docker) on Oracle server                          |
+| DNS                 | Cloudflare                                               |
+| SSL                 | Let's Encrypt (api subdomain) + Cloudflare (main domain) |
+| Profile/KYC Storage | Supabase Storage                                         |
+| Host Images         | Cloudflare R2                                            |
+
+### Production Deploy
 
 ```bash
-DATABASE_URL="postgresql://localhost:5432/lenda_dev"
-REDIS_URL="redis://localhost:6380"
-JWT_ACCESS_SECRET="64-byte-hex-string"
-JWT_REFRESH_SECRET="64-byte-hex-string"
-SENDGRID_API_KEY="your-sendgrid-key"
-VITE_API_AUTH_URL="http://localhost:3001"
-VITE_API_BOOKING_URL="http://localhost:3002"
-```
-
-Generate JWT secrets with:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+ssh -i ~/.ssh/lenda-oracle.key ubuntu@129.151.136.212
+cd ~/lenda
+git pull origin main
+packages/database/node_modules/.bin/prisma migrate deploy --schema packages/database/prisma/schema.prisma
+pnpm --filter auth-service build
+pnpm --filter booking-service build
+pm2 restart all
 ```
 
 ---
@@ -273,13 +313,9 @@ pnpm --filter auth-service test
 pnpm --filter booking-service test
 ```
 
-Current test coverage: **36/36 passing**
-
 ---
 
 ## Commit Convention
-
-All commits follow the Conventional Commits format:
 
 ```
 feat: add new feature
@@ -296,23 +332,32 @@ docs: documentation updates
 
 ### Done
 
-- [x] Auth service - register, verify, login, refresh, logout, profile, KYC, badges
-- [x] Booking service - listings, bookings, handover, reviews, likes, notifications, discovery, admin
-- [x] Subscriptions - FREE, PRO_MONTHLY, PRO_ANNUAL with commission and listing slot logic
-- [x] Web app scaffold - Vite, React, Tailwind, shadcn/ui, GSAP, TanStack Query, Zustand
-- [x] Homepage - hero, pillars, how it works, host section, footer
-- [x] Auth pages - login, register, verify email
-- [x] Dashboard - layout, overview, profile
+- [x] Auth service — register, verify, login, refresh, logout, forgot password, reset password
+- [x] Profile management — photo upload, bio, location, phone
+- [x] KYC document upload — NRC, proof of residence, selfie
+- [x] Role management — GUEST → HOST upgrade, token refresh on role change
+- [x] Booking service — listings, bookings, handover, reviews, likes, notifications
+- [x] Subscriptions — FREE, PRO_MONTHLY, PRO_ANNUAL
+- [x] Web app — homepage, auth pages, dashboard redesign
+- [x] Dashboard — role-aware sidebar, become-a-host multi-step flow, KYC upload UI
+- [x] Dark/light mode toggle
+- [x] Cloudflare Pages deployment
+- [x] Custom domain — lenda.work
+- [x] Lenda AI chatbot (Groq)
+- [x] Forgot password / reset password flow
 
 ### In Progress
 
-- [x] Dashboard - notifications, bookings, listings, subscription pages
-- [x] Client-side Supabase upload
-- [x] Partner and Join Our Team pages
-- [x] Lenda chatbot
-- [x] Listings browse page
-- [x] Listing detail page
-- [ ] Stripe payment integration
+- [ ] Host portfolio images (Cloudflare R2)
+- [ ] Admin KYC approval UI with document viewer
+- [ ] Role-aware host dashboard view
+- [ ] Service pricing modes (FIXED / HOURLY / NEGOTIABLE)
+- [ ] FAQ page
+- [ ] Admin role assignment in dashboard
+
+### Planned
+
 - [ ] Mobile app (React Native / Expo)
-- [ ] Deployment (Railway → Oracle Cloud)
+- [ ] Payment integration (mobile money)
+- [ ] ARM instance migration (Oracle VM.Standard.A1.Flex)
 - [ ] CI/CD (GitHub Actions)
