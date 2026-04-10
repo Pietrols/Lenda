@@ -79,7 +79,7 @@ export default function DashboardNotifications() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 max-w-2xl">
         {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
@@ -92,7 +92,6 @@ export default function DashboardNotifications() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
           <p className="section-label">Inbox</p>
@@ -102,7 +101,7 @@ export default function DashboardNotifications() {
           </h2>
           <p className="text-foreground/50 text-sm mt-1">
             {unreadCount > 0
-              ? `You have ${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
+              ? `${unreadCount} unread notification${unreadCount > 1 ? "s" : ""}`
               : "You are all caught up"}
           </p>
         </div>
@@ -120,9 +119,8 @@ export default function DashboardNotifications() {
         )}
       </div>
 
-      {/* Notifications list */}
       {notifications.length === 0 ? (
-        <div className="glass-card p-12 border border-border flex flex-col items-center justify-center gap-3">
+        <div className="glass-card p-12 border border-border flex flex-col items-center gap-3">
           <BellOff size={32} className="text-foreground/20" />
           <p className="text-foreground/40 text-sm">No notifications yet</p>
         </div>

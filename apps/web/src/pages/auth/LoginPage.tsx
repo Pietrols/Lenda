@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -32,14 +32,17 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
+  const location = useLocation();
+
   const { mutate: login, isPending } = useMutation({
     mutationFn: authApi.login,
     onSuccess: (data) => {
       setAuth(data.user, data.tokens);
-      toast.success(
-        `Welcome back${data.user.fullName ? `, ${data.user.fullName}` : ""}!`,
-      );
-      navigate("/dashboard");
+      toast.success("Welcome back!");
+      const from =
+        (location.state as { from?: { pathname: string } })?.from?.pathname ??
+        "/dashboard";
+      navigate(from, { replace: true });
     },
     onError: (err: Error) => {
       toast.error(err.message);

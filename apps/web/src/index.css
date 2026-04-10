@@ -63,6 +63,10 @@
     @apply border-border;
   }
 
+  html {
+    scroll-padding-top: 4rem;
+  }
+
   body {
     @apply bg-background text-foreground font-body antialiased;
   }

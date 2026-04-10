@@ -9,7 +9,8 @@ type AuthState = {
   _hasHydrated: boolean;
   setAuth: (user: AuthUser, tokens: AuthTokens) => void;
   clearAuth: () => void;
-  updateUser: (user: AuthUser) => void;
+  updateUser: (partial: Partial<AuthUser>) => void;
+  setTokens: (tokens: AuthTokens) => void;
   setHasHydrated: (value: boolean) => void;
 };
 
@@ -21,12 +22,22 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       _hasHydrated: false,
 
-      setAuth: (user, tokens) => set({ user, tokens, isAuthenticated: true }),
+      setAuth: (user, tokens) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...user } : user,
+          tokens,
+          isAuthenticated: true,
+        })),
 
       clearAuth: () =>
         set({ user: null, tokens: null, isAuthenticated: false }),
 
-      updateUser: (user) => set((state) => ({ ...state, user })),
+      updateUser: (partial) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, ...partial } : state.user,
+        })),
+
+      setTokens: (tokens) => set({ tokens }),
 
       setHasHydrated: (value) => set({ _hasHydrated: value }),
     }),

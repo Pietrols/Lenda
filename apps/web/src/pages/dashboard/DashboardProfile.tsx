@@ -4,15 +4,23 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Save, Pencil, X } from "lucide-react";
+import {
+  Camera,
+  Save,
+  Pencil,
+  X,
+  Upload,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { api, AUTH_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import type { AuthUser } from "@/api/auth";
 import { authApi } from "@/api/auth";
-import { useSearchParams } from "react-router-dom";
+import type { AuthUser } from "@/api/auth";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -29,32 +37,23 @@ const kycColors: Record<string, string> = {
   REJECTED: "text-red-400 bg-red-400/10 border-red-400/30",
 };
 
+const kycIcons: Record<string, React.ReactNode> = {
+  PENDING: <Clock size={12} />,
+  APPROVED: <CheckCircle size={12} />,
+  REJECTED: <AlertCircle size={12} />,
+};
+
 export default function DashboardProfile() {
-  const { user, tokens, accessToken, updateUser, setAuth } = useAuth();
+  const { user, tokens, accessToken, updateUser, setTokens } = useAuth();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [photoTimestamp, setPhotoTimestamp] = useState(() => Date.now());
   const [isEditing, setIsEditing] = useState(false);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const showUpgrade = searchParams.get("upgrade") === "host";
-
-  const { mutate: upgradeToHost, isPending: isUpgrading } = useMutation({
-    mutationFn: () => authApi.addRole("HOST", accessToken ?? ""),
-    onSuccess: async (data: { user: AuthUser }) => {
-      try {
-        const refreshed = await authApi.refresh(tokens?.refreshToken ?? "");
-        // Keep existing user data, only update roles and tokens
-        setAuth({ ...user!, roles: data.user.roles }, refreshed.tokens);
-      } catch {
-        updateUser(data.user);
-      }
-      setSearchParams({});
-      toast.success("You are now a Host! You can create listings.");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
+  const hasHostRole = user?.roles?.includes("HOST") ?? false;
+  const kycApproved = user?.kycStatus === "APPROVED";
+  const kycPending = user?.kycStatus === "PENDING";
+  const kycRejected = user?.kycStatus === "REJECTED";
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", "me"],
@@ -65,6 +64,7 @@ export default function DashboardProfile() {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isDirty },
   } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
@@ -76,11 +76,22 @@ export default function DashboardProfile() {
     },
   });
 
+  // PATCH /profiles/me returns { user: AuthUser }
   const { mutate: updateProfile, isPending: isSaving } = useMutation({
     mutationFn: (data: ProfileForm) =>
-      api.patch<AuthUser>("/profiles/me", data, accessToken, AUTH_URL),
-    onSuccess: (updated) => {
-      updateUser(updated);
+      api.patch<{ user: AuthUser }>(
+        "/profiles/me",
+        data,
+        accessToken,
+        AUTH_URL,
+      ),
+    onSuccess: (response) => {
+      updateUser({
+        fullName: response.user.fullName,
+        bio: response.user.bio,
+        location: response.user.location,
+        phone: response.user.phone,
+      });
       queryClient.invalidateQueries({ queryKey: ["profile", "me"] });
       toast.success("Profile updated.");
       setIsEditing(false);
@@ -92,30 +103,43 @@ export default function DashboardProfile() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("photo", file);
-
       const res = await fetch(`${AUTH_URL}/profiles/me/photo`, {
         method: "POST",
         headers: { Authorization: `Bearer ${accessToken}` },
         body: formData,
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Upload failed");
-      return data;
+      return data as { user: AuthUser };
     },
     onSuccess: (data) => {
-      updateUser({ ...user!, photoUrl: data.user.photoUrl });
+      updateUser({ photoUrl: data.user.photoUrl });
       queryClient.setQueryData(
         ["profile", "me"],
-        (old: AuthUser | undefined) => {
-          if (!old) return old;
-          return { ...old, photoUrl: data.user.photoUrl };
-        },
+        (old: AuthUser | undefined) =>
+          old ? { ...old, photoUrl: data.user.photoUrl } : old,
       );
-      queryClient.invalidateQueries({ queryKey: ["profile", "me"] });
       setPhotoTimestamp(Date.now());
       toast.success("Profile photo updated.");
-      setPreviewUrl(null);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  // addRole must refresh token without overwriting user profile fields
+  const { mutate: upgradeToHost, isPending: isUpgrading } = useMutation({
+    mutationFn: () => authApi.addRole("HOST", accessToken ?? ""),
+    onSuccess: async (data: { user: AuthUser }) => {
+      try {
+        const refreshed = await authApi.refresh(tokens?.refreshToken ?? "");
+        // Only update roles from addRole response
+        // Only update tokens from refresh response
+        // NEVER replace full user with refresh response (it lacks profile fields)
+        updateUser({ roles: data.user.roles });
+        setTokens(refreshed.tokens);
+      } catch {
+        updateUser({ roles: data.user.roles });
+      }
+      toast.success("Host role added. Complete KYC to start listing.");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -123,13 +147,12 @@ export default function DashboardProfile() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPreviewUrl(URL.createObjectURL(file));
     uploadPhoto(file);
   };
 
   const onSubmit = (data: ProfileForm) => updateProfile(data);
 
-  const photoUrl = profile?.photoUrl ?? previewUrl ?? null;
+  const photoUrl = profile?.photoUrl ?? user?.photoUrl ?? null;
   const initials = (profile?.fullName ?? profile?.email ?? "U")
     .split(" ")
     .map((n) => n[0])
@@ -139,7 +162,7 @@ export default function DashboardProfile() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-6 max-w-2xl">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
@@ -152,27 +175,6 @@ export default function DashboardProfile() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
-      {showUpgrade && !user?.roles?.includes("HOST") && (
-        <div className="glass-card p-6 border border-gold/30 bg-gold/5">
-          <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
-            Become a Host
-          </h3>
-          <p className="text-foreground/50 text-sm mt-2 mb-4">
-            Add the HOST role to your account to create listings and start
-            earning. You keep your GUEST role - both roles work on the same
-            account.
-          </p>
-          <Button
-            variant="gold"
-            size="md"
-            className="gap-2"
-            disabled={isUpgrading}
-            onClick={() => upgradeToHost()}
-          >
-            {isUpgrading ? "Upgrading..." : "Confirm - Become a Host"}
-          </Button>
-        </div>
-      )}
       <div>
         <p className="section-label">Account</p>
         <GoldLine className="w-10 mb-3" />
@@ -180,11 +182,12 @@ export default function DashboardProfile() {
           Your Profile
         </h2>
         <p className="text-foreground/50 text-sm mt-1">
-          Update your personal information and profile photo.
+          Manage your personal information and account settings.
         </p>
       </div>
 
-      <div className="glass-card p-6 border border-border flex items-center gap-6">
+      {/* Section 1 - Identity */}
+      <div className="glass-card p-6 border border-border flex items-center gap-4 md:gap-6">
         <div className="relative shrink-0">
           <div className="w-20 h-20 rounded-full overflow-hidden bg-gold/20 flex items-center justify-center">
             {photoUrl ? (
@@ -202,7 +205,7 @@ export default function DashboardProfile() {
           <button
             onClick={() => fileRef.current?.click()}
             disabled={isUploading}
-            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gold flex items-center justify-center hover:bg-gold/80 transition-colors"
+            className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gold flex items-center justify-center hover:bg-gold/80 transition-colors disabled:opacity-50"
           >
             <Camera size={13} className="text-lenda-dark" />
           </button>
@@ -214,22 +217,24 @@ export default function DashboardProfile() {
             onChange={handleFileChange}
           />
         </div>
-
-        <div>
-          <p className="font-semibold text-foreground">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-foreground truncate">
             {profile?.fullName ?? "No name set"}
           </p>
-          <p className="text-foreground/50 text-sm">{profile?.email}</p>
-          <div className="flex items-center gap-2 mt-2">
+          <p className="text-foreground/50 text-sm truncate">
+            {profile?.email}
+          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-2">
             <span
               className={cn(
-                "text-xs font-medium px-2 py-0.5 rounded-full border",
+                "text-xs font-medium px-2 py-0.5 rounded-full border flex items-center gap-1",
                 kycColors[profile?.kycStatus ?? "PENDING"],
               )}
             >
+              {kycIcons[profile?.kycStatus ?? "PENDING"]}
               KYC {profile?.kycStatus}
             </span>
-            {user?.roles?.map((role) => (
+            {(user?.roles ?? []).map((role) => (
               <span
                 key={role}
                 className="text-xs font-medium px-2 py-0.5 rounded-full border border-gold/30 text-gold bg-gold/10"
@@ -241,52 +246,70 @@ export default function DashboardProfile() {
         </div>
       </div>
 
-      {isEditing ? (
-        <div className="glass-card p-6 border border-border">
+      {/* Section 2 - Personal details */}
+      <div className="glass-card border border-border overflow-hidden">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+          <h3 className="font-display font-bold text-sm uppercase tracking-tight text-foreground">
+            Personal Details
+          </h3>
+          {!isEditing && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center gap-1.5 text-xs text-gold hover:text-gold/80 transition-colors font-medium"
+            >
+              <Pencil size={13} /> Edit
+            </button>
+          )}
+        </div>
+
+        {isEditing ? (
           <form
             onSubmit={handleSubmit(onSubmit)}
-            className="flex flex-col gap-5"
+            className="p-6 flex flex-col gap-4"
           >
-            <div className="flex flex-col gap-1.5">
-              <label className="text-micro text-foreground/60">Full Name</label>
-              <input
-                {...register("fullName")}
-                type="text"
-                placeholder="Your full name"
-                className={cn(
-                  "w-full h-11 px-4 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60",
-                  errors.fullName ? "border-red-500/60" : "border-border",
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-micro text-foreground/60">
+                  Full Name
+                </label>
+                <input
+                  {...register("fullName")}
+                  type="text"
+                  placeholder="Your full name"
+                  className={cn(
+                    "w-full h-11 px-4 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60",
+                    errors.fullName ? "border-red-500/60" : "border-border",
+                  )}
+                />
+                {errors.fullName && (
+                  <p className="text-red-400 text-xs">
+                    {errors.fullName.message}
+                  </p>
                 )}
-              />
-              {errors.fullName && (
-                <p className="text-red-400 text-xs">
-                  {errors.fullName.message}
-                </p>
-              )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-micro text-foreground/60">
+                  Phone Number
+                </label>
+                <input
+                  {...register("phone")}
+                  type="tel"
+                  placeholder="+260 97 000 0000"
+                  className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-micro text-foreground/60">
+                  Location
+                </label>
+                <input
+                  {...register("location")}
+                  type="text"
+                  placeholder="e.g. Lusaka, Zambia"
+                  className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60"
+                />
+              </div>
             </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-micro text-foreground/60">
-                Phone Number
-              </label>
-              <input
-                {...register("phone")}
-                type="tel"
-                placeholder="+260 97 000 0000"
-                className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-micro text-foreground/60">Location</label>
-              <input
-                {...register("location")}
-                type="text"
-                placeholder="e.g. Lusaka, Zambia"
-                className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60"
-              />
-            </div>
-
             <div className="flex flex-col gap-1.5">
               <label className="text-micro text-foreground/60">Bio</label>
               <textarea
@@ -294,7 +317,7 @@ export default function DashboardProfile() {
                 rows={3}
                 placeholder="Tell others a bit about yourself..."
                 className={cn(
-                  "w-full px-4 py-3 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors duration-200 focus:border-gold/60 resize-none",
+                  "w-full px-4 py-3 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60 resize-none",
                   errors.bio ? "border-red-500/60" : "border-border",
                 )}
               />
@@ -302,7 +325,6 @@ export default function DashboardProfile() {
                 <p className="text-red-400 text-xs">{errors.bio.message}</p>
               )}
             </div>
-
             <div className="flex items-center gap-3">
               <Button
                 type="submit"
@@ -311,7 +333,7 @@ export default function DashboardProfile() {
                 className="gap-2"
                 disabled={isSaving || !isDirty}
               >
-                <Save size={16} />
+                <Save size={15} />
                 {isSaving ? "Saving..." : "Save Changes"}
               </Button>
               <Button
@@ -319,62 +341,204 @@ export default function DashboardProfile() {
                 variant="ghost"
                 size="md"
                 className="gap-2"
-                onClick={() => setIsEditing(false)}
+                onClick={() => {
+                  setIsEditing(false);
+                  reset();
+                }}
               >
-                <X size={16} />
-                Cancel
+                <X size={15} /> Cancel
               </Button>
             </div>
           </form>
-        </div>
-      ) : (
-        <div className="glass-card p-6 border border-border flex flex-col gap-5">
-          <div className="grid grid-cols-2 gap-5">
-            <div className="flex flex-col gap-1">
-              <p className="text-micro text-foreground/60">Full Name</p>
-              <p className="text-sm text-foreground">
-                {profile?.fullName || (
-                  <span className="text-foreground/30">Not set</span>
-                )}
-              </p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-micro text-foreground/60">Phone Number</p>
-              <p className="text-sm text-foreground">
-                {profile?.phone || (
-                  <span className="text-foreground/30">Not set</span>
-                )}
-              </p>
-            </div>
-            <div className="flex flex-col gap-1">
-              <p className="text-micro text-foreground/60">Location</p>
-              <p className="text-sm text-foreground">
-                {profile?.location || (
-                  <span className="text-foreground/30">Not set</span>
+        ) : (
+          <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <InfoField label="Full Name" value={profile?.fullName} />
+            <InfoField label="Phone Number" value={profile?.phone} />
+            <InfoField label="Location" value={profile?.location} />
+            <InfoField label="Email" value={profile?.email} />
+            <div className="sm:col-span-2 flex flex-col gap-1">
+              <p className="text-micro text-foreground/60">Bio</p>
+              <p className="text-sm text-foreground leading-relaxed">
+                {profile?.bio || (
+                  <span className="text-foreground/30">No bio added yet.</span>
                 )}
               </p>
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-micro text-foreground/60">Bio</p>
-            <p className="text-sm text-foreground leading-relaxed">
-              {profile?.bio || (
-                <span className="text-foreground/30">No bio added yet.</span>
-              )}
+        )}
+      </div>
+
+      {/* Section 3 - KYC Documents (hosts only) */}
+      {hasHostRole && !kycApproved && (
+        <div className="glass-card border border-border overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h3 className="font-display font-bold text-sm uppercase tracking-tight text-foreground">
+              KYC Verification
+            </h3>
+            <p className="text-foreground/50 text-xs mt-1">
+              Upload your verification documents to start listing.
             </p>
           </div>
+          <div className="p-6 flex flex-col gap-4">
+            {kycPending && (
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/20">
+                <Clock size={16} className="text-yellow-500 shrink-0" />
+                <p className="text-sm text-yellow-500/90">
+                  Your documents are under review. We'll notify you when
+                  approved.
+                </p>
+              </div>
+            )}
+            {kycRejected && (
+              <div className="flex items-center gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/20">
+                <AlertCircle size={16} className="text-red-400 shrink-0" />
+                <p className="text-sm text-red-400/90">
+                  Verification was rejected. Please re-upload your documents.
+                </p>
+              </div>
+            )}
+            <KycUploadSlot
+              label="NRC / National ID"
+              docType="NRC"
+              accessToken={accessToken ?? ""}
+            />
+            <KycUploadSlot
+              label="Proof of Residence"
+              docType="PROOF_OF_RESIDENCE"
+              accessToken={accessToken ?? ""}
+            />
+            <KycUploadSlot
+              label="Recent Photo (Selfie)"
+              docType="SELFIE"
+              accessToken={accessToken ?? ""}
+            />
+          </div>
+        </div>
+      )}
+
+      {kycApproved && (
+        <div className="flex items-center gap-3 p-4 rounded-xl bg-green-400/5 border border-green-400/20">
+          <CheckCircle size={16} className="text-green-400 shrink-0" />
+          <p className="text-sm text-green-400/90 font-medium">
+            Identity verified - you are a verified Lenda host.
+          </p>
+        </div>
+      )}
+
+      {/* Section 4 - Become a Host (guests only) */}
+      {!hasHostRole && (
+        <div className="glass-card p-6 border border-gold/20 bg-gold/5">
+          <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
+            Become a Host
+          </h3>
+          <p className="text-foreground/50 text-sm mt-2 mb-4">
+            List your assets or services and start earning. You keep your guest
+            access - both roles work on the same account.
+          </p>
           <Button
-            type="button"
             variant="gold"
             size="md"
-            className="gap-2 self-start"
-            onClick={() => setIsEditing(true)}
+            className="gap-2"
+            disabled={isUpgrading}
+            onClick={() => upgradeToHost()}
           >
-            <Pencil size={16} />
-            Edit Profile
+            {isUpgrading ? "Processing..." : "Start Host Application"}
           </Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function InfoField({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-micro text-foreground/60">{label}</p>
+      <p className="text-sm text-foreground">
+        {value || <span className="text-foreground/30">Not set</span>}
+      </p>
+    </div>
+  );
+}
+
+function KycUploadSlot({
+  label,
+  docType,
+  accessToken,
+}: {
+  label: string;
+  docType: string;
+  accessToken: string;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploaded, setUploaded] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("document", file);
+      formData.append("docType", docType);
+      const res = await fetch(`${AUTH_URL}/profiles/me/kyc`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message ?? "Upload failed");
+      }
+      setUploaded(true);
+      toast.success(`${label} uploaded successfully.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-background gap-4">
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+            uploaded
+              ? "bg-green-400/20 text-green-400"
+              : "bg-foreground/5 text-foreground/30",
+          )}
+        >
+          {uploaded ? <CheckCircle size={16} /> : <Upload size={14} />}
+        </div>
+        <div>
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          <p className="text-xs text-foreground/40">
+            {uploaded ? "Uploaded" : "Not uploaded"}
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => fileRef.current?.click()}
+        disabled={isUploading || uploaded}
+        className={cn(
+          "text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors",
+          uploaded
+            ? "text-green-400/50 cursor-default"
+            : "text-gold border border-gold/30 hover:bg-gold/5",
+        )}
+      >
+        {isUploading ? "Uploading..." : uploaded ? "Uploaded" : "Upload"}
+      </button>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*,.pdf"
+        className="hidden"
+        onChange={handleUpload}
+      />
     </div>
   );
 }

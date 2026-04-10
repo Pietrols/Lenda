@@ -1,8 +1,16 @@
 import { useAuthStore } from "@/store/auth.store";
 
 export function useAuth() {
-  const { user, tokens, isAuthenticated, _hasHydrated, setAuth, clearAuth, updateUser } =
-    useAuthStore();
+  const {
+    user,
+    tokens,
+    isAuthenticated,
+    _hasHydrated,
+    setAuth,
+    clearAuth,
+    updateUser,
+    setTokens,
+  } = useAuthStore();
 
   return {
     user,
@@ -12,6 +20,7 @@ export function useAuth() {
     setAuth,
     clearAuth,
     updateUser,
+    setTokens,
     accessToken: tokens?.accessToken,
   };
 }
