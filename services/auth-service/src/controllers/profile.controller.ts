@@ -8,6 +8,7 @@ import {
   addRole,
   uploadKycDocument,
   getKycDocuments,
+  resubmitKyc,
 } from "../services/profile.service";
 
 export async function updateProfileHandler(
@@ -136,6 +137,20 @@ export async function uploadKycDocumentHandler(
     if (!docType) throw new Error("docType is required");
     const result = await uploadKycDocument(userId, docType, req.file);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function resubmitKycHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const user = await resubmitKyc(userId);
+    res.json({ user });
   } catch (err) {
     next(err);
   }

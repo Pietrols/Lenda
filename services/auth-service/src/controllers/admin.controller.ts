@@ -33,6 +33,7 @@ export async function listUsersHandler(
           listingTier: true,
           createdAt: true,
           badges: true,
+          _count: { select: { kycDocuments: true } },
         },
         orderBy: { createdAt: "desc" },
         skip,

@@ -13,6 +13,7 @@ import {
   addRoleHandler,
   uploadKycDocumentHandler,
   getKycDocumentsHandler,
+  resubmitKycHandler,
 } from "../controllers/profile.controller";
 
 const router: IRouter = Router();
@@ -44,5 +45,7 @@ router.post(
 
 // Public profile by ID — must be last
 router.get("/:id", getProfileHandler);
+
+router.patch("/me/kyc/resubmit", authenticate, resubmitKycHandler);
 
 export default router;

@@ -75,6 +75,7 @@ export default function BecomeAHostPage() {
   const hasHostRole = user?.roles?.includes("HOST") ?? false;
   const kycApproved = user?.kycStatus === "APPROVED";
   const kycPending = user?.kycStatus === "PENDING";
+  const kycRejected = user?.kycStatus === "REJECTED";
   const hasProfileName = !!user?.fullName?.trim();
   const hasProfilePhoto = !!user?.photoUrl;
   const profileComplete = hasProfileName && hasProfilePhoto;
@@ -134,6 +135,22 @@ export default function BecomeAHostPage() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const { mutate: resubmitKyc, isPending: isResubmitting } = useMutation({
+    mutationFn: () =>
+      api.patch<{ user: AuthUser }>(
+        "/profiles/me/kyc/resubmit",
+        {},
+        accessToken,
+        AUTH_URL,
+      ),
+    onSuccess: (data) => {
+      updateUser({ kycStatus: data.user.kycStatus });
+      sessionStorage.removeItem(SESSION_KEY);
+      toast.success("Application resubmitted for review.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   // Early returns after hooks
   if (hasHostRole && kycApproved) {
     navigate("/dashboard", { replace: true });
@@ -142,6 +159,62 @@ export default function BecomeAHostPage() {
 
   if (hasHostRole && kycPending) {
     return <PendingScreen />;
+  }
+
+  if (hasHostRole && kycRejected) {
+    // Drop them directly into KYC step so they can resubmit
+    // setStep("kyc") would cause a render loop — instead render KYC step inline
+    return (
+      <div className="max-w-2xl flex flex-col gap-6">
+        <div>
+          <p className="section-label">Host Application</p>
+          <GoldLine className="w-10 mb-3" />
+          <h2 className="font-display font-bold text-2xl text-foreground uppercase tracking-tight">
+            Resubmit Documents
+          </h2>
+        </div>
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/5 border border-red-500/20">
+          <AlertCircle size={16} className="text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm text-red-400 font-medium">
+              Your KYC was rejected
+            </p>
+            <p className="text-xs text-foreground/50 mt-0.5">
+              Please re-upload clear, readable documents and resubmit. Check
+              your notifications for the rejection reason.
+            </p>
+          </div>
+        </div>
+        <div className="glass-card border border-border overflow-hidden">
+          <div className="px-6 py-4 border-b border-border">
+            <h3 className="font-display font-bold text-sm uppercase tracking-tight text-foreground">
+              Verification Documents
+            </h3>
+          </div>
+          <div className="p-6">
+            <KycUploadSection
+              accessToken={accessToken ?? ""}
+              onAllUploaded={() => setAllDocsUploaded(true)}
+            />
+          </div>
+        </div>
+        <Button
+          variant="gold"
+          size="md"
+          className="gap-2 self-start"
+          disabled={isResubmitting || !allDocsUploaded}
+          onClick={() => resubmitKyc()}
+        >
+          {isResubmitting ? "Submitting..." : "Resubmit Application"}
+          {!isResubmitting && <ArrowRight size={15} />}
+        </Button>
+        {!allDocsUploaded && (
+          <p className="text-xs text-foreground/40">
+            Upload all 4 documents to enable resubmission.
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (

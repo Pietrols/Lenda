@@ -36,7 +36,7 @@ const pageTitles: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const { user, tokens, clearAuth } = useAuth();
+  const { user, tokens, accessToken, clearAuth } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -77,6 +77,7 @@ export default function DashboardPage() {
           activeRole={activeRole}
           onRoleChange={setActiveRole}
           onLogout={() => logout()}
+          accessToken={accessToken}
         />
       </div>
 
@@ -97,6 +98,7 @@ export default function DashboardPage() {
               }}
               onLogout={() => logout()}
               onNavClick={() => setSidebarOpen(false)}
+              accessToken={accessToken}
               mobile
             />
           </div>

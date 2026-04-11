@@ -263,3 +263,26 @@ export async function getKycDocuments(userId: string) {
 
   return withUrls;
 }
+
+export async function resubmitKyc(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError("User not found", 404);
+  if (user.kycStatus !== ("REJECTED" as any)) {
+    throw new AppError("KYC can only be resubmitted after rejection", 400);
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { kycStatus: "PENDING" as any },
+    select: {
+      id: true,
+      email: true,
+      kycStatus: true,
+      roles: true,
+      fullName: true,
+      photoUrl: true,
+    },
+  });
+
+  return updated;
+}

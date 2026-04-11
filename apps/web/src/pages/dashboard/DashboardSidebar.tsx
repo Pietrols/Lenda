@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -14,6 +15,7 @@ import {
   Shield,
   ArrowRight,
 } from "lucide-react";
+import { api, BOOKING_URL } from "@/api/client";
 import type { AuthUser } from "@/api/auth";
 
 type NavItem = {
@@ -79,6 +81,7 @@ interface DashboardSidebarProps {
   onLogout: () => void;
   onNavClick?: () => void;
   mobile?: boolean;
+  accessToken?: string;
 }
 
 export function DashboardSidebar({
@@ -88,8 +91,23 @@ export function DashboardSidebar({
   onLogout,
   onNavClick,
   mobile = false,
+  accessToken,
 }: DashboardSidebarProps) {
   const location = useLocation();
+
+  const { data: unreadData } = useQuery({
+    queryKey: ["notifications", "unread-count"],
+    queryFn: () =>
+      api.get<{ count: number }>(
+        "/notifications/unread-count",
+        accessToken,
+        BOOKING_URL,
+      ),
+    enabled: !!accessToken,
+    refetchInterval: 30000,
+  });
+
+  const unreadCount = unreadData?.count ?? 0;
 
   if (!user) return null;
 
@@ -98,6 +116,7 @@ export function DashboardSidebar({
   const hasGuestRole = userRoles.includes("GUEST");
   const isAdmin = userRoles.includes("ADMIN");
   const kycApproved = user.kycStatus === "APPROVED";
+  const kycRejected = user.kycStatus === "REJECTED";
   const showRoleToggle = hasHostRole && hasGuestRole && kycApproved;
 
   const visibleNavItems = navItems.filter((item) => {
@@ -201,6 +220,7 @@ export function DashboardSidebar({
               ? location.pathname === "/dashboard"
               : location.pathname.startsWith(item.href);
           const isLocked = item.requiresKyc && !kycApproved;
+          const isNotifications = item.href === "/dashboard/notifications";
 
           if (isLocked) {
             return (
@@ -228,7 +248,14 @@ export function DashboardSidebar({
                   : "text-white/50 hover:text-white hover:bg-white/5",
               )}
             >
-              <span className="shrink-0">{item.icon}</span>
+              <span className="relative shrink-0">
+                {item.icon}
+                {isNotifications && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </span>
               {item.label}
               {isActive && (
                 <ChevronRight
@@ -257,8 +284,8 @@ export function DashboardSidebar({
           </Link>
         )}
 
-        {/* Host pending KYC notice */}
-        {hasHostRole && !kycApproved && (
+        {/* KYC status notices */}
+        {hasHostRole && !kycApproved && !kycRejected && (
           <div className="mt-2 px-3 py-2.5 rounded-xl border border-yellow-500/20 bg-yellow-500/5">
             <p className="text-xs text-yellow-500/80 font-medium">
               KYC pending review
@@ -267,6 +294,19 @@ export function DashboardSidebar({
               Listings unlock once approved
             </p>
           </div>
+        )}
+
+        {hasHostRole && kycRejected && (
+          <Link
+            to="/dashboard/become-a-host"
+            onClick={onNavClick}
+            className="mt-2 px-3 py-2.5 rounded-xl border border-red-500/20 bg-red-500/5 block"
+          >
+            <p className="text-xs text-red-400 font-medium">KYC rejected</p>
+            <p className="text-xs text-white/30 mt-0.5">
+              Tap to resubmit documents →
+            </p>
+          </Link>
         )}
 
         {/* Admin link */}
