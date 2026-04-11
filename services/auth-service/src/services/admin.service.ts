@@ -1,6 +1,8 @@
 import { prisma, KycStatus, NotificationType } from "@lenda/database";
 import type { MessageResponse } from "@lenda/types";
 import { AppError, Errors } from "../lib/AppError";
+import { getSignedDownloadUrl } from "../lib/r2";
+import { config } from "../config";
 
 export async function approveKyc(
   userId: string,
@@ -123,5 +125,22 @@ export async function getKycDocuments(userId: string) {
     where: { userId },
     orderBy: { uploadedAt: "desc" },
   });
-  return docs;
+  return Promise.all(
+    docs.map(async (doc: any) => {
+      if (doc.url.startsWith("r2://")) {
+        const key = doc.url.replace(`r2://${config.R2_KYC_BUCKET}/`, "");
+        try {
+          const signedUrl = await getSignedDownloadUrl(
+            config.R2_KYC_BUCKET,
+            key,
+            3600,
+          );
+          return { ...doc, url: signedUrl };
+        } catch {
+          return doc;
+        }
+      }
+      return doc;
+    }),
+  );
 }

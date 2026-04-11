@@ -21,6 +21,7 @@ import {
   Star,
   Clock,
   AlertCircle,
+  FileSearch,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,10 +33,17 @@ type AdminUserDetail = {
   kycStatus: string;
   isActive: boolean;
   createdAt: string;
-  badges?: string[];
+  badges?: { label: string }[];
   bio?: string | null;
   location?: string | null;
   photoUrl?: string | null;
+};
+
+type KycDocument = {
+  id: string;
+  type: string;
+  url: string;
+  uploadedAt: string;
 };
 
 type Booking = {
@@ -81,6 +89,13 @@ type ConfirmState = {
   confirmLabel: string;
   variant: "destructive" | "gold";
   onConfirm: () => void;
+};
+
+const docTypeLabels: Record<string, string> = {
+  NRC_FRONT: "NRC Front",
+  NRC_BACK: "NRC Back",
+  PROOF_OF_RESIDENCE: "Proof of Residence",
+  SELFIE: "Recent Photo",
 };
 
 const kycStatusConfig: Record<string, { label: string; className: string }> = {
@@ -165,6 +180,8 @@ export default function AdminUserDetail() {
 
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [showBadgeDialog, setShowBadgeDialog] = useState(false);
+  const [showKycModal, setShowKycModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const {
     register,
@@ -175,7 +192,6 @@ export default function AdminUserDetail() {
     resolver: zodResolver(badgeSchema),
   });
 
-  // Fetch user detail
   const { data: userData, isLoading: userLoading } = useQuery({
     queryKey: ["admin-user", id],
     queryFn: () =>
@@ -187,7 +203,17 @@ export default function AdminUserDetail() {
     enabled: !!accessToken && !!id,
   });
 
-  // Fetch all bookings and filter for this user
+  const { data: kycDocsData } = useQuery({
+    queryKey: ["admin-kyc-docs", id],
+    queryFn: () =>
+      api.get<{ documents: KycDocument[] }>(
+        `/admin/users/${id}/kyc-documents`,
+        accessToken,
+        AUTH_URL,
+      ),
+    enabled: !!id && !!accessToken && showKycModal,
+  });
+
   const { data: bookingsData, isLoading: bookingsLoading } = useQuery({
     queryKey: ["admin-user-bookings", id],
     queryFn: () =>
@@ -195,7 +221,6 @@ export default function AdminUserDetail() {
     enabled: !!accessToken && !!id,
   });
 
-  // Fetch reviews for this user
   const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
     queryKey: ["admin-user-reviews", id],
     queryFn: () =>
@@ -204,7 +229,6 @@ export default function AdminUserDetail() {
     retry: false,
   });
 
-  // Fetch listings and filter for this user
   const { data: listingsData, isLoading: listingsLoading } = useQuery({
     queryKey: ["admin-user-listings", id],
     queryFn: () =>
@@ -221,14 +245,17 @@ export default function AdminUserDetail() {
         accessToken,
         AUTH_URL,
       ),
-    onSuccess: () => {
-      toast.success("KYC status updated.");
+    onSuccess: (_, { status }) => {
+      toast.success(
+        `KYC ${status === "APPROVED" ? "approved" : "rejected"}. User has been notified.`,
+      );
       queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setShowKycModal(false);
+      setRejectionReason("");
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to update KYC status.");
-    },
+    onError: (err: Error) =>
+      toast.error(err.message ?? "Failed to update KYC status."),
   });
 
   const badgeMutation = useMutation({
@@ -241,9 +268,8 @@ export default function AdminUserDetail() {
       setShowBadgeDialog(false);
       reset();
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to award badge.");
-    },
+    onError: (err: Error) =>
+      toast.error(err.message ?? "Failed to award badge."),
   });
 
   const suspendMutation = useMutation({
@@ -259,9 +285,7 @@ export default function AdminUserDetail() {
       queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Action failed.");
-    },
+    onError: (err: Error) => toast.error(err.message ?? "Action failed."),
   });
 
   const user = userData?.user;
@@ -272,6 +296,7 @@ export default function AdminUserDetail() {
   const reviews = reviewsData?.reviews ?? [];
   const allListings = listingsData?.listings ?? [];
   const userListings = allListings.filter((l) => l.hostId === id);
+  const kycDocs = kycDocsData?.documents ?? [];
 
   const completedBookings = userBookings.filter(
     (b) => b.status === "COMPLETED",
@@ -287,26 +312,6 @@ export default function AdminUserDetail() {
     kycStatusConfig[user?.kycStatus ?? "NOT_SUBMITTED"] ??
     kycStatusConfig.NOT_SUBMITTED;
   const isHost = user?.roles.includes("HOST");
-
-  function handleApproveKyc() {
-    setConfirmState({
-      title: "Approve KYC",
-      message: `Approve KYC verification for ${user?.fullName ?? user?.email}?`,
-      confirmLabel: "Approve",
-      variant: "gold",
-      onConfirm: () => kycMutation.mutate({ status: "APPROVED" }),
-    });
-  }
-
-  function handleRejectKyc() {
-    setConfirmState({
-      title: "Reject KYC",
-      message: `Reject KYC verification for ${user?.fullName ?? user?.email}? This action will notify the user.`,
-      confirmLabel: "Reject",
-      variant: "destructive",
-      onConfirm: () => kycMutation.mutate({ status: "REJECTED" }),
-    });
-  }
 
   function handleSuspend() {
     if (!user) return;
@@ -332,14 +337,6 @@ export default function AdminUserDetail() {
       <div className="flex flex-col gap-6">
         <div className="h-8 w-32 bg-foreground/10 rounded animate-pulse" />
         <div className="glass-card p-6 border border-border h-40 animate-pulse" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="glass-card p-6 border border-border h-24 animate-pulse"
-            />
-          ))}
-        </div>
       </div>
     );
   }
@@ -354,9 +351,7 @@ export default function AdminUserDetail() {
           <ArrowLeft size={15} /> Back to Users
         </button>
         <div className="glass-card p-10 border border-border text-center">
-          <p className="text-foreground/40 text-sm font-body">
-            User not found.
-          </p>
+          <p className="text-foreground/40 text-sm">User not found.</p>
         </div>
       </div>
     );
@@ -364,7 +359,6 @@ export default function AdminUserDetail() {
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Back */}
       <button
         onClick={() => navigate("/admin/users")}
         className="flex items-center gap-2 text-sm text-foreground/50 hover:text-foreground transition-colors w-fit"
@@ -375,12 +369,18 @@ export default function AdminUserDetail() {
       {/* Profile header */}
       <div className="glass-card p-6 border border-border">
         <div className="flex flex-col sm:flex-row sm:items-start gap-5">
-          {/* Avatar */}
-          <div className="w-16 h-16 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-bold text-2xl font-display shrink-0">
-            {user.fullName?.[0] ?? user.email[0].toUpperCase()}
+          <div className="w-16 h-16 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-bold text-2xl font-display shrink-0 overflow-hidden">
+            {user.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt="avatar"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              (user.fullName?.[0] ?? user.email[0].toUpperCase())
+            )}
           </div>
 
-          {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div>
@@ -390,7 +390,6 @@ export default function AdminUserDetail() {
                 <p className="text-foreground/50 text-sm font-body mt-0.5">
                   {user.email}
                 </p>
-
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   {user.roles.map((role) => (
                     <span
@@ -414,20 +413,18 @@ export default function AdminUserDetail() {
                     </span>
                   )}
                 </div>
-
                 {user.badges && user.badges.length > 0 && (
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     {user.badges.map((badge) => (
                       <span
-                        key={badge}
+                        key={badge.label}
                         className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-gold/30 text-gold bg-gold/5 font-body"
                       >
-                        <Award size={10} /> {badge}
+                        <Award size={10} /> {badge.label}
                       </span>
                     ))}
                   </div>
                 )}
-
                 {user.location && (
                   <p className="text-xs text-foreground/40 font-body mt-1">
                     {user.location}
@@ -446,20 +443,12 @@ export default function AdminUserDetail() {
               {/* Admin actions */}
               <div className="flex flex-wrap gap-2">
                 {user.kycStatus === "PENDING" && (
-                  <>
-                    <button
-                      onClick={handleApproveKyc}
-                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-green-400/30 text-green-400 hover:bg-green-400/10 transition-colors"
-                    >
-                      <CheckCircle size={13} /> Approve KYC
-                    </button>
-                    <button
-                      onClick={handleRejectKyc}
-                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
-                    >
-                      <XCircle size={13} /> Reject KYC
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setShowKycModal(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gold/40 text-gold hover:bg-gold/10 transition-colors"
+                  >
+                    <FileSearch size={13} /> Review KYC
+                  </button>
                 )}
                 <button
                   onClick={() => {
@@ -553,7 +542,7 @@ export default function AdminUserDetail() {
         ))}
       </div>
 
-      {/* Recent Bookings */}
+      {/* Bookings */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display font-bold text-sm uppercase tracking-tight text-foreground">
@@ -563,7 +552,6 @@ export default function AdminUserDetail() {
             {userBookings.length} total
           </span>
         </div>
-
         {bookingsLoading ? (
           <div className="flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -580,7 +568,7 @@ export default function AdminUserDetail() {
               className="text-foreground/20 mx-auto mb-2"
             />
             <p className="text-foreground/40 text-sm font-body">
-              No bookings found for this user.
+              No bookings found.
             </p>
           </div>
         ) : (
@@ -602,10 +590,8 @@ export default function AdminUserDetail() {
                       {booking.listing?.title ?? "Listing"}
                     </p>
                     <p className="text-xs text-foreground/40 font-body mt-0.5">
-                      Role: {isGuest ? "Guest" : "Host"} &nbsp;&middot;&nbsp;
-                      {new Date(
-                        booking.startDate,
-                      ).toLocaleDateString()} &ndash;{" "}
+                      Role: {isGuest ? "Guest" : "Host"} &nbsp;·&nbsp;
+                      {new Date(booking.startDate).toLocaleDateString()} –{" "}
                       {new Date(booking.endDate).toLocaleDateString()}
                     </p>
                   </div>
@@ -631,7 +617,7 @@ export default function AdminUserDetail() {
         )}
       </div>
 
-      {/* Reviews received */}
+      {/* Reviews */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display font-bold text-sm uppercase tracking-tight text-foreground">
@@ -641,7 +627,6 @@ export default function AdminUserDetail() {
             {reviews.length} total
           </span>
         </div>
-
         {reviewsLoading ? (
           <div className="flex flex-col gap-3">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -665,32 +650,28 @@ export default function AdminUserDetail() {
                 key={review.id}
                 className="glass-card p-4 border border-border"
               >
-                <div className="flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap mb-2">
-                      <StarRating rating={review.rating} />
-                      {review.type && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-border text-foreground/40 font-body">
-                          {review.type.replace(/_/g, " ")}
-                        </span>
-                      )}
-                      <span className="text-xs text-foreground/30 font-body">
-                        {new Date(review.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-sm text-foreground/80 font-body leading-relaxed">
-                      {review.comment}
-                    </p>
-                    {review.reviewer && (
-                      <p className="text-xs text-foreground/40 font-body mt-1.5">
-                        From:{" "}
-                        <span className="text-foreground/60">
-                          {review.reviewer.fullName ?? review.reviewer.email}
-                        </span>
-                      </p>
-                    )}
-                  </div>
+                <div className="flex items-center gap-3 flex-wrap mb-2">
+                  <StarRating rating={review.rating} />
+                  {review.type && (
+                    <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-border text-foreground/40 font-body">
+                      {review.type.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  <span className="text-xs text-foreground/30 font-body">
+                    {new Date(review.createdAt).toLocaleDateString()}
+                  </span>
                 </div>
+                <p className="text-sm text-foreground/80 font-body leading-relaxed">
+                  {review.comment}
+                </p>
+                {review.reviewer && (
+                  <p className="text-xs text-foreground/40 font-body mt-1.5">
+                    From:{" "}
+                    <span className="text-foreground/60">
+                      {review.reviewer.fullName ?? review.reviewer.email}
+                    </span>
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -711,7 +692,6 @@ export default function AdminUserDetail() {
               View all listings
             </Link>
           </div>
-
           {listingsLoading ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -728,60 +708,183 @@ export default function AdminUserDetail() {
                 className="text-foreground/20 mx-auto mb-2"
               />
               <p className="text-foreground/40 text-sm font-body">
-                No listings found for this host.
+                No listings found.
               </p>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {userListings.map((listing) => {
-                const isActive = listing.status === "ACTIVE";
-                const isSuspended = listing.status === "SUSPENDED";
-                return (
-                  <div
-                    key={listing.id}
-                    className="glass-card p-4 border border-border flex items-center gap-4"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-foreground truncate">
-                        {listing.title}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {listing.pillar && (
-                          <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-gold/20 text-gold/70 font-body">
-                            {listing.pillar}
-                          </span>
-                        )}
-                        {listing.category && (
-                          <span className="text-xs text-foreground/40 font-body">
-                            {listing.category}
-                          </span>
-                        )}
-                        <span className="text-xs text-foreground/30 font-body">
-                          {new Date(listing.createdAt).toLocaleDateString()}
+              {userListings.map((listing) => (
+                <div
+                  key={listing.id}
+                  className="glass-card p-4 border border-border flex items-center gap-4"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm text-foreground truncate">
+                      {listing.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {listing.pillar && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-gold/20 text-gold/70 font-body">
+                          {listing.pillar}
                         </span>
-                      </div>
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs font-medium px-2 py-0.5 rounded-full border shrink-0",
-                        isSuspended
-                          ? "text-destructive border-destructive/30 bg-destructive/10"
-                          : isActive
-                            ? "text-green-400 border-green-400/30 bg-green-400/10"
-                            : "text-gold border-gold/30 bg-gold/10",
                       )}
-                    >
-                      {isSuspended
-                        ? "Suspended"
-                        : isActive
-                          ? "Active"
-                          : (listing.status ?? "Draft")}
-                    </span>
+                      {listing.category && (
+                        <span className="text-xs text-foreground/40 font-body">
+                          {listing.category}
+                        </span>
+                      )}
+                      <span className="text-xs text-foreground/30 font-body">
+                        {new Date(listing.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
-                );
-              })}
+                  <span
+                    className={cn(
+                      "text-xs font-medium px-2 py-0.5 rounded-full border shrink-0",
+                      listing.status === "SUSPENDED"
+                        ? "text-destructive border-destructive/30 bg-destructive/10"
+                        : listing.status === "ACTIVE"
+                          ? "text-green-400 border-green-400/30 bg-green-400/10"
+                          : "text-gold border-gold/30 bg-gold/10",
+                    )}
+                  >
+                    {listing.status === "SUSPENDED"
+                      ? "Suspended"
+                      : listing.status === "ACTIVE"
+                        ? "Active"
+                        : (listing.status ?? "Draft")}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* KYC Review Modal */}
+      {showKycModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="glass-card border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <div>
+                <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
+                  KYC Review
+                </h3>
+                <GoldLine className="w-8 mt-2" />
+              </div>
+              <button
+                onClick={() => {
+                  setShowKycModal(false);
+                  setRejectionReason("");
+                }}
+                className="text-foreground/40 hover:text-foreground transition-colors text-xl"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 flex flex-col gap-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-lg shrink-0 overflow-hidden">
+                  {user.photoUrl ? (
+                    <img
+                      src={user.photoUrl}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    (user.fullName?.[0] ?? user.email[0].toUpperCase())
+                  )}
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {user.fullName ?? "No name"}
+                  </p>
+                  <p className="text-sm text-foreground/50">{user.email}</p>
+                  <p className="text-xs text-foreground/30 mt-0.5">
+                    Joined {new Date(user.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-3">
+                  Submitted Documents
+                </p>
+                {kycDocs.length === 0 ? (
+                  <p className="text-sm text-foreground/40">
+                    No documents submitted yet.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {kycDocs.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-background"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {docTypeLabels[doc.type] ?? doc.type}
+                          </p>
+                          <p className="text-xs text-foreground/40">
+                            Uploaded{" "}
+                            {new Date(doc.uploadedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-gold hover:text-gold/80 font-medium border border-gold/30 px-3 py-1.5 rounded-lg hover:bg-gold/5 transition-colors"
+                        >
+                          View
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
+                  Rejection Reason (required if rejecting)
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={3}
+                  placeholder="Explain why the KYC is being rejected..."
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none focus:border-gold/60 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="gold"
+                  size="md"
+                  className="flex-1 gap-2"
+                  disabled={kycMutation.isPending}
+                  onClick={() => kycMutation.mutate({ status: "APPROVED" })}
+                >
+                  <CheckCircle size={15} />
+                  {kycMutation.isPending ? "Processing..." : "Approve KYC"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="md"
+                  className="flex-1 gap-2"
+                  disabled={kycMutation.isPending || !rejectionReason.trim()}
+                  onClick={() =>
+                    kycMutation.mutate({
+                      status: "REJECTED",
+                      reason: rejectionReason,
+                    })
+                  }
+                >
+                  <XCircle size={15} /> Reject
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

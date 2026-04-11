@@ -6,6 +6,7 @@ import heicConvert from "heic-convert";
 import sharp from "sharp";
 import { uploadToR2 } from "../lib/r2";
 import { config } from "../config";
+import { getSignedDownloadUrl } from "../lib/r2";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -239,5 +240,26 @@ export async function getKycDocuments(userId: string) {
     where: { userId },
     orderBy: { uploadedAt: "desc" },
   });
-  return docs;
+
+  // Generate fresh signed URLs for R2-stored documents
+  const withUrls = await Promise.all(
+    docs.map(async (doc: any) => {
+      if (doc.url.startsWith("r2://")) {
+        const key = doc.url.replace(`r2://${config.R2_KYC_BUCKET}/`, "");
+        try {
+          const signedUrl = await getSignedDownloadUrl(
+            config.R2_KYC_BUCKET,
+            key,
+            3600,
+          );
+          return { ...doc, url: signedUrl };
+        } catch {
+          return doc;
+        }
+      }
+      return doc;
+    }),
+  );
+
+  return withUrls;
 }

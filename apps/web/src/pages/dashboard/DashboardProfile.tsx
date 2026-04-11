@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -18,7 +19,6 @@ import { api, AUTH_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { authApi } from "@/api/auth";
 import type { AuthUser } from "@/api/auth";
 import { KycUploadSection } from "@/components/KycUploadSection";
 
@@ -44,7 +44,8 @@ const kycIcons: Record<string, React.ReactNode> = {
 };
 
 export default function DashboardProfile() {
-  const { user, tokens, accessToken, updateUser, setTokens } = useAuth();
+  const navigate = useNavigate();
+  const { user, accessToken, updateUser } = useAuth();
   const queryClient = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
   const [photoTimestamp, setPhotoTimestamp] = useState(() => Date.now());
@@ -76,7 +77,6 @@ export default function DashboardProfile() {
     },
   });
 
-  // PATCH /profiles/me returns { user: AuthUser }
   const { mutate: updateProfile, isPending: isSaving } = useMutation({
     mutationFn: (data: ProfileForm) =>
       api.patch<{ user: AuthUser }>(
@@ -121,25 +121,6 @@ export default function DashboardProfile() {
       );
       setPhotoTimestamp(Date.now());
       toast.success("Profile photo updated.");
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  // addRole must refresh token without overwriting user profile fields
-  const { mutate: upgradeToHost, isPending: isUpgrading } = useMutation({
-    mutationFn: () => authApi.addRole("HOST", accessToken ?? ""),
-    onSuccess: async (data: { user: AuthUser }) => {
-      try {
-        const refreshed = await authApi.refresh(tokens?.refreshToken ?? "");
-        // Only update roles from addRole response
-        // Only update tokens from refresh response
-        // NEVER replace full user with refresh response (it lacks profile fields)
-        updateUser({ roles: data.user.roles });
-        setTokens(refreshed.tokens);
-      } catch {
-        updateUser({ roles: data.user.roles });
-      }
-      toast.success("Host role added. Complete KYC to start listing.");
     },
     onError: (err: Error) => toast.error(err.message),
   });
@@ -368,7 +349,7 @@ export default function DashboardProfile() {
         )}
       </div>
 
-      {/* Section 3 - KYC Documents (hosts only) */}
+      {/* Section 3 - KYC Documents */}
       {hasHostRole && !kycApproved && (
         <div className="glass-card border border-border overflow-hidden">
           <div className="px-6 py-4 border-b border-border">
@@ -406,12 +387,12 @@ export default function DashboardProfile() {
         <div className="flex items-center gap-3 p-4 rounded-xl bg-green-400/5 border border-green-400/20">
           <CheckCircle size={16} className="text-green-400 shrink-0" />
           <p className="text-sm text-green-400/90 font-medium">
-            Identity verified - you are a verified Lenda host.
+            Identity verified — you are a verified Lenda host.
           </p>
         </div>
       )}
 
-      {/* Section 4 - Become a Host (guests only) */}
+      {/* Section 4 - Become a Host */}
       {!hasHostRole && (
         <div className="glass-card p-6 border border-gold/20 bg-gold/5">
           <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
@@ -419,16 +400,15 @@ export default function DashboardProfile() {
           </h3>
           <p className="text-foreground/50 text-sm mt-2 mb-4">
             List your assets or services and start earning. You keep your guest
-            access - both roles work on the same account.
+            access — both roles work on the same account.
           </p>
           <Button
             variant="gold"
             size="md"
             className="gap-2"
-            disabled={isUpgrading}
-            onClick={() => upgradeToHost()}
+            onClick={() => navigate("/dashboard/become-a-host")}
           >
-            {isUpgrading ? "Processing..." : "Start Host Application"}
+            Start Host Application
           </Button>
         </div>
       )}

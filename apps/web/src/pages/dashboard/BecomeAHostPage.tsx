@@ -213,7 +213,7 @@ export default function BecomeAHostPage() {
         </div>
       )}
 
-      {/* Step 1 — Confirm */}
+      {/* Step 1 - Confirm */}
       {step === "confirm" && (
         <div className="glass-card p-6 border border-border flex flex-col gap-5">
           <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
@@ -222,12 +222,12 @@ export default function BecomeAHostPage() {
           <p className="text-foreground/60 text-sm leading-relaxed">
             As a Lenda host, you can list your assets or services and receive
             booking requests from guests across Zambia. You keep your guest
-            access — both roles work on the same account.
+            access - both roles work on the same account.
           </p>
           <div className="flex flex-col gap-3">
             {[
-              "Free to list — only pay when you earn",
-              "Price locked at booking — no payment disputes",
+              "Free to list - only pay when you earn",
+              "Price locked at booking - no payment disputes",
               "Dual-confirm handover protects both parties",
               "Build your reputation with reviews",
             ].map((point) => (
@@ -267,7 +267,7 @@ export default function BecomeAHostPage() {
         </div>
       )}
 
-      {/* Step 2 — Host type */}
+      {/* Step 2 - Host type */}
       {step === "host-type" && (
         <div className="flex flex-col gap-4">
           <p className="text-foreground/60 text-sm">
@@ -287,7 +287,7 @@ export default function BecomeAHostPage() {
                 icon: <Briefcase size={28} className="text-gold" />,
                 title: "Service Host",
                 description:
-                  "Offer your skills and professional services — cleaning, repairs, tutoring, and more.",
+                  "Offer your skills and professional services - cleaning, repairs, tutoring, and more.",
               },
             ].map((option) => (
               <button
@@ -334,7 +334,7 @@ export default function BecomeAHostPage() {
         </div>
       )}
 
-      {/* Step 3 — Host profile */}
+      {/* Step 3 - Host profile */}
       {step === "profile" && (
         <div className="glass-card p-6 border border-border flex flex-col gap-5">
           <h3 className="font-display font-bold text-base text-foreground uppercase tracking-tight">
@@ -406,7 +406,7 @@ export default function BecomeAHostPage() {
         </div>
       )}
 
-      {/* Step 4 — KYC */}
+      {/* Step 4 - KYC */}
       {step === "kyc" && (
         <div className="flex flex-col gap-5">
           <p className="text-foreground/60 text-sm leading-relaxed">
