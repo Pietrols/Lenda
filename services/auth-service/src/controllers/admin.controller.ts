@@ -25,6 +25,7 @@ export async function listUsersHandler(
           id: true,
           email: true,
           fullName: true,
+          photoUrl: true,
           roles: true,
           kycStatus: true,
           isActive: true,

@@ -85,10 +85,9 @@ export async function uploadProfilePhoto(
     ext = "jpg";
   }
 
-  // Compress and resize with sharp
   buffer = await sharp(buffer)
     .resize(400, 400, { fit: "cover", position: "centre" })
-    .jpeg({ quality: 85, progressive: true })
+    .jpeg({ quality: 80, progressive: false })
     .toBuffer();
 
   ext = "jpg";
@@ -210,10 +209,9 @@ export async function uploadKycDocument(
       buffer = Buffer.from(converted);
     }
 
-    // Compress all images
     buffer = await sharp(buffer)
-      .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 85, progressive: true })
+      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 80, progressive: false })
       .toBuffer();
 
     contentType = "image/jpeg";
@@ -223,8 +221,6 @@ export async function uploadKycDocument(
 
   const url = await uploadToR2(config.R2_KYC_BUCKET, key, buffer, contentType);
 
-  // Store the R2 key (not the signed URL — signed URLs expire)
-  // We store the key and generate fresh signed URLs when needed
   const storedUrl = `r2://${config.R2_KYC_BUCKET}/${key}`;
 
   await (prisma as any).kycDocument.upsert({
