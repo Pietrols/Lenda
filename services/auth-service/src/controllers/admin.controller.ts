@@ -171,12 +171,3 @@ export async function getAdminKycDocumentsHandler(
     next(err);
   }
 }
-
-// ADD this to services/auth-service/src/services/admin.service.ts:
-export async function getKycDocuments(userId: string) {
-  const docs = await (prisma as any).kycDocument.findMany({
-    where: { userId },
-    orderBy: { uploadedAt: "desc" },
-  });
-  return docs;
-}

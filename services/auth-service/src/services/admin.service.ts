@@ -117,3 +117,11 @@ export async function suspendUser(
 
   return updated;
 }
+
+export async function getKycDocuments(userId: string) {
+  const docs = await (prisma as any).kycDocument.findMany({
+    where: { userId },
+    orderBy: { uploadedAt: "desc" },
+  });
+  return docs;
+}
