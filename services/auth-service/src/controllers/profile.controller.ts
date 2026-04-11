@@ -7,6 +7,7 @@ import {
   saveProfilePhoto,
   addRole,
   uploadKycDocument,
+  getKycDocuments,
 } from "../services/profile.service";
 
 export async function updateProfileHandler(
@@ -104,6 +105,20 @@ export async function addRoleHandler(
     if (!role) throw new Error("Role is required");
     const user = await addRole(userId, role);
     res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getKycDocumentsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const docs = await getKycDocuments(userId);
+    res.json({ documents: docs });
   } catch (err) {
     next(err);
   }

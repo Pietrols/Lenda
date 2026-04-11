@@ -11,8 +11,6 @@ import { Button } from "@/components/ui/Button";
 import { toast } from "sonner";
 import {
   Search,
-  CheckCircle,
-  XCircle,
   ShieldOff,
   ShieldCheck,
   Award,
@@ -20,6 +18,9 @@ import {
   ChevronRight,
   Users,
   ExternalLink,
+  FileSearch,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ type AdminUser = {
   id: string;
   email: string;
   fullName: string | null;
+  photoUrl?: string | null;
   roles: string[];
   kycStatus: string;
   isActive: boolean;
@@ -39,6 +41,13 @@ type AdminUsersResponse = {
   total: number;
   page: number;
   limit: number;
+};
+
+type KycDocument = {
+  id: string;
+  type: string;
+  url: string;
+  uploadedAt: string;
 };
 
 type ConfirmState = {
@@ -68,10 +77,16 @@ const kycStatusConfig: Record<string, { label: string; className: string }> = {
   },
 };
 
+const docTypeLabels: Record<string, string> = {
+  NRC_FRONT: "NRC Front",
+  NRC_BACK: "NRC Back",
+  PROOF_OF_RESIDENCE: "Proof of Residence",
+  SELFIE: "Recent Photo",
+};
+
 const badgeSchema = z.object({
   badge: z.string().min(1, "Badge name is required"),
 });
-
 type BadgeForm = z.infer<typeof badgeSchema>;
 
 const PAGE_SIZE = 20;
@@ -86,6 +101,8 @@ export default function AdminUsers() {
   const [page, setPage] = useState(1);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
   const [badgeUserId, setBadgeUserId] = useState<string | null>(null);
+  const [kycReviewUser, setKycReviewUser] = useState<AdminUser | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-users", page],
@@ -98,20 +115,52 @@ export default function AdminUsers() {
     enabled: !!accessToken,
   });
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<BadgeForm>({
+  const { data: kycDocsData } = useQuery({
+    queryKey: ["admin-kyc-docs", kycReviewUser?.id],
+    queryFn: () =>
+      api.get<{ documents: KycDocument[] }>(
+        `/admin/users/${kycReviewUser!.id}/kyc-documents`,
+        accessToken,
+        AUTH_URL,
+      ),
+    enabled: !!kycReviewUser && !!accessToken,
+  });
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<BadgeForm>({
     resolver: zodResolver(badgeSchema),
   });
 
   const kycMutation = useMutation({
-    mutationFn: ({ id, status, reason }: { id: string; status: string; reason?: string }) =>
-      api.patch(`/admin/users/${id}/kyc`, { status, reason }, accessToken, AUTH_URL),
-    onSuccess: () => {
-      toast.success("KYC status updated.");
+    mutationFn: ({
+      id,
+      status,
+      reason,
+    }: {
+      id: string;
+      status: string;
+      reason?: string;
+    }) =>
+      api.patch(
+        `/admin/users/${id}/kyc`,
+        { status, reason },
+        accessToken,
+        AUTH_URL,
+      ),
+    onSuccess: (_, { status }) => {
+      toast.success(
+        `KYC ${status === "APPROVED" ? "approved" : "rejected"}. User has been notified.`,
+      );
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      setKycReviewUser(null);
+      setRejectionReason("");
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to update KYC status.");
-    },
+    onError: (err: Error) =>
+      toast.error(err.message ?? "Failed to update KYC status."),
   });
 
   const badgeMutation = useMutation({
@@ -123,21 +172,23 @@ export default function AdminUsers() {
       setBadgeUserId(null);
       reset();
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to award badge.");
-    },
+    onError: (err: Error) =>
+      toast.error(err.message ?? "Failed to award badge."),
   });
 
   const suspendMutation = useMutation({
     mutationFn: ({ id, suspend }: { id: string; suspend: boolean }) =>
-      api.patch(`/admin/users/${id}/suspend`, { suspend }, accessToken, AUTH_URL),
+      api.patch(
+        `/admin/users/${id}/suspend`,
+        { suspend },
+        accessToken,
+        AUTH_URL,
+      ),
     onSuccess: (_, { suspend }) => {
       toast.success(suspend ? "User suspended." : "User unsuspended.");
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Action failed.");
-    },
+    onError: (err: Error) => toast.error(err.message ?? "Action failed."),
   });
 
   const allUsers = data?.users ?? [];
@@ -149,46 +200,19 @@ export default function AdminUsers() {
       search === "" ||
       u.fullName?.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase());
-    const matchesRole =
-      roleFilter === "ALL" || u.roles.includes(roleFilter);
-    const matchesKyc =
-      kycFilter === "ALL" || u.kycStatus === kycFilter;
+    const matchesRole = roleFilter === "ALL" || u.roles.includes(roleFilter);
+    const matchesKyc = kycFilter === "ALL" || u.kycStatus === kycFilter;
     return matchesSearch && matchesRole && matchesKyc;
   });
 
-  function handleApproveKyc(user: AdminUser) {
-    setConfirmState({
-      title: "Approve KYC",
-      message: `Approve KYC verification for ${user.fullName ?? user.email}?`,
-      confirmLabel: "Approve",
-      variant: "gold",
-      onConfirm: () => kycMutation.mutate({ id: user.id, status: "APPROVED" }),
-    });
-  }
+  // Sort: PENDING KYC first, then by createdAt desc
+  const sorted = [...filtered].sort((a, b) => {
+    if (a.kycStatus === "PENDING" && b.kycStatus !== "PENDING") return -1;
+    if (a.kycStatus !== "PENDING" && b.kycStatus === "PENDING") return 1;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
-  function handleRejectKyc(user: AdminUser) {
-    setConfirmState({
-      title: "Reject KYC",
-      message: `Reject KYC verification for ${user.fullName ?? user.email}? This action will notify the user.`,
-      confirmLabel: "Reject",
-      variant: "destructive",
-      onConfirm: () => kycMutation.mutate({ id: user.id, status: "REJECTED" }),
-    });
-  }
-
-  function handleSuspend(user: AdminUser) {
-    if (user.isActive) {
-      setConfirmState({
-        title: "Suspend User",
-        message: `Suspend ${user.fullName ?? user.email}? They will no longer be able to access their account.`,
-        confirmLabel: "Suspend",
-        variant: "destructive",
-        onConfirm: () => suspendMutation.mutate({ id: user.id, suspend: true }),
-      });
-    } else {
-      suspendMutation.mutate({ id: user.id, suspend: false });
-    }
-  }
+  const kycDocs = kycDocsData?.documents ?? [];
 
   function onBadgeSubmit(values: BadgeForm) {
     if (!badgeUserId) return;
@@ -197,13 +221,12 @@ export default function AdminUsers() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
       <div>
         <GoldLine className="w-10 mb-3" />
         <h2 className="font-display font-bold text-xl text-foreground uppercase tracking-tight">
           User Management
         </h2>
-        <p className="text-foreground/50 text-sm mt-1 font-body">
+        <p className="text-foreground/50 text-sm mt-1">
           Manage user accounts, KYC verification, and badges.
         </p>
       </div>
@@ -211,18 +234,27 @@ export default function AdminUsers() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30" />
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30"
+          />
           <input
             type="text"
             placeholder="Search by name or email..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             className="w-full pl-9 pr-4 py-2 text-sm bg-background border border-border rounded-xl text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-gold/50"
           />
         </div>
         <select
           value={roleFilter}
-          onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setRoleFilter(e.target.value);
+            setPage(1);
+          }}
           className="px-4 py-2 text-sm bg-background border border-border rounded-xl text-foreground focus:outline-none focus:border-gold/50"
         >
           <option value="ALL">All Roles</option>
@@ -232,53 +264,70 @@ export default function AdminUsers() {
         </select>
         <select
           value={kycFilter}
-          onChange={(e) => { setKycFilter(e.target.value); setPage(1); }}
+          onChange={(e) => {
+            setKycFilter(e.target.value);
+            setPage(1);
+          }}
           className="px-4 py-2 text-sm bg-background border border-border rounded-xl text-foreground focus:outline-none focus:border-gold/50"
         >
           <option value="ALL">All KYC Statuses</option>
           <option value="PENDING">Pending</option>
           <option value="APPROVED">Approved</option>
           <option value="REJECTED">Rejected</option>
-          <option value="NOT_SUBMITTED">Not Submitted</option>
         </select>
       </div>
 
-      {/* Table / List */}
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="glass-card p-4 border border-border h-20 animate-pulse" />
+            <div
+              key={i}
+              className="glass-card p-4 border border-border h-20 animate-pulse"
+            />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="glass-card p-10 border border-border text-center">
           <Users size={36} className="text-foreground/20 mx-auto mb-3" />
-          <p className="text-foreground/40 text-sm font-body">No users match your filters.</p>
+          <p className="text-foreground/40 text-sm">
+            No users match your filters.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {filtered.map((user) => {
-            const kycCfg = kycStatusConfig[user.kycStatus] ?? kycStatusConfig.NOT_SUBMITTED;
+          {sorted.map((user) => {
+            const kycCfg =
+              kycStatusConfig[user.kycStatus] ?? kycStatusConfig.NOT_SUBMITTED;
             return (
               <div
                 key={user.id}
                 className="glass-card p-4 border border-border flex flex-col lg:flex-row lg:items-center gap-4"
               >
-                {/* User info */}
+                {/* Avatar + info */}
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <div className="w-9 h-9 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-bold text-sm shrink-0">
-                    {user.fullName?.[0] ?? user.email[0].toUpperCase()}
+                  <div className="w-10 h-10 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-bold text-sm shrink-0 overflow-hidden">
+                    {user.photoUrl ? (
+                      <img
+                        src={user.photoUrl}
+                        alt="avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      (user.fullName?.[0] ?? user.email[0].toUpperCase())
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">
                       {user.fullName ?? "—"}
                     </p>
-                    <p className="text-xs text-foreground/50 font-body truncate">{user.email}</p>
+                    <p className="text-xs text-foreground/50 truncate">
+                      {user.email}
+                    </p>
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {user.roles.map((role) => (
                         <span
                           key={role}
-                          className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-gold/20 text-gold/70 font-body"
+                          className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border border-gold/20 text-gold/70"
                         >
                           {role}
                         </span>
@@ -300,8 +349,7 @@ export default function AdminUsers() {
                   </div>
                 </div>
 
-                {/* Meta */}
-                <div className="text-xs text-foreground/40 font-body shrink-0">
+                <div className="text-xs text-foreground/40 shrink-0">
                   Joined {new Date(user.createdAt).toLocaleDateString()}
                 </div>
 
@@ -313,29 +361,40 @@ export default function AdminUsers() {
                     </button>
                   </Link>
                   {user.kycStatus === "PENDING" && (
-                    <>
-                      <button
-                        onClick={() => handleApproveKyc(user)}
-                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-green-400/30 text-green-400 hover:bg-green-400/10 transition-colors"
-                      >
-                        <CheckCircle size={13} /> Approve KYC
-                      </button>
-                      <button
-                        onClick={() => handleRejectKyc(user)}
-                        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors"
-                      >
-                        <XCircle size={13} /> Reject KYC
-                      </button>
-                    </>
+                    <button
+                      onClick={() => setKycReviewUser(user)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gold/40 text-gold hover:bg-gold/10 transition-colors"
+                    >
+                      <FileSearch size={13} /> Review KYC
+                    </button>
                   )}
                   <button
-                    onClick={() => { setBadgeUserId(user.id); reset(); }}
+                    onClick={() => {
+                      setBadgeUserId(user.id);
+                      reset();
+                    }}
                     className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gold/30 text-gold hover:bg-gold/10 transition-colors"
                   >
                     <Award size={13} /> Badge
                   </button>
                   <button
-                    onClick={() => handleSuspend(user)}
+                    onClick={() => {
+                      if (user.isActive) {
+                        setConfirmState({
+                          title: "Suspend User",
+                          message: `Suspend ${user.fullName ?? user.email}?`,
+                          confirmLabel: "Suspend",
+                          variant: "destructive",
+                          onConfirm: () =>
+                            suspendMutation.mutate({
+                              id: user.id,
+                              suspend: true,
+                            }),
+                        });
+                      } else {
+                        suspendMutation.mutate({ id: user.id, suspend: false });
+                      }
+                    }}
                     className={cn(
                       "flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors",
                       user.isActive
@@ -344,9 +403,13 @@ export default function AdminUsers() {
                     )}
                   >
                     {user.isActive ? (
-                      <><ShieldOff size={13} /> Suspend</>
+                      <>
+                        <ShieldOff size={13} /> Suspend
+                      </>
                     ) : (
-                      <><ShieldCheck size={13} /> Unsuspend</>
+                      <>
+                        <ShieldCheck size={13} /> Unsuspend
+                      </>
                     )}
                   </button>
                 </div>
@@ -359,24 +422,167 @@ export default function AdminUsers() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <p className="text-xs text-foreground/40 font-body">
-            Page {page} of {totalPages} &mdash; {total} users total
+          <p className="text-xs text-foreground/40">
+            Page {page} of {totalPages} — {total} users total
           </p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="p-2 rounded-lg border border-border text-foreground/50 hover:text-foreground hover:border-gold/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-lg border border-border text-foreground/50 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft size={15} />
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="p-2 rounded-lg border border-border text-foreground/50 hover:text-foreground hover:border-gold/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              className="p-2 rounded-lg border border-border text-foreground/50 hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight size={15} />
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* KYC Review Modal */}
+      {kycReviewUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="glass-card border border-border w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-border flex items-center justify-between">
+              <div>
+                <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
+                  KYC Review
+                </h3>
+                <GoldLine className="w-8 mt-2" />
+              </div>
+              <button
+                onClick={() => {
+                  setKycReviewUser(null);
+                  setRejectionReason("");
+                }}
+                className="text-foreground/40 hover:text-foreground transition-colors text-xl"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="p-6 flex flex-col gap-5">
+              {/* User info */}
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-lg shrink-0 overflow-hidden">
+                  {kycReviewUser.photoUrl ? (
+                    <img
+                      src={kycReviewUser.photoUrl}
+                      alt="avatar"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    (kycReviewUser.fullName?.[0] ??
+                    kycReviewUser.email[0].toUpperCase())
+                  )}
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">
+                    {kycReviewUser.fullName ?? "No name"}
+                  </p>
+                  <p className="text-sm text-foreground/50">
+                    {kycReviewUser.email}
+                  </p>
+                  <p className="text-xs text-foreground/30 mt-0.5">
+                    Joined{" "}
+                    {new Date(kycReviewUser.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+
+              {/* KYC Documents */}
+              <div>
+                <p className="text-micro text-foreground/60 mb-3">
+                  Submitted Documents
+                </p>
+                {kycDocs.length === 0 ? (
+                  <p className="text-sm text-foreground/40">
+                    No documents submitted yet.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-3">
+                    {kycDocs.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-background"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {docTypeLabels[doc.type] ?? doc.type}
+                          </p>
+                          <p className="text-xs text-foreground/40">
+                            Uploaded{" "}
+                            {new Date(doc.uploadedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-gold hover:text-gold/80 font-medium border border-gold/30 px-3 py-1.5 rounded-lg hover:bg-gold/5 transition-colors"
+                        >
+                          View
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Rejection reason */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-micro text-foreground/60">
+                  Rejection Reason (required if rejecting)
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={3}
+                  placeholder="Explain why the KYC is being rejected..."
+                  className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none focus:border-gold/60 resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <Button
+                  variant="gold"
+                  size="md"
+                  className="flex-1 gap-2"
+                  disabled={kycMutation.isPending}
+                  onClick={() =>
+                    kycMutation.mutate({
+                      id: kycReviewUser.id,
+                      status: "APPROVED",
+                    })
+                  }
+                >
+                  <CheckCircle size={15} />
+                  {kycMutation.isPending ? "Processing..." : "Approve KYC"}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="md"
+                  className="flex-1 gap-2"
+                  disabled={kycMutation.isPending || !rejectionReason.trim()}
+                  onClick={() =>
+                    kycMutation.mutate({
+                      id: kycReviewUser.id,
+                      status: "REJECTED",
+                      reason: rejectionReason,
+                    })
+                  }
+                >
+                  <XCircle size={15} />
+                  Reject
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -389,7 +595,9 @@ export default function AdminUsers() {
               {confirmState.title}
             </h3>
             <GoldLine className="w-8 mb-4" />
-            <p className="text-foreground/60 text-sm font-body mb-6">{confirmState.message}</p>
+            <p className="text-foreground/60 text-sm mb-6">
+              {confirmState.message}
+            </p>
             <div className="flex gap-3 justify-end">
               <Button
                 variant="ghost"
@@ -399,7 +607,11 @@ export default function AdminUsers() {
                 Cancel
               </Button>
               <Button
-                variant={confirmState.variant === "destructive" ? "destructive" : "gold"}
+                variant={
+                  confirmState.variant === "destructive"
+                    ? "destructive"
+                    : "gold"
+                }
                 size="sm"
                 onClick={() => {
                   confirmState.onConfirm();
@@ -421,9 +633,12 @@ export default function AdminUsers() {
               Award Badge
             </h3>
             <GoldLine className="w-8 mb-4" />
-            <form onSubmit={handleSubmit(onBadgeSubmit)} className="flex flex-col gap-4">
+            <form
+              onSubmit={handleSubmit(onBadgeSubmit)}
+              className="flex flex-col gap-4"
+            >
               <div>
-                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-1.5 font-body">
+                <label className="block text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-1.5">
                   Badge Name
                 </label>
                 <input
@@ -432,7 +647,9 @@ export default function AdminUsers() {
                   className="w-full px-4 py-2.5 text-sm bg-background border border-border rounded-xl text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-gold/50"
                 />
                 {errors.badge && (
-                  <p className="text-xs text-destructive mt-1 font-body">{errors.badge.message}</p>
+                  <p className="text-xs text-destructive mt-1">
+                    {errors.badge.message}
+                  </p>
                 )}
               </div>
               <div className="flex gap-3 justify-end">
@@ -440,7 +657,10 @@ export default function AdminUsers() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => { setBadgeUserId(null); reset(); }}
+                  onClick={() => {
+                    setBadgeUserId(null);
+                    reset();
+                  }}
                 >
                   Cancel
                 </Button>

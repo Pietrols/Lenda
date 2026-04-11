@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import type { AuthUser } from "@/api/auth";
+import { KycUploadSection } from "@/components/KycUploadSection";
 
 type Step = "confirm" | "host-type" | "profile" | "kyc" | "pending";
 
@@ -313,26 +314,7 @@ export default function BecomeAHostPage() {
               </h3>
             </div>
             <div className="p-6 flex flex-col gap-4">
-              <KycUploadSlot
-                label="NRC / National ID (Front)"
-                docType="NRC_FRONT"
-                accessToken={accessToken ?? ""}
-              />
-              <KycUploadSlot
-                label="NRC / National ID (Back)"
-                docType="NRC_BACK"
-                accessToken={accessToken ?? ""}
-              />
-              <KycUploadSlot
-                label="Proof of Residence"
-                docType="PROOF_OF_RESIDENCE"
-                accessToken={accessToken ?? ""}
-              />
-              <KycUploadSlot
-                label="Recent Photo (Selfie)"
-                docType="SELFIE"
-                accessToken={accessToken ?? ""}
-              />
+              <KycUploadSection accessToken={accessToken ?? ""} />
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -384,92 +366,6 @@ function PendingScreen() {
           Back to Dashboard
         </Button>
       </a>
-    </div>
-  );
-}
-
-function KycUploadSlot({
-  label,
-  docType,
-  accessToken,
-}: {
-  label: string;
-  docType: string;
-  accessToken: string;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [uploaded, setUploaded] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("document", file);
-      formData.append("docType", docType);
-      const res = await fetch(`${AUTH_URL}/profiles/me/kyc`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message ?? "Upload failed");
-      }
-      setUploaded(true);
-      toast.success(`${label} uploaded.`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Upload failed");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-background gap-4">
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-            uploaded
-              ? "bg-green-400/20 text-green-400"
-              : "bg-foreground/5 text-foreground/30",
-          )}
-        >
-          {uploaded ? (
-            <CheckCircle size={16} />
-          ) : (
-            <span className="text-xs font-bold">?</span>
-          )}
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="text-xs text-foreground/40">
-            {uploaded ? "Uploaded" : "Required"}
-          </p>
-        </div>
-      </div>
-      <button
-        onClick={() => fileRef.current?.click()}
-        disabled={isUploading || uploaded}
-        className={cn(
-          "text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors border",
-          uploaded
-            ? "text-green-400/50 border-green-400/20 cursor-default"
-            : "text-gold border-gold/30 hover:bg-gold/5",
-        )}
-      >
-        {isUploading ? "Uploading..." : uploaded ? "Done" : "Upload"}
-      </button>
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*,.pdf"
-        className="hidden"
-        onChange={handleUpload}
-      />
     </div>
   );
 }

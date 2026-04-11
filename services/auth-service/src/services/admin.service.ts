@@ -1,74 +1,62 @@
 import { prisma, KycStatus, NotificationType } from "@lenda/database";
-import { AppError } from "../lib/AppError";
+import type { MessageResponse } from "@lenda/types";
+import { AppError, Errors } from "../lib/AppError";
 
-export async function approveKyc(userId: string, adminId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId, deletedAt: null },
-  });
+export async function approveKyc(
+  userId: string,
+  adminId: string,
+): Promise<MessageResponse> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw Errors.notFound("User not found.");
 
-  if (!user) throw new AppError("User not found", 404);
-  if (user.kycStatus === KycStatus.APPROVED) {
-    throw new AppError("User is already verified", 400);
-  }
-
-  const updated = await prisma.user.update({
+  await prisma.user.update({
     where: { id: userId },
     data: {
-      kycStatus: KycStatus.APPROVED,
-      listingTier: user.listingTier === 0 ? 1 : user.listingTier,
-      notifications: {
-        create: {
-          type: NotificationType.KYC_APPROVED,
-          message:
-            "Your account has been verified. You can now create listings.",
-        },
-      },
-    },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      kycStatus: true,
-      listingTier: true,
+      kycStatus: "APPROVED" as any,
+      listingTier: { increment: 1 },
     },
   });
 
-  return updated;
+  // Send notification to user
+  await prisma.notification.create({
+    data: {
+      userId,
+      type: "KYC_APPROVED" as any,
+      message:
+        "Congratulations! Your KYC verification has been approved. You can now create listings and start earning on Lenda.",
+    },
+  });
+
+  return { message: "KYC approved successfully." };
 }
 
 export async function rejectKyc(
   userId: string,
   adminId: string,
   reason?: string,
-) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId, deletedAt: null },
-  });
+): Promise<MessageResponse> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw Errors.notFound("User not found.");
 
-  if (!user) throw new AppError("User not found", 404);
-
-  const updated = await prisma.user.update({
+  await prisma.user.update({
     where: { id: userId },
+    data: { kycStatus: "REJECTED" as any },
+  });
+
+  const defaultReason = "the documents provided were unclear or incomplete";
+  const rejectionMessage = reason
+    ? `Unfortunately, your KYC verification was not approved. Reason: ${reason}. Please re-upload your documents or contact support at hello@lenda.work.`
+    : `Unfortunately, your KYC verification was not approved because ${defaultReason}. Please re-upload clear documents or contact support at hello@lenda.work.`;
+
+  await prisma.notification.create({
     data: {
-      kycStatus: KycStatus.REJECTED,
-      notifications: {
-        create: {
-          type: NotificationType.KYC_REJECTED,
-          message: reason
-            ? `Your verification was rejected: ${reason}`
-            : "Your verification was rejected. Please contact support.",
-        },
-      },
-    },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      kycStatus: true,
+      userId,
+      type: "KYC_REJECTED" as any,
+      message: rejectionMessage,
     },
   });
 
-  return updated;
+  return { message: "KYC rejected." };
 }
 
 export async function awardBadge(

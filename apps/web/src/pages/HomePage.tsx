@@ -87,7 +87,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/60" />
         <div className="grain-overlay" />
 
-        <div className="relative z-10 container mx-auto px-4">
+        <div className="relative z-10 container mx-auto px-4 pt-20 md:pt-0">
           <div className="max-w-3xl">
             <p className="section-label">
               Zambia's Rental & Services Marketplace

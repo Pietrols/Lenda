@@ -5,6 +5,7 @@ import {
   rejectKyc,
   awardBadge,
   suspendUser,
+  getKycDocuments,
 } from "../services/admin.service";
 
 export async function listUsersHandler(
@@ -155,4 +156,27 @@ export async function getUserDetailHandler(
   } catch (err) {
     next(err);
   }
+}
+
+export async function getAdminKycDocumentsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { id } = req.params;
+    const docs = await getKycDocuments(id);
+    res.json({ documents: docs });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ADD this to services/auth-service/src/services/admin.service.ts:
+export async function getKycDocuments(userId: string) {
+  const docs = await (prisma as any).kycDocument.findMany({
+    where: { userId },
+    orderBy: { uploadedAt: "desc" },
+  });
+  return docs;
 }

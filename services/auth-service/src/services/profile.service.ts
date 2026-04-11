@@ -4,6 +4,8 @@ import { AppError } from "../lib/AppError";
 import { supabase } from "../lib/supabase";
 import heicConvert from "heic-convert";
 import sharp from "sharp";
+import { uploadToR2 } from "../lib/r2";
+import { config } from "../config";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -180,21 +182,24 @@ export async function uploadKycDocument(
 ) {
   const validTypes = ["NRC_FRONT", "NRC_BACK", "PROOF_OF_RESIDENCE", "SELFIE"];
   if (!validTypes.includes(docType)) {
-    throw new AppError("Invalid document type", 400);
+    throw new AppError(
+      `Invalid document type. Must be one of: ${validTypes.join(", ")}`,
+      400,
+    );
   }
 
-  let buffer = file.buffer;
   const isPdf =
-    file.mimetype === "application/pdf" ||
-    file.originalname.toLowerCase().endsWith(".pdf");
+    file.mimetype === "application/pdf" || /\.pdf$/i.test(file.originalname);
+
+  let buffer = file.buffer;
+  let contentType = file.mimetype;
   const ext = isPdf ? "pdf" : "jpg";
-  const contentType = isPdf ? "application/pdf" : "image/jpeg";
 
   if (!isPdf) {
     const isHeic =
       file.mimetype === "image/heic" ||
       file.mimetype === "image/heif" ||
-      file.originalname.toLowerCase().match(/\.(heic|heif)$/);
+      /\.(heic|heif)$/i.test(file.originalname);
 
     if (isHeic) {
       const converted = await heicConvert({
@@ -205,32 +210,38 @@ export async function uploadKycDocument(
       buffer = Buffer.from(converted);
     }
 
+    // Compress all images
     buffer = await sharp(buffer)
-      .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 85 })
+      .resize(1600, 1600, { fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 85, progressive: true })
       .toBuffer();
+
+    contentType = "image/jpeg";
   }
 
-  const path = `${userId}/${docType.toLowerCase()}.${ext}`;
+  const key = `${userId}/${docType.toLowerCase()}.${ext}`;
 
-  const { error } = await supabase.storage
-    .from("kyc-documents")
-    .upload(path, buffer, {
-      contentType,
-      upsert: true,
-    });
+  const url = await uploadToR2(config.R2_KYC_BUCKET, key, buffer, contentType);
 
-  if (error) throw new Error(error.message);
-
-  const { data } = supabase.storage.from("kyc-documents").getPublicUrl(path);
+  // Store the R2 key (not the signed URL — signed URLs expire)
+  // We store the key and generate fresh signed URLs when needed
+  const storedUrl = `r2://${config.R2_KYC_BUCKET}/${key}`;
 
   await (prisma as any).kycDocument.upsert({
     where: {
       userId_type: { userId, type: docType as any },
     },
-    create: { userId, type: docType as any, url: data.publicUrl },
-    update: { url: data.publicUrl, uploadedAt: new Date() },
+    create: { userId, type: docType as any, url: storedUrl },
+    update: { url: storedUrl, uploadedAt: new Date() },
   });
 
-  return { url: data.publicUrl, type: docType };
+  return { url, type: docType };
+}
+
+export async function getKycDocuments(userId: string) {
+  const docs = await (prisma as any).kycDocument.findMany({
+    where: { userId },
+    orderBy: { uploadedAt: "desc" },
+  });
+  return docs;
 }

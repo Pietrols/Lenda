@@ -7,6 +7,7 @@ import {
   rejectKycHandler,
   awardBadgeHandler,
   suspendUserHandler,
+  getAdminKycDocumentsHandler,
 } from "../controllers/admin.controller";
 import { Role } from "@lenda/types";
 import { getUserDetailHandler } from "../controllers/admin.controller";
@@ -33,5 +34,7 @@ router.post("/users/:id/badge", awardBadgeHandler);
 router.post("/users/:id/badges", awardBadgeHandler);
 
 router.get("/users/:id", getUserDetailHandler);
+
+router.get("/users/:id/kyc-documents", getAdminKycDocumentsHandler);
 
 export default router;

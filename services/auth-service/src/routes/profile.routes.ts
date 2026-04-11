@@ -2,7 +2,7 @@ import { Router, IRouter } from "express";
 import { authenticate } from "../middleware/authenticate";
 import { validate } from "../middleware/validate";
 import { UpdateProfileSchema } from "@lenda/schemas";
-import { upload } from "../lib/upload";
+import { upload, uploadDocument } from "../lib/upload";
 import {
   updateProfileHandler,
   getProfileHandler,
@@ -12,14 +12,15 @@ import {
   saveProfilePhotoHandler,
   addRoleHandler,
   uploadKycDocumentHandler,
+  getKycDocumentsHandler,
 } from "../controllers/profile.controller";
-import { uploadDocument } from "../lib/upload";
 
 const router: IRouter = Router();
 
 // All /me routes must come before /:id to avoid Express matching "me" as an ID
 router.get("/me", authenticate, getProfileMeHandler);
 router.get("/me/upload-signature", authenticate, getUploadSignatureHandler);
+router.get("/me/kyc", authenticate, getKycDocumentsHandler);
 router.patch(
   "/me",
   authenticate,
@@ -34,7 +35,6 @@ router.post(
 );
 router.patch("/me/photo-url", authenticate, saveProfilePhotoHandler);
 router.patch("/me/role", authenticate, addRoleHandler);
-
 router.post(
   "/me/kyc",
   authenticate,
@@ -42,7 +42,7 @@ router.post(
   uploadKycDocumentHandler,
 );
 
-// Public profile by ID - must be last
+// Public profile by ID — must be last
 router.get("/:id", getProfileHandler);
 
 export default router;
