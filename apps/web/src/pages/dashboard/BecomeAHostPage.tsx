@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -79,6 +79,21 @@ export default function BecomeAHostPage() {
   const hasProfileName = !!user?.fullName?.trim();
   const hasProfilePhoto = !!user?.photoUrl;
   const profileComplete = hasProfileName && hasProfilePhoto;
+
+  useEffect(() => {
+    async function refreshUserState() {
+      if (!tokens?.refreshToken) return;
+      try {
+        const refreshed = await authApi.refresh(tokens.refreshToken);
+        setTokens(refreshed.tokens);
+        // The refresh response includes updated user roles and kycStatus
+      } catch {
+        // ignore - user will just see stale state
+      }
+    }
+    refreshUserState();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setStep = (s: Step) => {
     setStepState(s);

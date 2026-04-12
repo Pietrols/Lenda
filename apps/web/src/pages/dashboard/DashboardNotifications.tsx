@@ -81,6 +81,7 @@ export default function DashboardNotifications() {
   // Add after mutation definition - auto-mark all read on page open:
   useEffect(() => {
     if (accessToken) markRead(undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
   const notifications = data?.notifications ?? [];

@@ -29,11 +29,14 @@ type AdminUser = {
   email: string;
   fullName: string | null;
   photoUrl?: string | null;
+  bio?: string | null;
+  location?: string | null;
   roles: string[];
   kycStatus: string;
   isActive: boolean;
   createdAt: string;
   badges?: string[];
+  _count?: { kycDocuments: number };
 };
 
 type AdminUsersResponse = {
@@ -205,7 +208,6 @@ export default function AdminUsers() {
     return matchesSearch && matchesRole && matchesKyc;
   });
 
-  // Sort: PENDING KYC first, then by createdAt desc
   const sorted = [...filtered].sort((a, b) => {
     if (a.kycStatus === "PENDING" && b.kycStatus !== "PENDING") return -1;
     if (a.kycStatus !== "PENDING" && b.kycStatus === "PENDING") return 1;
@@ -296,14 +298,19 @@ export default function AdminUsers() {
       ) : (
         <div className="flex flex-col gap-3">
           {sorted.map((user) => {
+            const hasSubmittedDocs = (user._count?.kycDocuments ?? 0) > 0;
+            const effectiveStatus =
+              user.kycStatus === "PENDING" && !hasSubmittedDocs
+                ? "NOT_SUBMITTED"
+                : user.kycStatus;
             const kycCfg =
-              kycStatusConfig[user.kycStatus] ?? kycStatusConfig.NOT_SUBMITTED;
+              kycStatusConfig[effectiveStatus] ?? kycStatusConfig.NOT_SUBMITTED;
+
             return (
               <div
                 key={user.id}
                 className="glass-card p-4 border border-border flex flex-col lg:flex-row lg:items-center gap-4"
               >
-                {/* Avatar + info */}
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div className="w-10 h-10 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-bold text-sm shrink-0 overflow-hidden">
                     {user.photoUrl ? (
@@ -353,14 +360,13 @@ export default function AdminUsers() {
                   Joined {new Date(user.createdAt).toLocaleDateString()}
                 </div>
 
-                {/* Actions */}
                 <div className="flex items-center gap-2 flex-wrap shrink-0">
                   <Link to={`/admin/users/${user.id}`}>
                     <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-border text-foreground/50 hover:text-foreground hover:border-gold/30 transition-colors">
                       <ExternalLink size={12} /> View
                     </button>
                   </Link>
-                  {user.kycStatus === "PENDING" && (
+                  {user.kycStatus === "PENDING" && hasSubmittedDocs && (
                     <button
                       onClick={() => setKycReviewUser(user)}
                       className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-gold/40 text-gold hover:bg-gold/10 transition-colors"
@@ -467,9 +473,9 @@ export default function AdminUsers() {
             </div>
 
             <div className="p-6 flex flex-col gap-5">
-              {/* User info */}
+              {/* Profile */}
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-lg shrink-0 overflow-hidden">
+                <div className="w-14 h-14 rounded-full bg-gold/20 flex items-center justify-center text-gold font-bold text-xl shrink-0 overflow-hidden">
                   {kycReviewUser.photoUrl ? (
                     <img
                       src={kycReviewUser.photoUrl}
@@ -495,9 +501,33 @@ export default function AdminUsers() {
                 </div>
               </div>
 
+              {/* Application info */}
+              {(kycReviewUser.bio || kycReviewUser.location) && (
+                <div className="flex flex-col gap-2 p-4 rounded-xl border border-border bg-background">
+                  {kycReviewUser.location && (
+                    <p className="text-xs text-foreground/60">
+                      <span className="font-semibold text-foreground/80">
+                        Location:
+                      </span>{" "}
+                      {kycReviewUser.location}
+                    </p>
+                  )}
+                  {kycReviewUser.bio && (
+                    <div>
+                      <p className="text-xs font-semibold text-foreground/70 uppercase tracking-wider mb-1">
+                        Host Application
+                      </p>
+                      <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
+                        {kycReviewUser.bio}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* KYC Documents */}
               <div>
-                <p className="text-micro text-foreground/60 mb-3">
+                <p className="text-xs font-semibold text-foreground/60 uppercase tracking-wider mb-3">
                   Submitted Documents
                 </p>
                 {kycDocs.length === 0 ? (
@@ -536,7 +566,7 @@ export default function AdminUsers() {
 
               {/* Rejection reason */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-micro text-foreground/60">
+                <label className="text-xs font-semibold text-foreground/60 uppercase tracking-wider">
                   Rejection Reason (required if rejecting)
                 </label>
                 <textarea
@@ -578,8 +608,7 @@ export default function AdminUsers() {
                     })
                   }
                 >
-                  <XCircle size={15} />
-                  Reject
+                  <XCircle size={15} /> Reject
                 </Button>
               </div>
             </div>
