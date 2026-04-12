@@ -6,6 +6,7 @@ import { api, BOOKING_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { useEffect } from "react";
 
 type Notification = {
   id: string;
@@ -58,21 +59,29 @@ export default function DashboardNotifications() {
     enabled: !!accessToken,
   });
 
+  // Fix the mutation:
   const { mutate: markRead, isPending: isMarking } = useMutation({
     mutationFn: (ids?: string[]) =>
       api.patch<{ message: string }>(
         "/notifications/read",
-        ids ? { ids } : {},
+        { ids },
         accessToken,
         BOOKING_URL,
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
-      queryClient.invalidateQueries({ queryKey: ["notifications", "unread"] });
+      queryClient.invalidateQueries({
+        queryKey: ["notifications", "unread-count"],
+      });
       toast.success("Notifications marked as read.");
     },
     onError: (err: Error) => toast.error(err.message),
   });
+
+  // Add after mutation definition - auto-mark all read on page open:
+  useEffect(() => {
+    if (accessToken) markRead(undefined);
+  }, [accessToken]);
 
   const notifications = data?.notifications ?? [];
   const unreadCount = notifications.filter((n) => !n.isRead).length;

@@ -387,7 +387,7 @@ export default function DashboardProfile() {
         <div className="flex items-center gap-3 p-4 rounded-xl bg-green-400/5 border border-green-400/20">
           <CheckCircle size={16} className="text-green-400 shrink-0" />
           <p className="text-sm text-green-400/90 font-medium">
-            Identity verified — you are a verified Lenda host.
+            Identity verified - you are a verified Lenda host.
           </p>
         </div>
       )}
@@ -400,7 +400,7 @@ export default function DashboardProfile() {
           </h3>
           <p className="text-foreground/50 text-sm mt-2 mb-4">
             List your assets or services and start earning. You keep your guest
-            access — both roles work on the same account.
+            access - both roles work on the same account.
           </p>
           <Button
             variant="gold"

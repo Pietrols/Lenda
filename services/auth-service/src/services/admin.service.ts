@@ -38,17 +38,23 @@ export async function rejectKyc(
   reason?: string,
 ): Promise<MessageResponse> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user) throw Errors.notFound("User not found.");
+  if (!user) throw new AppError("User not found", 404);
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { kycStatus: "REJECTED" as any },
-  });
+  // Full reset: remove HOST role, reset KYC to PENDING, delete documents
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: userId },
+      data: {
+        kycStatus: "PENDING" as any,
+        roles: { set: user.roles.filter((r) => r !== ("HOST" as any)) },
+      },
+    }),
+    (prisma as any).kycDocument.deleteMany({ where: { userId } }),
+  ]);
 
-  const defaultReason = "the documents provided were unclear or incomplete";
   const rejectionMessage = reason
-    ? `Unfortunately, your KYC verification was not approved. Reason: ${reason}. Please re-upload your documents or contact support at hello@lenda.work.`
-    : `Unfortunately, your KYC verification was not approved because ${defaultReason}. Please re-upload clear documents or contact support at hello@lenda.work.`;
+    ? `Unfortunately, your KYC verification was not approved. Reason: ${reason}. Please re-apply from the dashboard or contact support at hello@lenda.work.`
+    : `Unfortunately, your KYC verification was not approved. Please re-apply with clear documents or contact support at hello@lenda.work.`;
 
   await prisma.notification.create({
     data: {
@@ -58,7 +64,7 @@ export async function rejectKyc(
     },
   });
 
-  return { message: "KYC rejected." };
+  return { message: "KYC rejected and reset." };
 }
 
 export async function awardBadge(

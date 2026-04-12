@@ -120,9 +120,7 @@ export const UpdateProfileSchema = z.object({
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 
 export const MarkNotificationReadSchema = z.object({
-  ids: z
-    .array(z.string().uuid())
-    .min(1, "At least one notification ID required"),
+  ids: z.array(z.string().uuid()).optional(),
 });
 
 export type MarkNotificationReadInput = z.infer<
