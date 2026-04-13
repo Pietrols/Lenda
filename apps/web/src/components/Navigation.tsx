@@ -166,6 +166,7 @@ export function Navigation() {
         {mobileOpen && (
           <div className="md:hidden bg-background/95 backdrop-blur-md border-b border-border">
             <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
+              {/* Mobile Links */}
               {navLinks.map((link) => (
                 <a
                   key={link.href}
@@ -176,31 +177,44 @@ export function Navigation() {
                   {link.label}
                 </a>
               ))}
-              <div className="flex flex-col gap-2 pt-2 border-t border-border">
-                {isAuthenticated ? (
-                  <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
-                    <Button variant="gold" size="sm" className="w-full">
-                      Dashboard
-                    </Button>
-                  </Link>
-                ) : (
-                  <>
-                    <Link to="/login" onClick={() => setMobileOpen(false)}>
-                      <Button
-                        variant="outlineGold"
-                        size="sm"
-                        className="w-full"
-                      >
-                        Sign In
-                      </Button>
-                    </Link>
-                    <Link to="/register" onClick={() => setMobileOpen(false)}>
+
+              {/* Bottom Actions Container */}
+              <div className="flex flex-col gap-4 pt-4 mt-2 border-t border-border">
+                {/* Mobile Theme Toggle */}
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-sm font-medium text-foreground/70">
+                    Theme
+                  </span>
+                  <ThemeToggle />
+                </div>
+
+                {/* Mobile Auth Buttons */}
+                <div className="flex flex-col gap-2">
+                  {isAuthenticated ? (
+                    <Link to="/dashboard" onClick={() => setMobileOpen(false)}>
                       <Button variant="gold" size="sm" className="w-full">
-                        Get Started
+                        Dashboard
                       </Button>
                     </Link>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <Link to="/login" onClick={() => setMobileOpen(false)}>
+                        <Button
+                          variant="outlineGold"
+                          size="sm"
+                          className="w-full"
+                        >
+                          Sign In
+                        </Button>
+                      </Link>
+                      <Link to="/register" onClick={() => setMobileOpen(false)}>
+                        <Button variant="gold" size="sm" className="w-full">
+                          Get Started
+                        </Button>
+                      </Link>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
