@@ -80,7 +80,7 @@ export default function DashboardNotifications() {
 
   // Add after mutation definition - auto-mark all read on page open:
   useEffect(() => {
-    if (accessToken) markRead(undefined);
+    if (accessToken) markRead([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
@@ -120,7 +120,7 @@ export default function DashboardNotifications() {
             variant="outlineGold"
             size="sm"
             className="gap-2 shrink-0"
-            onClick={() => markRead(undefined)}
+            onClick={() => markRead([])}
             disabled={isMarking}
           >
             <CheckCheck size={14} />
