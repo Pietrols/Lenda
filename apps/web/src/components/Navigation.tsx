@@ -74,21 +74,14 @@ export function Navigation() {
       <nav
         ref={navRef}
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 transition-all duration-300",
-          scrolled
-            ? "bg-background/90 backdrop-blur-md border-b border-border shadow-sm"
-            : "bg-transparent",
+          "sticky top-0 left-0 right-0 z-50 transition-all duration-300",
+          "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
         )}
       >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          {/* Logo */}
+          {/* Logo  */}
           <Link to="/" className="flex items-center gap-2">
-            <span
-              className={cn(
-                "font-display font-black text-2xl tracking-tight transition-colors duration-300",
-                scrolled ? "text-foreground" : "text-white",
-              )}
-            >
+            <span className="font-display font-black text-2xl tracking-tight text-foreground transition-colors duration-300">
               LEN<span className="text-gold">DA</span>
             </span>
           </Link>
@@ -104,9 +97,7 @@ export function Navigation() {
                   "text-sm font-medium transition-colors duration-200 hover:text-gold cursor-pointer",
                   location.pathname === link.href
                     ? "text-gold"
-                    : scrolled
-                      ? "text-foreground/70"
-                      : "text-white/80",
+                    : "text-foreground/70" // Theme-aware color
                 )}
               >
                 {link.label}
@@ -129,12 +120,7 @@ export function Navigation() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={cn(
-                      "transition-colors duration-300",
-                      scrolled
-                        ? "text-foreground/70 hover:text-foreground"
-                        : "text-white/80 hover:text-white",
-                    )}
+                    className="text-foreground/70 hover:text-foreground transition-colors"
                   >
                     Sign In
                   </Button>
@@ -150,12 +136,7 @@ export function Navigation() {
 
           {/* Mobile menu toggle */}
           <button
-            className={cn(
-              "md:hidden p-2 transition-colors",
-              scrolled
-                ? "text-foreground/70 hover:text-foreground"
-                : "text-white/80 hover:text-white",
-            )}
+            className="md:hidden p-2 text-foreground/70 hover:text-foreground transition-colors"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X size={22} /> : <Menu size={22} />}

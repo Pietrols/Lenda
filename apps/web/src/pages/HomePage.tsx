@@ -70,11 +70,11 @@ export default function HomePage() {
     <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
 
-      <main className="flex-grow pt-16">
+      <main className="flex-grow ">
         {/* ── Hero ──────────────────────────────────────────── */}
         <section
           ref={heroRef}
-          className="pinned-section relative flex items-center"
+          className="pinned-section relative flex items-center min-h-[80vh]"
         >
           <div
             ref={bgRef}
