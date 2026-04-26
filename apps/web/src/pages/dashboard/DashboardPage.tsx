@@ -23,11 +23,13 @@ import DashboardProfile from "./DashboardProfile";
 import DashboardSubscription from "./DashboardSubscription";
 import DashboardFloat from "./DashboardFloat";
 import BecomeAHostPage from "./BecomeAHostPage";
+import DashboardCreateListing from "./DashboardCreateListing";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Overview",
   "/dashboard/bookings": "Bookings",
   "/dashboard/listings": "My Listings",
+  "/dashboard/listings/create": "Create Listing",   
   "/dashboard/notifications": "Notifications",
   "/dashboard/subscription": "Subscription",
   "/dashboard/profile": "Profile",
@@ -141,6 +143,7 @@ export default function DashboardPage() {
             <Route path="bookings" element={<DashboardBookings />} />
             <Route path="bookings/:id" element={<DashboardBookingDetail />} />
             <Route path="listings" element={<DashboardListings />} />
+            <Route path="listings/create" element={<DashboardCreateListing />} />
             <Route path="notifications" element={<DashboardNotifications />} />
             <Route path="profile" element={<DashboardProfile />} />
             <Route path="subscription" element={<DashboardSubscription />} />

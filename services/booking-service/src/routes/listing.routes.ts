@@ -6,10 +6,10 @@ import {
   createListingHandler,
   getListingsHandler,
   getListingByIdHandler,
+  getMyListingsHandler,
   updateListingHandler,
   deleteListingHandler,
 } from "../controllers/listing.controller";
-
 import { upload } from "../lib/upload";
 import {
   uploadListingImageHandler,
@@ -19,7 +19,9 @@ import {
 const router: IRouter = Router();
 
 router.get("/", getListingsHandler);
+router.get("/mine", authenticate, requireRole("HOST"), getMyListingsHandler);
 router.get("/:id", getListingByIdHandler);
+
 router.post(
   "/",
   authenticate,
@@ -43,7 +45,6 @@ router.post(
   upload.single("image"),
   uploadListingImageHandler,
 );
-
 router.delete(
   "/:listingId/images/:imageId",
   authenticate,

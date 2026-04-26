@@ -3,6 +3,7 @@ import {
   createListing,
   getListings,
   getListingById,
+  getMyListings,
   updateListing,
   deleteListing,
 } from "../services/listing.service";
@@ -73,6 +74,20 @@ export async function deleteListingHandler(
     const hostId = req.user!.sub;
     await deleteListing(req.params.id, hostId);
     res.json({ message: "Listing deleted successfully" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMyListingsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const hostId = req.user!.sub;
+    const listings = await getMyListings(hostId);
+    res.json({ listings });
   } catch (err) {
     next(err);
   }

@@ -75,17 +75,11 @@ export default function DashboardListings() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["my-listings"],
-    queryFn: async () => {
-      const res = await api.get<ListingsResponse>(
-        "/listings?limit=50",
-        accessToken,
-        BOOKING_URL,
-      );
-      return res;
-    },
-    enabled: !!accessToken,
-  });
+  queryKey: ["my-listings"],
+  queryFn: () =>
+    api.get<{ listings: Listing[] }>("/listings/mine", accessToken, BOOKING_URL),
+  enabled: !!accessToken,
+});
 
   const { mutate: deleteListing, isPending: isDeleting } = useMutation({
     mutationFn: (listingId: string) =>
@@ -103,10 +97,7 @@ export default function DashboardListings() {
   });
 
   // Filter to only show the current host's listings
-  const myListings =
-    data?.listings.filter((l) => {
-      return l.status !== "ARCHIVED";
-    }) ?? [];
+  const myListings = data?.listings ?? [];
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,7 +136,7 @@ export default function DashboardListings() {
         <div className="glass-card p-12 border border-border flex flex-col items-center justify-center gap-4">
           <ListChecks size={32} className="text-foreground/20" />
           <p className="text-foreground/40 text-sm">No listings yet</p>
-          <Link to="/dashboard/listings/new">
+          <Link to="/dashboard/listings/create">
             <Button variant="gold" size="sm" className="gap-2">
               <Plus size={14} />
               Create your first listing

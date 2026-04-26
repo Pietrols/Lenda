@@ -253,3 +253,21 @@ export async function deleteListing(listingId: string, hostId: string) {
     data: { deletedAt: new Date(), status: ListingStatus.ARCHIVED },
   });
 }
+
+export async function getMyListings(hostId: string) {
+  const listings = await prisma.listing.findMany({
+    where: {
+      hostId,
+      deletedAt: null,
+      status: {
+        notIn: [ListingStatus.ARCHIVED],
+      },
+    },
+    include: {
+      images: { orderBy: { order: "asc" } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return listings;
+}
