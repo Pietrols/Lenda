@@ -24,9 +24,9 @@ const CreateListingSchema = z.object({
   category: z.string().min(1, "Category is required"),
   subcategory: z.string().optional(),
   pricePerDay: z.number().positive("Price must be positive"),
-  currency: z.string().default("ZMW"),
+  currency: z.string().min(1, "Currency is required"),
   location: z.string().min(1, "Location is required"),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.unknown()),
 });
 
 type CreateListingForm = z.infer<typeof CreateListingSchema>;
@@ -98,7 +98,6 @@ export default function DashboardCreateListing() {
         </p>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center gap-2 mt-6 mb-8">
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-2">
@@ -135,7 +134,6 @@ export default function DashboardCreateListing() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>
-        {/* Step 0: Pillar + Category */}
         {step === 0 && (
           <div className="flex flex-col gap-6">
             <div>
@@ -188,7 +186,7 @@ export default function DashboardCreateListing() {
                 Category
               </label>
               <div className="flex flex-wrap gap-2">
-                {CATEGORIES[pillar].map((cat) => (
+                {CATEGORIES[pillar as "RENTAL" | "SERVICE"].map((cat: string) => (
                   <button
                     key={cat}
                     type="button"
@@ -245,7 +243,6 @@ export default function DashboardCreateListing() {
           </div>
         )}
 
-        {/* Step 1: Details */}
         {step === 1 && (
           <div className="flex flex-col gap-5">
             <div>
@@ -327,7 +324,6 @@ export default function DashboardCreateListing() {
           </div>
         )}
 
-        {/* Step 2: Pricing + Review + Submit */}
         {step === 2 && (
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-4">
@@ -367,7 +363,6 @@ export default function DashboardCreateListing() {
               </div>
             </div>
 
-            {/* Summary */}
             <div className="glass-card border border-border rounded-xl p-5 flex flex-col gap-3 mt-1">
               <p className="text-xs font-semibold text-foreground/40 uppercase tracking-wider">
                 Summary

@@ -49,9 +49,9 @@ export const CreateListingSchema = z.object({
   category: z.string().min(1, "Category is required"),
   subcategory: z.string().optional(),
   pricePerDay: z.number().positive("Price must be positive"),
-  currency: z.string().default("USD"),
+  currency: z.string().min(1, "Currency is required"),
   location: z.string().min(1, "Location is required"),
-  metadata: z.record(z.unknown()).default({}),
+  metadata: z.record(z.unknown())
 });
 
 export type CreateListingInput = z.infer<typeof CreateListingSchema>;

@@ -17,17 +17,10 @@ const navLinks = [
 
 export function Navigation() {
   const navRef = useRef<HTMLElement>(null);
-  const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   useEffect(() => {
     if (!navRef.current) return;
@@ -75,7 +68,7 @@ export function Navigation() {
         ref={navRef}
         className={cn(
           "sticky top-0 left-0 right-0 z-50 transition-all duration-300",
-          "bg-background/95 backdrop-blur-md border-b border-border shadow-sm"
+          "bg-background/95 backdrop-blur-md border-b border-border shadow-sm",
         )}
       >
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -97,7 +90,7 @@ export function Navigation() {
                   "text-sm font-medium transition-colors duration-200 hover:text-gold cursor-pointer",
                   location.pathname === link.href
                     ? "text-gold"
-                    : "text-foreground/70" // Theme-aware color
+                    : "text-foreground/70", // Theme-aware color
                 )}
               >
                 {link.label}

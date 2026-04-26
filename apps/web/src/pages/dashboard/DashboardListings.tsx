@@ -31,16 +31,6 @@ type Listing = {
   createdAt: string;
 };
 
-type ListingsResponse = {
-  listings: Listing[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    pages: number;
-  };
-};
-
 type StatusConfig = {
   label: string;
   className: string;
@@ -114,7 +104,7 @@ export default function DashboardListings() {
             {myListings.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link to="/dashboard/listings/new">
+        <Link to="/dashboard/listings/create">
           <Button variant="gold" size="sm" className="gap-2 shrink-0">
             <Plus size={15} />
             New Listing
