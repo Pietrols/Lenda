@@ -7,34 +7,33 @@ import {
   rejectKycHandler,
   awardBadgeHandler,
   suspendUserHandler,
+  getUserDetailHandler,
   getAdminKycDocumentsHandler,
+  grantProHandler,
+  revokeProHandler,
+  adjustListingTierHandler,
+  assignRolesHandler,
 } from "../controllers/admin.controller";
 import { Role } from "@lenda/types";
-import { getUserDetailHandler } from "../controllers/admin.controller";
 
 const router: IRouter = Router();
 
 router.use(authenticate, requireRole(Role.ADMIN));
 
-// List all users
 router.get("/users", listUsersHandler);
+router.get("/users/:id", getUserDetailHandler);
+router.get("/users/:id/kyc-documents", getAdminKycDocumentsHandler);
 
-// KYC — unified endpoint (frontend sends { status: "APPROVED" | "REJECTED" })
 router.patch("/users/:id/kyc", kycHandler);
-
-// KYC — legacy separate endpoints
 router.patch("/users/:id/kyc/approve", approveKycHandler);
 router.patch("/users/:id/kyc/reject", rejectKycHandler);
-
-// Suspend / unsuspend — frontend sends { suspend: boolean }
 router.patch("/users/:id/suspend", suspendUserHandler);
+router.patch("/users/:id/listing-tier", adjustListingTierHandler);
+router.patch("/users/:id/roles", assignRolesHandler);
 
-// Badge — frontend sends { badge }, legacy sends { label }
 router.post("/users/:id/badge", awardBadgeHandler);
 router.post("/users/:id/badges", awardBadgeHandler);
-
-router.get("/users/:id", getUserDetailHandler);
-
-router.get("/users/:id/kyc-documents", getAdminKycDocumentsHandler);
+router.post("/users/:id/grant-pro", grantProHandler);
+router.post("/users/:id/revoke-pro", revokeProHandler);
 
 export default router;

@@ -5,6 +5,10 @@ import {
   rejectKyc,
   awardBadge,
   suspendUser,
+  grantPro,
+  revokePro,
+  adjustListingTier,
+  assignRoles,
   getKycDocuments,
 } from "../services/admin.service";
 
@@ -102,7 +106,6 @@ export async function awardBadgeHandler(
   next: NextFunction,
 ) {
   try {
-    // frontend sends { badge }, legacy sends { label }
     const label = req.body.badge ?? req.body.label;
     const badge = await awardBadge(req.params.id, req.user!.sub, label);
     res.json({ badge });
@@ -171,6 +174,71 @@ export async function getAdminKycDocumentsHandler(
     const { id } = req.params;
     const docs = await getKycDocuments(id);
     res.json({ documents: docs });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function grantProHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { plan } = req.body;
+    if (!["PRO_MONTHLY", "PRO_ANNUAL"].includes(plan)) {
+      res
+        .status(400)
+        .json({ message: "Plan must be PRO_MONTHLY or PRO_ANNUAL" });
+      return;
+    }
+    const user = await grantPro(req.params.id, req.user!.sub, plan);
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function revokeProHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = await revokePro(req.params.id, req.user!.sub);
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function adjustListingTierHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const tier = Number(req.body.tier);
+    const user = await adjustListingTier(req.params.id, req.user!.sub, tier);
+    res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function assignRolesHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { roles } = req.body;
+    if (!Array.isArray(roles)) {
+      res.status(400).json({ message: "roles must be an array" });
+      return;
+    }
+    const user = await assignRoles(req.params.id, req.user!.sub, roles);
+    res.json({ user });
   } catch (err) {
     next(err);
   }

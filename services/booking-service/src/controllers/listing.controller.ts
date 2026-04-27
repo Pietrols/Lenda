@@ -4,11 +4,11 @@ import {
   getListings,
   getListingById,
   getMyListings,
+  getListingsByHost,
   updateListing,
   deleteListing,
 } from "../services/listing.service";
 import { GetListingsQuerySchema } from "@lenda/schemas";
-import type { UpdateListingInput } from "@lenda/schemas";
 
 export async function createListingHandler(
   req: Request,
@@ -33,6 +33,33 @@ export async function getListingsHandler(
     const query = GetListingsQuerySchema.parse(req.query);
     const result = await getListings(query);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getMyListingsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const hostId = req.user!.sub;
+    const listings = await getMyListings(hostId);
+    res.json({ listings });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getListingsByHostHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const listings = await getListingsByHost(req.params.hostId);
+    res.json({ listings });
   } catch (err) {
     next(err);
   }
@@ -74,20 +101,6 @@ export async function deleteListingHandler(
     const hostId = req.user!.sub;
     await deleteListing(req.params.id, hostId);
     res.json({ message: "Listing deleted successfully" });
-  } catch (err) {
-    next(err);
-  }
-}
-
-export async function getMyListingsHandler(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    const hostId = req.user!.sub;
-    const listings = await getMyListings(hostId);
-    res.json({ listings });
   } catch (err) {
     next(err);
   }

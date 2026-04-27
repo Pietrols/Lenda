@@ -7,6 +7,7 @@ import {
   getListingsHandler,
   getListingByIdHandler,
   getMyListingsHandler,
+  getListingsByHostHandler,
   updateListingHandler,
   deleteListingHandler,
 } from "../controllers/listing.controller";
@@ -20,6 +21,7 @@ const router: IRouter = Router();
 
 router.get("/", getListingsHandler);
 router.get("/mine", authenticate, requireRole("HOST"), getMyListingsHandler);
+router.get("/host/:hostId", getListingsByHostHandler);
 router.get("/:id", getListingByIdHandler);
 
 router.post(

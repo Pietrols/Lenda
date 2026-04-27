@@ -104,3 +104,34 @@ export async function removeReview(
 
   return updated;
 }
+
+export async function boostUserDiscovery(
+  userId: string,
+  adminId: string,
+  amount: number = 10,
+) {
+  const listings = await prisma.listing.findMany({
+    where: {
+      hostId: userId,
+      deletedAt: null,
+      status: { in: [ListingStatus.ACTIVE, ListingStatus.DRAFT] },
+    },
+    select: { id: true },
+  });
+
+  if (!listings.length)
+    throw new AppError(404, "No active listings found for this user");
+
+  await prisma.listing.updateMany({
+    where: { id: { in: listings.map((l) => l.id) } },
+    data: { discoveryScore: { increment: amount } },
+  });
+
+  await createNotification(
+    userId,
+    NotificationType.KYC_APPROVED,
+    "Your listings have received a visibility boost from the Lenda team.",
+  );
+
+  return { boosted: listings.length, amount };
+}

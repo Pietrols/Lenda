@@ -19,7 +19,6 @@ export async function approveKyc(
     },
   });
 
-  // Send notification to user
   await prisma.notification.create({
     data: {
       userId,
@@ -40,7 +39,6 @@ export async function rejectKyc(
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError("User not found", 404);
 
-  // Full reset: remove HOST role, reset KYC to PENDING, delete documents
   await prisma.$transaction([
     prisma.user.update({
       where: { id: userId },
@@ -115,12 +113,104 @@ export async function suspendUser(
   const updated = await prisma.user.update({
     where: { id: userId },
     data: { isActive: !suspend },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      isActive: true,
+    select: { id: true, email: true, fullName: true, isActive: true },
+  });
+
+  return updated;
+}
+
+export async function grantPro(
+  userId: string,
+  adminId: string,
+  plan: "PRO_MONTHLY" | "PRO_ANNUAL",
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId, deletedAt: null },
+  });
+  if (!user) throw new AppError("User not found", 404);
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { subscriptionPlan: plan as any },
+    select: { id: true, email: true, subscriptionPlan: true },
+  });
+
+  const label = plan === "PRO_ANNUAL" ? "Pro Annual" : "Pro Monthly";
+  await prisma.notification.create({
+    data: {
+      userId,
+      type: NotificationType.TIER_UPGRADED,
+      message: `Your account has been upgraded to ${label} by the Lenda team. Enjoy your extra listing slots and boosted visibility!`,
     },
+  });
+
+  return updated;
+}
+
+export async function revokePro(userId: string, adminId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId, deletedAt: null },
+  });
+  if (!user) throw new AppError("User not found", 404);
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { subscriptionPlan: "FREE" as any },
+    select: { id: true, email: true, subscriptionPlan: true },
+  });
+
+  return updated;
+}
+
+export async function adjustListingTier(
+  userId: string,
+  adminId: string,
+  tier: number,
+) {
+  if (tier < 0 || tier > 3) throw new AppError("Tier must be 0 to 3", 400);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId, deletedAt: null },
+  });
+  if (!user) throw new AppError("User not found", 404);
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { listingTier: tier },
+    select: { id: true, email: true, listingTier: true },
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId,
+      type: NotificationType.TIER_UPGRADED,
+      message: `Your listing tier has been adjusted to Tier ${tier} by the Lenda team.`,
+    },
+  });
+
+  return updated;
+}
+
+export async function assignRoles(
+  userId: string,
+  adminId: string,
+  roles: string[],
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId, deletedAt: null },
+  });
+  if (!user) throw new AppError("User not found", 404);
+
+  const existingRoles = user.roles as string[];
+  const finalRoles = [...roles];
+  if (existingRoles.includes("ADMIN") && !finalRoles.includes("ADMIN")) {
+    finalRoles.push("ADMIN");
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: { roles: { set: finalRoles as any[] } },
+    select: { id: true, email: true, roles: true },
   });
 
   return updated;

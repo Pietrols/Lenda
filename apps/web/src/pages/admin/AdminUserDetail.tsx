@@ -22,6 +22,9 @@ import {
   Clock,
   AlertCircle,
   FileSearch,
+  Zap,
+  Crown,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +36,8 @@ type AdminUserDetail = {
   kycStatus: string;
   isActive: boolean;
   createdAt: string;
+  subscriptionPlan: string;
+  listingTier: number;
   badges?: { label: string }[];
   bio?: string | null;
   location?: string | null;
@@ -288,6 +293,68 @@ export default function AdminUserDetail() {
     onError: (err: Error) => toast.error(err.message ?? "Action failed."),
   });
 
+  const grantProMutation = useMutation({
+    mutationFn: (plan: "PRO_MONTHLY" | "PRO_ANNUAL") =>
+      api.post(`/admin/users/${id}/grant-pro`, { plan }, accessToken, AUTH_URL),
+    onSuccess: () => {
+      toast.success("Pro plan granted.");
+      queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const revokeProMutation = useMutation({
+    mutationFn: () =>
+      api.post(`/admin/users/${id}/revoke-pro`, {}, accessToken, AUTH_URL),
+    onSuccess: () => {
+      toast.success("Pro plan revoked.");
+      queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const adjustTierMutation = useMutation({
+    mutationFn: (tier: number) =>
+      api.patch(
+        `/admin/users/${id}/listing-tier`,
+        { tier },
+        accessToken,
+        AUTH_URL,
+      ),
+    onSuccess: () => {
+      toast.success("Listing tier updated.");
+      queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const assignRolesMutation = useMutation({
+    mutationFn: (roles: string[]) =>
+      api.patch(`/admin/users/${id}/roles`, { roles }, accessToken, AUTH_URL),
+    onSuccess: () => {
+      toast.success("Roles updated.");
+      queryClient.invalidateQueries({ queryKey: ["admin-user", id] });
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const discoverBoostMutation = useMutation({
+    mutationFn: (amount: number) =>
+      api.patch(
+        `/admin/users/${id}/discovery-boost`,
+        { amount },
+        accessToken,
+        BOOKING_URL,
+      ),
+    onSuccess: (data: unknown) => {
+      const result = data as { boosted: number; amount: number };
+      toast.success(
+        `Boosted ${result.boosted} listing(s) by +${result.amount} points.`,
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const user = userData?.user;
   const allBookings = bookingsData?.bookings ?? [];
   const userBookings = allBookings.filter(
@@ -312,6 +379,9 @@ export default function AdminUserDetail() {
     kycStatusConfig[user?.kycStatus ?? "NOT_SUBMITTED"] ??
     kycStatusConfig.NOT_SUBMITTED;
   const isHost = user?.roles.includes("HOST");
+  const currentPlan = user?.subscriptionPlan ?? "FREE";
+  const currentTier = user?.listingTier ?? 0;
+  const isPro = currentPlan !== "FREE";
 
   function handleSuspend() {
     if (!user) return;
@@ -540,6 +610,168 @@ export default function AdminUserDetail() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Promo Controls */}
+      <div className="glass-card p-6 border border-gold/20 bg-gold/[0.02]">
+        <div className="mb-5">
+          <p className="section-label">Admin Controls</p>
+          <GoldLine className="w-10 mb-3" />
+          <h3 className="font-display font-bold text-lg text-foreground uppercase tracking-tight">
+            Promo & Access Controls
+          </h3>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Subscription */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Crown size={15} className="text-gold" />
+              <p className="text-sm font-semibold text-foreground">
+                Subscription
+              </p>
+              <span
+                className={cn(
+                  "text-xs font-medium px-2 py-0.5 rounded-full border ml-auto",
+                  isPro
+                    ? "text-gold border-gold/30 bg-gold/10"
+                    : "text-foreground/40 border-border bg-foreground/5",
+                )}
+              >
+                {currentPlan === "PRO_ANNUAL"
+                  ? "Pro Annual"
+                  : currentPlan === "PRO_MONTHLY"
+                    ? "Pro Monthly"
+                    : "Free"}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outlineGold"
+                size="sm"
+                disabled={grantProMutation.isPending}
+                onClick={() => grantProMutation.mutate("PRO_MONTHLY")}
+              >
+                Grant Pro Monthly
+              </Button>
+              <Button
+                variant="outlineGold"
+                size="sm"
+                disabled={grantProMutation.isPending}
+                onClick={() => grantProMutation.mutate("PRO_ANNUAL")}
+              >
+                Grant Pro Annual
+              </Button>
+              {isPro && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={revokeProMutation.isPending}
+                  onClick={() => revokeProMutation.mutate()}
+                  className="text-destructive hover:text-destructive"
+                >
+                  Revoke Pro
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Listing Tier */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <ListChecks size={15} className="text-gold" />
+              <p className="text-sm font-semibold text-foreground">
+                Listing Tier
+              </p>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full border border-gold/30 text-gold bg-gold/10 ml-auto">
+                Tier {currentTier}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {[0, 1, 2, 3].map((tier) => (
+                <button
+                  key={tier}
+                  onClick={() => adjustTierMutation.mutate(tier)}
+                  disabled={
+                    adjustTierMutation.isPending || currentTier === tier
+                  }
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors",
+                    currentTier === tier
+                      ? "border-gold bg-gold/10 text-gold cursor-default"
+                      : "border-border text-foreground/50 hover:border-gold/30 hover:text-foreground",
+                  )}
+                >
+                  Tier {tier}
+                  <span className="text-foreground/30 font-normal ml-1">
+                    ({tier === 3 ? "∞" : ([0, 2, 5][tier] ?? 0)})
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Roles */}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <Users size={15} className="text-gold" />
+              <p className="text-sm font-semibold text-foreground">Roles</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(["GUEST", "HOST"] as const).map((role) => {
+                const hasRole = user.roles.includes(role);
+                return (
+                  <button
+                    key={role}
+                    disabled={assignRolesMutation.isPending}
+                    onClick={() => {
+                      const current = user.roles.filter((r) => r !== "ADMIN");
+                      const next = hasRole
+                        ? current.filter((r) => r !== role)
+                        : [...current, role];
+                      assignRolesMutation.mutate(next);
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors",
+                      hasRole
+                        ? "border-gold bg-gold/10 text-gold"
+                        : "border-border text-foreground/50 hover:border-gold/30",
+                    )}
+                  >
+                    {hasRole ? "Remove" : "Add"} {role}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Discovery Boost */}
+          {isHost && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Zap size={15} className="text-gold" />
+                <p className="text-sm font-semibold text-foreground">
+                  Visibility Boost
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[5, 10, 25, 50].map((amount) => (
+                  <button
+                    key={amount}
+                    disabled={discoverBoostMutation.isPending}
+                    onClick={() => discoverBoostMutation.mutate(amount)}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-border text-foreground/50 hover:border-gold/30 hover:text-foreground transition-colors"
+                  >
+                    +{amount} pts
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-foreground/30">
+                Boosts discovery score on all active listings
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Bookings */}

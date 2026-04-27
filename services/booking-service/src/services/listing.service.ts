@@ -63,6 +63,7 @@ export async function createListing(hostId: string, data: CreateListingInput) {
       currency: data.currency,
       location: data.location,
       metadata: data.metadata as Prisma.InputJsonValue,
+      status: ListingStatus.ACTIVE,
     },
   });
 
@@ -85,7 +86,6 @@ export async function getListings(query: GetListingsQueryInput) {
 
   const skip = (page - 1) * limit;
 
-  // Find listings that are already booked for the requested dates
   let excludedListingIds: string[] = [];
   if (startDate && endDate) {
     const start = new Date(startDate);
@@ -167,6 +167,21 @@ export async function getListings(query: GetListingsQueryInput) {
   };
 }
 
+export async function getListingsByHost(hostId: string) {
+  const listings = await prisma.listing.findMany({
+    where: {
+      hostId,
+      status: ListingStatus.ACTIVE,
+      deletedAt: null,
+    },
+    include: {
+      images: { where: { isPrimary: true } },
+    },
+    orderBy: { discoveryScore: "desc" },
+  });
+  return listings;
+}
+
 export async function getListingById(id: string) {
   const listing = await prisma.listing.findUnique({
     where: { id, deletedAt: null },
@@ -187,6 +202,19 @@ export async function getListingById(id: string) {
 
   if (!listing) throw new AppError(404, "Listing not found");
   return listing;
+}
+
+export async function getMyListings(hostId: string) {
+  const listings = await prisma.listing.findMany({
+    where: {
+      hostId,
+      deletedAt: null,
+      status: { notIn: [ListingStatus.ARCHIVED] },
+    },
+    include: { images: { orderBy: { order: "asc" } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return listings;
 }
 
 export async function updateListing(
@@ -252,22 +280,4 @@ export async function deleteListing(listingId: string, hostId: string) {
     where: { id: listingId },
     data: { deletedAt: new Date(), status: ListingStatus.ARCHIVED },
   });
-}
-
-export async function getMyListings(hostId: string) {
-  const listings = await prisma.listing.findMany({
-    where: {
-      hostId,
-      deletedAt: null,
-      status: {
-        notIn: [ListingStatus.ARCHIVED],
-      },
-    },
-    include: {
-      images: { orderBy: { order: "asc" } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-
-  return listings;
 }
