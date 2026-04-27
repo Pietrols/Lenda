@@ -1,6 +1,6 @@
 import { prisma } from "@lenda/database";
 import { AppError } from "../middleware/errorHandler";
-import { supabase } from "../lib/supabase";
+import { uploadListingImageToR2 } from "../lib/r2";
 import sharp from "sharp";
 import heicConvert from "heic-convert";
 
@@ -21,6 +21,11 @@ export async function uploadListingImage(
     throw new AppError(403, "You do not own this listing");
   }
 
+  const imageCount = await prisma.listingImage.count({ where: { listingId } });
+  if (imageCount >= 3) {
+    throw new AppError(400, "Maximum of 3 images allowed per listing");
+  }
+
   let buffer = file.buffer;
 
   const isHeic =
@@ -38,25 +43,13 @@ export async function uploadListingImage(
     buffer = Buffer.from(converted);
   }
 
-  // Compress and resize with sharp
   buffer = await sharp(buffer)
     .resize(1200, 900, { fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 85, progressive: true })
+    .jpeg({ quality: 85, progressive: false })
     .toBuffer();
 
-  const filename = `${Date.now()}.jpg`;
-  const path = `${listingId}/${filename}`;
-
-  const { error } = await supabase.storage
-    .from("listings")
-    .upload(path, buffer, {
-      contentType: "image/jpeg",
-      upsert: false,
-    });
-
-  if (error) throw new AppError(500, error.message);
-
-  const { data } = supabase.storage.from("listings").getPublicUrl(path);
+  const key = `${listingId}/${Date.now()}.jpg`;
+  const publicUrl = await uploadListingImageToR2(key, buffer, "image/jpeg");
 
   if (isPrimary) {
     await prisma.listingImage.updateMany({
@@ -76,9 +69,9 @@ export async function uploadListingImage(
   const image = await prisma.listingImage.create({
     data: {
       listingId,
-      url: data.publicUrl,
+      url: publicUrl,
       altText,
-      isPrimary,
+      isPrimary: isPrimary || order === 0,
       order,
     },
   });
@@ -97,10 +90,5 @@ export async function deleteListingImage(imageId: string, hostId: string) {
     throw new AppError(403, "You do not own this listing");
   }
 
-  // Extract path from URL
-  const url = new URL(image.url);
-  const path = url.pathname.split("/listings/")[1];
-
-  await supabase.storage.from("listings").remove([path]);
   await prisma.listingImage.delete({ where: { id: imageId } });
 }

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,6 +10,9 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle,
+  ImagePlus,
+  X,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { api, BOOKING_URL } from "@/api/client";
@@ -31,20 +34,46 @@ const CreateListingSchema = z.object({
 
 type CreateListingForm = z.infer<typeof CreateListingSchema>;
 
+type UploadedImage = {
+  file: File;
+  preview: string;
+  uploading: boolean;
+  done: boolean;
+  error?: string;
+};
+
 const CATEGORIES: Record<"RENTAL" | "SERVICE", string[]> = {
-  RENTAL: ["Vehicles", "Property", "Equipment", "Electronics", "Furniture", "Other"],
-  SERVICE: ["Cleaning", "Repairs", "Delivery", "Tutoring", "Errands", "Photography", "Other"],
+  RENTAL: [
+    "Vehicles",
+    "Property",
+    "Equipment",
+    "Electronics",
+    "Furniture",
+    "Other",
+  ],
+  SERVICE: [
+    "Cleaning",
+    "Repairs",
+    "Delivery",
+    "Tutoring",
+    "Errands",
+    "Photography",
+    "Other",
+  ],
 };
 
 const CURRENCIES = ["ZMW", "USD"];
-
-const STEPS = ["Pillar & Category", "Details", "Pricing"];
+const STEPS = ["Pillar & Category", "Details", "Pricing", "Photos"];
+const MAX_IMAGES = 3;
 
 export default function DashboardCreateListing() {
   const { accessToken } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdListingId, setCreatedListingId] = useState<string | null>(null);
+  const [images, setImages] = useState<UploadedImage[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<CreateListingForm>({
     resolver: zodResolver(CreateListingSchema),
@@ -69,9 +98,15 @@ export default function DashboardCreateListing() {
   async function onSubmit(data: CreateListingForm) {
     setIsSubmitting(true);
     try {
-      await api.post("/listings", data, accessToken, BOOKING_URL);
-      toast.success("Listing published successfully");
-      navigate("/dashboard/listings");
+      const res = await api.post<{ listing: { id: string } }>(
+        "/listings",
+        data,
+        accessToken,
+        BOOKING_URL,
+      );
+      setCreatedListingId(res.listing.id);
+      setStep(3);
+      toast.success("Listing created. Now add your photos.");
     } catch (err: unknown) {
       toast.error(
         err instanceof Error ? err.message : "Failed to create listing",
@@ -83,6 +118,87 @@ export default function DashboardCreateListing() {
 
   function prevStep() {
     setStep((s) => s - 1);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+
+    const remaining = MAX_IMAGES - images.length;
+    const toAdd = files.slice(0, remaining);
+
+    const newImages: UploadedImage[] = toAdd.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+      uploading: false,
+      done: false,
+    }));
+
+    setImages((prev) => [...prev, ...newImages]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function removeImage(index: number) {
+    setImages((prev) => {
+      const next = [...prev];
+      URL.revokeObjectURL(next[index].preview);
+      next.splice(index, 1);
+      return next;
+    });
+  }
+
+  async function uploadAllImages() {
+    if (!createdListingId) return;
+    const pending = images.filter((img) => !img.done);
+    if (!pending.length) {
+      navigate("/dashboard/listings");
+      return;
+    }
+
+    for (let i = 0; i < images.length; i++) {
+      if (images[i].done) continue;
+
+      setImages((prev) =>
+        prev.map((img, idx) => (idx === i ? { ...img, uploading: true } : img)),
+      );
+
+      try {
+        const formData = new FormData();
+        formData.append("image", images[i].file);
+        formData.append("isPrimary", i === 0 ? "true" : "false");
+
+        const res = await fetch(
+          `${BOOKING_URL}/listings/${createdListingId}/images`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: formData,
+          },
+        );
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message ?? "Upload failed");
+        }
+
+        setImages((prev) =>
+          prev.map((img, idx) =>
+            idx === i ? { ...img, uploading: false, done: true } : img,
+          ),
+        );
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : "Upload failed";
+        setImages((prev) =>
+          prev.map((img, idx) =>
+            idx === i ? { ...img, uploading: false, error: message } : img,
+          ),
+        );
+        toast.error(`Image ${i + 1}: ${message}`);
+      }
+    }
+
+    toast.success("Listing published successfully");
+    navigate("/dashboard/listings");
   }
 
   return (
@@ -186,21 +302,23 @@ export default function DashboardCreateListing() {
                 Category
               </label>
               <div className="flex flex-wrap gap-2">
-                {CATEGORIES[pillar as "RENTAL" | "SERVICE"].map((cat: string) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setValue("category", cat)}
-                    className={cn(
-                      "px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200",
-                      category === cat
-                        ? "border-gold bg-gold/10 text-gold"
-                        : "border-border text-foreground/50 hover:border-gold/30 hover:text-foreground",
-                    )}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {CATEGORIES[pillar as "RENTAL" | "SERVICE"].map(
+                  (cat: string) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setValue("category", cat)}
+                      className={cn(
+                        "px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200",
+                        category === cat
+                          ? "border-gold bg-gold/10 text-gold"
+                          : "border-border text-foreground/50 hover:border-gold/30 hover:text-foreground",
+                      )}
+                    >
+                      {cat}
+                    </button>
+                  ),
+                )}
               </div>
               {errors.category && (
                 <p className="text-red-400 text-xs mt-2">
@@ -402,12 +520,110 @@ export default function DashboardCreateListing() {
                 disabled={isSubmitting}
                 className="gap-2"
               >
-                {isSubmitting ? "Publishing..." : "Publish Listing"}
+                {isSubmitting ? "Creating..." : "Create Listing"}
               </Button>
             </div>
           </div>
         )}
       </form>
+
+      {step === 3 && (
+        <div className="flex flex-col gap-6">
+          <div>
+            <p className="text-sm font-semibold text-foreground mb-1">
+              Add up to {MAX_IMAGES} photos
+            </p>
+            <p className="text-foreground/40 text-xs">
+              First photo becomes the primary image shown in search results.
+              Photos are optional -- you can skip this step.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {images.map((img, i) => (
+              <div
+                key={i}
+                className="relative aspect-square rounded-xl overflow-hidden border border-border bg-foreground/5"
+              >
+                <img
+                  src={img.preview}
+                  alt={`Photo ${i + 1}`}
+                  className="w-full h-full object-cover"
+                />
+                {img.uploading && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 size={20} className="text-white animate-spin" />
+                  </div>
+                )}
+                {img.done && (
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <CheckCircle size={20} className="text-green-400" />
+                  </div>
+                )}
+                {i === 0 && (
+                  <span className="absolute top-1.5 left-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gold text-lenda-dark">
+                    Primary
+                  </span>
+                )}
+                {!img.uploading && !img.done && (
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-red-500 transition-colors"
+                  >
+                    <X size={10} />
+                  </button>
+                )}
+              </div>
+            ))}
+
+            {images.length < MAX_IMAGES && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="aspect-square rounded-xl border border-dashed border-border hover:border-gold/40 bg-foreground/5 hover:bg-gold/5 flex flex-col items-center justify-center gap-2 transition-all duration-200"
+              >
+                <ImagePlus size={20} className="text-foreground/30" />
+                <span className="text-xs text-foreground/30">Add photo</span>
+              </button>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,.heic,.heif"
+            multiple
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+
+          <div className="flex justify-between pt-2">
+            <Button
+              type="button"
+              variant="outlineGold"
+              size="sm"
+              onClick={() => navigate("/dashboard/listings")}
+            >
+              Skip for now
+            </Button>
+            <Button
+              type="button"
+              variant="gold"
+              size="lg"
+              className="gap-2"
+              onClick={uploadAllImages}
+              disabled={images.some((img) => img.uploading)}
+            >
+              {images.some((img) => img.uploading)
+                ? "Uploading..."
+                : images.length === 0
+                  ? "Finish"
+                  : `Upload ${images.length} photo${images.length > 1 ? "s" : ""}`}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

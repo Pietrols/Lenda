@@ -16,6 +16,11 @@ const envSchema = z.object({
     .string()
     .min(1, "SUPABASE_SERVICE_ROLE_KEY is required"),
   AUTH_URL: z.string().default("http://localhost:3001"),
+  R2_ACCOUNT_ID: z.string().min(1, "R2_ACCOUNT_ID is required"),
+  R2_ACCESS_KEY_ID: z.string().min(1, "R2_ACCESS_KEY_ID is required"),
+  R2_SECRET_ACCESS_KEY: z.string().min(1, "R2_SECRET_ACCESS_KEY is required"),
+  R2_LISTING_BUCKET: z.string().default("lenda-listing"),
+  R2_LISTING_PUBLIC_URL: z.string().min(1, "R2_LISTING_PUBLIC_URL is required"),
 });
 
 const result = envSchema.safeParse(process.env);
