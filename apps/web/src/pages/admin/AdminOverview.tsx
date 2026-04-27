@@ -1,16 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { api, AUTH_URL, BOOKING_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
-import {
-  Users,
-  ListChecks,
-  CalendarDays,
-  CheckCircle,
-  Clock,
-  XCircle,
-  AlertCircle,
-} from "lucide-react";
+import { Users, ListChecks, CalendarDays, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type AdminUsersResponse = {
@@ -51,39 +44,30 @@ type Booking = {
 
 type BookingsResponse = { bookings: Booking[] };
 
-const statusConfig: Record<
-  string,
-  { label: string; className: string; icon: React.ReactNode }
-> = {
+const statusConfig: { [key: string]: { label: string; className: string } } = {
   PENDING: {
     label: "Pending",
     className: "text-yellow-500 border-yellow-500/30 bg-yellow-500/10",
-    icon: <Clock size={12} />,
   },
   CONFIRMED: {
     label: "Confirmed",
     className: "text-blue-400 border-blue-400/30 bg-blue-400/10",
-    icon: <CheckCircle size={12} />,
   },
   ACTIVE: {
     label: "Active",
     className: "text-green-400 border-green-400/30 bg-green-400/10",
-    icon: <CheckCircle size={12} />,
   },
   COMPLETED: {
     label: "Completed",
     className: "text-foreground/40 border-border bg-border/20",
-    icon: <CheckCircle size={12} />,
   },
   CANCELLED: {
     label: "Cancelled",
     className: "text-destructive border-destructive/30 bg-destructive/10",
-    icon: <XCircle size={12} />,
   },
   DISPUTED: {
     label: "Disputed",
     className: "text-orange-400 border-orange-400/30 bg-orange-400/10",
-    icon: <AlertCircle size={12} />,
   },
 };
 
@@ -93,23 +77,27 @@ function StatCard({
   icon,
   loading,
   accent,
+  to,
 }: {
   label: string;
   value: string | number;
   icon: React.ReactNode;
   loading?: boolean;
   accent?: boolean;
+  to?: string;
 }) {
   if (loading) {
     return (
       <div className="glass-card p-6 border border-border h-28 animate-pulse" />
     );
   }
-  return (
+
+  const inner = (
     <div
       className={cn(
         "glass-card p-6 border transition-all duration-200",
         accent ? "border-gold/30 bg-gold/5" : "border-border",
+        to && "hover:border-gold/50 hover:-translate-y-0.5 cursor-pointer",
       )}
     >
       <div className="flex items-start justify-between mb-3">
@@ -128,6 +116,9 @@ function StatCard({
       <p className="text-foreground/50 text-xs mt-1 font-body">{label}</p>
     </div>
   );
+
+  if (to) return <Link to={to}>{inner}</Link>;
+  return inner;
 }
 
 export default function AdminOverview() {
@@ -180,12 +171,10 @@ export default function AdminOverview() {
   ).length;
 
   const recentBookings = bookings.slice(0, 10);
-
   const isLoading = usersLoading || listingsLoading || bookingsLoading;
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Header */}
       <div>
         <p className="text-xs font-body font-semibold uppercase tracking-widest text-foreground/40 mb-2">
           {new Date().toLocaleDateString("en-ZM", {
@@ -214,18 +203,20 @@ export default function AdminOverview() {
             label="Total Users"
             value={usersLoading ? "—" : totalUsers}
             icon={<Users size={18} />}
-            loading={false}
             accent
+            to="/admin/users"
           />
           <StatCard
             label="Total Hosts"
             value={usersLoading ? "—" : totalHosts}
             icon={<Users size={18} />}
+            to="/admin/users"
           />
           <StatCard
             label="Total Guests"
             value={usersLoading ? "—" : totalGuests}
             icon={<Users size={18} />}
+            to="/admin/users"
           />
         </div>
       </div>
@@ -241,11 +232,13 @@ export default function AdminOverview() {
             value={listingsLoading ? "—" : totalListings}
             icon={<ListChecks size={18} />}
             accent
+            to="/admin/listings"
           />
           <StatCard
-            label="Active &amp; Verified"
+            label="Active & Verified"
             value={listingsLoading ? "—" : activeListings}
             icon={<ListChecks size={18} />}
+            to="/admin/listings?status=VERIFIED"
           />
         </div>
       </div>
@@ -261,11 +254,13 @@ export default function AdminOverview() {
             value={bookingsLoading ? "—" : totalBookings}
             icon={<CalendarDays size={18} />}
             accent
+            to="/admin/bookings"
           />
           <StatCard
             label="Completed Bookings"
             value={bookingsLoading ? "—" : completedBookings}
             icon={<CheckCircle size={18} />}
+            to="/admin/bookings?status=COMPLETED"
           />
         </div>
       </div>
@@ -338,7 +333,6 @@ export default function AdminOverview() {
                         status.className,
                       )}
                     >
-                      {status.icon}
                       {status.label}
                     </span>
                   </div>

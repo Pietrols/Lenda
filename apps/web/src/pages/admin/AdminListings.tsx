@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { api, BOOKING_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
@@ -69,10 +69,13 @@ const listingStatusConfig = (listing: AdminListing) => {
 export default function AdminListings() {
   const { accessToken } = useAuth();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
 
   const [search, setSearch] = useState("");
   const [pillarFilter, setPillarFilter] = useState("ALL");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") ?? "ALL",
+  );
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -93,9 +96,8 @@ export default function AdminListings() {
       toast.success("Listing verified successfully.");
       queryClient.invalidateQueries({ queryKey: ["admin-listings"] });
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to verify listing.");
-    },
+    onError: (err: Error) =>
+      toast.error(err.message ?? "Failed to verify listing."),
   });
 
   const suspendMutation = useMutation({
@@ -105,9 +107,8 @@ export default function AdminListings() {
       toast.success("Listing suspended.");
       queryClient.invalidateQueries({ queryKey: ["admin-listings"] });
     },
-    onError: (err: Error) => {
-      toast.error(err.message ?? "Failed to suspend listing.");
-    },
+    onError: (err: Error) =>
+      toast.error(err.message ?? "Failed to suspend listing."),
   });
 
   const allListings = data?.listings ?? [];
@@ -157,7 +158,6 @@ export default function AdminListings() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
       <div>
         <GoldLine className="w-10 mb-3" />
         <h2 className="font-display font-bold text-xl text-foreground uppercase tracking-tight">
@@ -168,7 +168,6 @@ export default function AdminListings() {
         </p>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search
@@ -206,14 +205,12 @@ export default function AdminListings() {
         </select>
       </div>
 
-      {/* Listing count */}
       {!isLoading && (
         <p className="text-xs text-foreground/40 font-body">
           Showing {filtered.length} of {allListings.length} listings
         </p>
       )}
 
-      {/* List */}
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -239,7 +236,6 @@ export default function AdminListings() {
                 key={listing.id}
                 className="glass-card p-4 border border-border flex flex-col lg:flex-row lg:items-center gap-4"
               >
-                {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start gap-2 flex-wrap">
                     <p className="font-semibold text-sm text-foreground">
@@ -276,8 +272,6 @@ export default function AdminListings() {
                     Added {new Date(listing.createdAt).toLocaleDateString()}
                   </p>
                 </div>
-
-                {/* Actions */}
                 <div className="flex items-center gap-2 shrink-0 flex-wrap">
                   <Link to={`/listings/${listing.id}`} target="_blank">
                     <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-border text-foreground/50 hover:text-foreground hover:border-gold/30 transition-colors">
@@ -307,7 +301,6 @@ export default function AdminListings() {
         </div>
       )}
 
-      {/* Confirm dialog */}
       {confirmState && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="glass-card p-6 border border-border max-w-sm w-full mx-4">

@@ -18,18 +18,18 @@ import DashboardHome from "./DashboardHome";
 import DashboardBookings from "./DashboardBookings";
 import DashboardBookingDetail from "./DashboardBookingDetail";
 import DashboardListings from "./DashboardListings";
+import DashboardCreateListing from "./DashboardCreateListing";
 import DashboardNotifications from "./DashboardNotifications";
 import DashboardProfile from "./DashboardProfile";
 import DashboardSubscription from "./DashboardSubscription";
 import DashboardFloat from "./DashboardFloat";
 import BecomeAHostPage from "./BecomeAHostPage";
-import DashboardCreateListing from "./DashboardCreateListing";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Overview",
   "/dashboard/bookings": "Bookings",
   "/dashboard/listings": "My Listings",
-  "/dashboard/listings/create": "Create Listing",   
+  "/dashboard/listings/create": "Create Listing",
   "/dashboard/notifications": "Notifications",
   "/dashboard/subscription": "Subscription",
   "/dashboard/profile": "Profile",
@@ -42,6 +42,13 @@ export default function DashboardPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("sidebar-collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
 
   const hasHostRole = user?.roles?.includes("HOST") ?? false;
   const kycApproved = user?.kycStatus === "APPROVED";
@@ -49,6 +56,18 @@ export default function DashboardPage() {
   const [activeRole, setActiveRole] = useState<"GUEST" | "HOST">(() =>
     hasHostRole && kycApproved ? "HOST" : "GUEST",
   );
+
+  function toggleCollapsed() {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sidebar-collapsed", String(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }
 
   const { mutate: logout } = useMutation({
     mutationFn: () =>
@@ -80,6 +99,8 @@ export default function DashboardPage() {
           onRoleChange={setActiveRole}
           onLogout={() => logout()}
           accessToken={accessToken}
+          collapsed={sidebarCollapsed}
+          onCollapseToggle={toggleCollapsed}
         />
       </div>
 
@@ -109,7 +130,6 @@ export default function DashboardPage() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Top bar */}
         <header className="h-16 flex items-center justify-between px-4 md:px-6 border-b border-border bg-background shrink-0">
           <div className="flex items-center gap-3">
             <button
@@ -136,14 +156,16 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-y-auto p-4 md:p-6">
           <Routes>
             <Route index element={<DashboardHome activeRole={activeRole} />} />
             <Route path="bookings" element={<DashboardBookings />} />
             <Route path="bookings/:id" element={<DashboardBookingDetail />} />
             <Route path="listings" element={<DashboardListings />} />
-            <Route path="listings/create" element={<DashboardCreateListing />} />
+            <Route
+              path="listings/create"
+              element={<DashboardCreateListing />}
+            />
             <Route path="notifications" element={<DashboardNotifications />} />
             <Route path="profile" element={<DashboardProfile />} />
             <Route path="subscription" element={<DashboardSubscription />} />

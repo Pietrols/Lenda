@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { api, BOOKING_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
@@ -59,7 +60,10 @@ type ConfirmState = {
   onConfirm: () => void;
 };
 
-const statusConfig: Record<string, { label: string; className: string; icon: React.ReactNode }> = {
+const statusConfig: Record<
+  string,
+  { label: string; className: string; icon: React.ReactNode }
+> = {
   PENDING: {
     label: "Pending",
     className: "text-yellow-500 border-yellow-500/30 bg-yellow-500/10",
@@ -168,32 +172,46 @@ function BookingRow({
           {/* Detail rows */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-body">
             <div>
-              <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">Booking ID</p>
-              <p className="text-foreground/70 font-mono text-[11px] truncate">{booking.id}</p>
+              <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">
+                Booking ID
+              </p>
+              <p className="text-foreground/70 font-mono text-[11px] truncate">
+                {booking.id}
+              </p>
             </div>
             {booking.listing?.category && (
               <div>
-                <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">Category</p>
+                <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">
+                  Category
+                </p>
                 <p className="text-foreground/70">{booking.listing.category}</p>
               </div>
             )}
             {booking.listing?.location && (
               <div>
-                <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">Location</p>
+                <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">
+                  Location
+                </p>
                 <p className="text-foreground/70">{booking.listing.location}</p>
               </div>
             )}
             {booking.createdAt && (
               <div>
-                <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">Created</p>
-                <p className="text-foreground/70">{new Date(booking.createdAt).toLocaleDateString()}</p>
+                <p className="text-foreground/40 uppercase tracking-wider text-[10px] mb-0.5">
+                  Created
+                </p>
+                <p className="text-foreground/70">
+                  {new Date(booking.createdAt).toLocaleDateString()}
+                </p>
               </div>
             )}
           </div>
 
           {/* Admin actions */}
           <div className="flex items-center gap-2 flex-wrap pt-1">
-            <span className="text-xs text-foreground/40 font-body mr-1">Admin actions:</span>
+            <span className="text-xs text-foreground/40 font-body mr-1">
+              Admin actions:
+            </span>
             {booking.status === "DISPUTED" && (
               <button
                 onClick={() => onAction(booking, "COMPLETED")}
@@ -229,7 +247,10 @@ export default function AdminBookings() {
   const { accessToken } = useAuth();
   const queryClient = useQueryClient();
 
-  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchParams] = useSearchParams();
+  const [statusFilter, setStatusFilter] = useState(
+    searchParams.get("status") ?? "ALL",
+  );
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
 
   const { data, isLoading } = useQuery({
@@ -267,11 +288,14 @@ export default function AdminBookings() {
         : `Mark booking for "${booking.listing?.title ?? "this listing"}" as ${newStatus.toLowerCase()}?`,
       confirmLabel: isCancel ? "Cancel Booking" : "Confirm",
       variant: isCancel ? "destructive" : "gold",
-      onConfirm: () => statusMutation.mutate({ id: booking.id, status: newStatus }),
+      onConfirm: () =>
+        statusMutation.mutate({ id: booking.id, status: newStatus }),
     });
   }
 
-  const disputedCount = allBookings.filter((b) => b.status === "DISPUTED").length;
+  const disputedCount = allBookings.filter(
+    (b) => b.status === "DISPUTED",
+  ).length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -292,7 +316,8 @@ export default function AdminBookings() {
           <div className="flex items-center gap-3">
             <AlertCircle size={18} className="text-orange-400 shrink-0" />
             <p className="text-sm font-medium text-orange-400">
-              {disputedCount} disputed booking{disputedCount > 1 ? "s" : ""} require{disputedCount === 1 ? "s" : ""} attention.
+              {disputedCount} disputed booking{disputedCount > 1 ? "s" : ""}{" "}
+              require{disputedCount === 1 ? "s" : ""} attention.
             </p>
             <button
               onClick={() => setStatusFilter("DISPUTED")}
@@ -343,18 +368,27 @@ export default function AdminBookings() {
       {isLoading ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="glass-card p-4 border border-border h-24 animate-pulse" />
+            <div
+              key={i}
+              className="glass-card p-4 border border-border h-24 animate-pulse"
+            />
           ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="glass-card p-10 border border-border text-center">
           <CalendarDays size={36} className="text-foreground/20 mx-auto mb-3" />
-          <p className="text-foreground/40 text-sm font-body">No bookings found.</p>
+          <p className="text-foreground/40 text-sm font-body">
+            No bookings found.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {filtered.map((booking) => (
-            <BookingRow key={booking.id} booking={booking} onAction={handleAction} />
+            <BookingRow
+              key={booking.id}
+              booking={booking}
+              onAction={handleAction}
+            />
           ))}
         </div>
       )}
@@ -367,13 +401,23 @@ export default function AdminBookings() {
               {confirmState.title}
             </h3>
             <GoldLine className="w-8 mb-4" />
-            <p className="text-foreground/60 text-sm font-body mb-6">{confirmState.message}</p>
+            <p className="text-foreground/60 text-sm font-body mb-6">
+              {confirmState.message}
+            </p>
             <div className="flex gap-3 justify-end">
-              <Button variant="ghost" size="sm" onClick={() => setConfirmState(null)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirmState(null)}
+              >
                 Cancel
               </Button>
               <Button
-                variant={confirmState.variant === "destructive" ? "destructive" : "gold"}
+                variant={
+                  confirmState.variant === "destructive"
+                    ? "destructive"
+                    : "gold"
+                }
                 size="sm"
                 onClick={() => {
                   confirmState.onConfirm();
