@@ -188,34 +188,46 @@ export default function ProfilePage() {
                     {user.bio}
                   </p>
                 )}
-              </div>
-            </div>
-          </div>
 
-          {/* Stats */}
-          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-border">
-            <div className="flex flex-col gap-0.5">
-              <span className="font-display font-bold text-xl text-foreground">
-                {user.completedBookings}
-              </span>
-              <span className="text-xs text-foreground/40">
-                {user.completedBookings === 1 ? "Job done" : "Jobs done"}
-              </span>
-            </div>
-            {user.averageRating !== null && (
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-1">
-                  <span className="font-display font-bold text-xl text-foreground">
-                    {user.averageRating.toFixed(1)}
-                  </span>
-                  <Star size={14} className="text-gold fill-gold" />
+                {user.bio && (
+                  <p className="text-sm text-foreground/60 leading-relaxed max-w-prose">
+                    {user.bio}
+                  </p>
+                )}
+
+                {/* Stats  */}
+                <div className="flex flex-wrap gap-6 mt-4 pt-4 border-t border-border/50">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-display font-bold text-xl text-foreground">
+                      {user.completedBookings}
+                    </span>
+                    <span className="text-xs text-foreground/40">
+                      {user.completedBookings === 1 ? "Job done" : "Jobs done"}
+                    </span>
+                  </div>
+                  {user.averageRating !== null && (
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="font-display font-bold text-xl text-foreground">
+                          {user.averageRating.toFixed(1)}
+                        </span>
+                        <Star size={14} className="text-gold fill-gold" />
+                      </div>
+                      <span className="text-xs text-foreground/40">
+                        {user.reviewCount}{" "}
+                        {user.reviewCount === 1 ? "review" : "reviews"}
+                      </span>
+                    </div>
+                  )}
+                  {user.averageRating === null &&
+                    user.completedBookings === 0 && (
+                      <p className="text-xs text-foreground/30 self-center">
+                        No reviews yet
+                      </p>
+                    )}
                 </div>
-                <span className="text-xs text-foreground/40">
-                  {user.reviewCount}{" "}
-                  {user.reviewCount === 1 ? "review" : "reviews"}
-                </span>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Listings */}
