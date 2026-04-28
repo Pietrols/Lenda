@@ -31,7 +31,15 @@ export async function getFloatHandler(
     const userId = req.user!.sub;
     const float = await getFloat(userId);
     res.json({ float });
-  } catch (err) {
+  } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      "statusCode" in err &&
+      (err as any).statusCode === 404
+    ) {
+      res.json({ float: null });
+      return;
+    }
     next(err);
   }
 }
