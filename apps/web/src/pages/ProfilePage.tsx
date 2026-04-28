@@ -24,6 +24,9 @@ type PublicProfile = {
   roles: string[];
   createdAt: string;
   badges?: { id: string; label: string }[];
+  completedBookings: number;
+  averageRating: number | null;
+  reviewCount: number;
 };
 
 type Listing = {
@@ -187,6 +190,32 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Stats */}
+          <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-border">
+            <div className="flex flex-col gap-0.5">
+              <span className="font-display font-bold text-xl text-foreground">
+                {user.completedBookings}
+              </span>
+              <span className="text-xs text-foreground/40">
+                {user.completedBookings === 1 ? "Job done" : "Jobs done"}
+              </span>
+            </div>
+            {user.averageRating !== null && (
+              <div className="flex flex-col gap-0.5">
+                <div className="flex items-center gap-1">
+                  <span className="font-display font-bold text-xl text-foreground">
+                    {user.averageRating.toFixed(1)}
+                  </span>
+                  <Star size={14} className="text-gold fill-gold" />
+                </div>
+                <span className="text-xs text-foreground/40">
+                  {user.reviewCount}{" "}
+                  {user.reviewCount === 1 ? "review" : "reviews"}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Listings */}

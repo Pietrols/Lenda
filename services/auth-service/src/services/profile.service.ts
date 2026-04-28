@@ -60,7 +60,28 @@ export async function getProfile(userId: string) {
   });
 
   if (!user) throw new AppError("User not found", 404);
-  return user;
+
+  const [completedBookingsCount, reviews] = await Promise.all([
+    prisma.booking.count({
+      where: { hostId: userId, status: "COMPLETED" as any },
+    }),
+    prisma.review.findMany({
+      where: { revieweeId: userId, isVisible: true },
+      select: { rating: true },
+    }),
+  ]);
+
+  const averageRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : null;
+
+  return {
+    ...user,
+    completedBookings: completedBookingsCount,
+    averageRating: averageRating ? Math.round(averageRating * 10) / 10 : null,
+    reviewCount: reviews.length,
+  };
 }
 
 export async function uploadProfilePhoto(
