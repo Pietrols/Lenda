@@ -189,12 +189,6 @@ export default function ProfilePage() {
                   </p>
                 )}
 
-                {user.bio && (
-                  <p className="text-sm text-foreground/60 leading-relaxed max-w-prose">
-                    {user.bio}
-                  </p>
-                )}
-
                 {/* Stats  */}
                 <div className="flex flex-wrap gap-6 mt-4 pt-4 border-t border-border/50">
                   <div className="flex flex-col gap-0.5">
