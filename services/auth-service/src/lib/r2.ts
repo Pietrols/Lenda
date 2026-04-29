@@ -2,6 +2,7 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { config } from "../config";
@@ -30,7 +31,6 @@ export async function uploadToR2(
     }),
   );
 
-  // Return a signed URL valid for 7 days for private buckets
   const signedUrl = await getSignedUrl(
     r2,
     new GetObjectCommand({ Bucket: bucket, Key: key }),
@@ -38,6 +38,27 @@ export async function uploadToR2(
   );
 
   return signedUrl;
+}
+
+export async function uploadPortfolioImageToR2(
+  key: string,
+  buffer: Buffer,
+  contentType: string,
+): Promise<string> {
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: config.R2_HOST_IMAGES_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    }),
+  );
+
+  return `${config.R2_HOST_IMAGES_PUBLIC_URL}/${key}`;
+}
+
+export async function deleteFromR2(bucket: string, key: string): Promise<void> {
+  await r2.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 }
 
 export async function getSignedDownloadUrl(

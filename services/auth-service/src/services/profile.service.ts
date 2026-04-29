@@ -4,9 +4,13 @@ import { AppError } from "../lib/AppError";
 import { supabase } from "../lib/supabase";
 import heicConvert from "heic-convert";
 import sharp from "sharp";
-import { uploadToR2 } from "../lib/r2";
+import {
+  uploadToR2,
+  uploadPortfolioImageToR2,
+  deleteFromR2,
+  getSignedDownloadUrl,
+} from "../lib/r2";
 import { config } from "../config";
-import { getSignedDownloadUrl } from "../lib/r2";
 
 export async function updateProfile(userId: string, data: UpdateProfileInput) {
   if (data.phone) {
@@ -56,6 +60,10 @@ export async function getProfile(userId: string) {
       subscriptionPlan: true,
       badges: true,
       createdAt: true,
+      portfolioImages: {
+        orderBy: { order: "asc" },
+        select: { id: true, url: true, caption: true, order: true },
+      },
     },
   });
 
@@ -306,4 +314,80 @@ export async function resubmitKyc(userId: string) {
   });
 
   return updated;
+}
+
+const MAX_PORTFOLIO_IMAGES = 5;
+
+export async function uploadPortfolioImage(
+  userId: string,
+  file: Express.Multer.File,
+  caption?: string,
+) {
+  const count = await (prisma as any).portfolioImage.count({
+    where: { userId },
+  });
+  if (count >= MAX_PORTFOLIO_IMAGES) {
+    throw new AppError(
+      `Maximum of ${MAX_PORTFOLIO_IMAGES} portfolio images allowed`,
+      400,
+    );
+  }
+
+  let buffer = file.buffer;
+
+  const isHeic =
+    file.mimetype === "image/heic" ||
+    file.mimetype === "image/heif" ||
+    /\.(heic|heif)$/i.test(file.originalname);
+
+  if (isHeic) {
+    const heicConvert = (await import("heic-convert")).default;
+    const converted = await heicConvert({
+      buffer: file.buffer,
+      format: "JPEG",
+      quality: 0.9,
+    });
+    buffer = Buffer.from(converted);
+  }
+
+  buffer = await sharp(buffer)
+    .resize(1200, 900, { fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 85, progressive: false })
+    .toBuffer();
+
+  const key = `${userId}/${Date.now()}.jpg`;
+  const url = await uploadPortfolioImageToR2(key, buffer, "image/jpeg");
+
+  const last = await (prisma as any).portfolioImage.findFirst({
+    where: { userId },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+
+  const order = (last?.order ?? -1) + 1;
+
+  const image = await (prisma as any).portfolioImage.create({
+    data: { userId, url, caption, order },
+  });
+
+  return image;
+}
+
+export async function deletePortfolioImage(imageId: string, userId: string) {
+  const image = await (prisma as any).portfolioImage.findUnique({
+    where: { id: imageId },
+  });
+
+  if (!image) throw new AppError("Image not found", 404);
+  if (image.userId !== userId)
+    throw new AppError("You do not own this image", 403);
+
+  await (prisma as any).portfolioImage.delete({ where: { id: imageId } });
+}
+
+export async function getPortfolioImages(userId: string) {
+  return (prisma as any).portfolioImage.findMany({
+    where: { userId },
+    orderBy: { order: "asc" },
+  });
 }

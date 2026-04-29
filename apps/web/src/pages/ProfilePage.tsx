@@ -27,6 +27,7 @@ type PublicProfile = {
   completedBookings: number;
   averageRating: number | null;
   reviewCount: number;
+  portfolioImages?: { id: string; url: string; caption?: string }[];
 };
 
 type Listing = {
@@ -330,6 +331,34 @@ export default function ProfilePage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Portfolio */}
+          {user.portfolioImages && user.portfolioImages.length > 0 && (
+            <div className="mb-8">
+              <div className="mb-5">
+                <p className="section-label">Portfolio</p>
+                <GoldLine className="w-10 mb-3" />
+                <h2 className="font-display font-bold text-xl text-foreground uppercase tracking-tight">
+                  Work & Craft
+                </h2>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {user.portfolioImages.map((img) => (
+                  <div
+                    key={img.id}
+                    className="aspect-square rounded-xl overflow-hidden border border-border"
+                  >
+                    <img
+                      src={img.url}
+                      alt={img.caption ?? "Portfolio"}
+                      loading="lazy"
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

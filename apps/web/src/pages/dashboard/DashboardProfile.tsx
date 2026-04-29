@@ -13,6 +13,8 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
+  ImagePlus,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { api, AUTH_URL } from "@/api/client";
@@ -61,6 +63,55 @@ export default function DashboardProfile() {
     queryFn: () => api.get<AuthUser>("/profiles/me", accessToken, AUTH_URL),
     enabled: !!accessToken,
   });
+
+  const filePortfolioRef = useRef<HTMLInputElement>(null);
+  const [isUploadingPortfolio, setIsUploadingPortfolio] = useState(false);
+
+  const { data: portfolioData, refetch: refetchPortfolio } = useQuery({
+    queryKey: ["portfolio", "me"],
+    queryFn: () =>
+      api.get<{
+        images: { id: string; url: string; caption?: string; order: number }[];
+      }>("/profiles/me/portfolio", accessToken, AUTH_URL),
+    enabled: !!accessToken && kycApproved && hasHostRole,
+  });
+
+  const portfolioImages = portfolioData?.images ?? [];
+
+  const { mutate: deletePortfolioImage } = useMutation({
+    mutationFn: (imageId: string) =>
+      api.delete(`/profiles/me/portfolio/${imageId}`, accessToken, AUTH_URL),
+    onSuccess: () => {
+      refetchPortfolio();
+      toast.success("Image removed.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  async function handlePortfolioUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (filePortfolioRef.current) filePortfolioRef.current.value = "";
+
+    setIsUploadingPortfolio(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch(`${AUTH_URL}/profiles/me/portfolio`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Upload failed");
+      refetchPortfolio();
+      toast.success("Portfolio image added.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setIsUploadingPortfolio(false);
+    }
+  }
 
   const {
     register,
@@ -410,6 +461,86 @@ export default function DashboardProfile() {
           >
             Start Host Application
           </Button>
+        </div>
+      )}
+
+      {/* Section 5 - Portfolio Images (approved hosts only) */}
+      {kycApproved && hasHostRole && (
+        <div className="glass-card border border-border overflow-hidden">
+          <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+            <div>
+              <h3 className="font-display font-bold text-sm uppercase tracking-tight text-foreground">
+                Portfolio
+              </h3>
+              <p className="text-foreground/50 text-xs mt-0.5">
+                Show guests what you offer. Up to 5 photos.
+              </p>
+            </div>
+            {portfolioImages.length < 5 && (
+              <button
+                onClick={() => filePortfolioRef.current?.click()}
+                disabled={isUploadingPortfolio}
+                className="flex items-center gap-1.5 text-xs font-medium text-gold hover:text-gold/80 transition-colors disabled:opacity-40"
+              >
+                <ImagePlus size={14} />
+                {isUploadingPortfolio ? "Uploading..." : "Add Photo"}
+              </button>
+            )}
+            <input
+              ref={filePortfolioRef}
+              type="file"
+              accept="image/*,.heic,.heif"
+              className="hidden"
+              onChange={handlePortfolioUpload}
+            />
+          </div>
+          <div className="p-6">
+            {portfolioImages.length === 0 ? (
+              <button
+                onClick={() => filePortfolioRef.current?.click()}
+                disabled={isUploadingPortfolio}
+                className="w-full border border-dashed border-border hover:border-gold/40 rounded-xl py-10 flex flex-col items-center gap-2 transition-colors disabled:opacity-40"
+              >
+                <ImagePlus size={24} className="text-foreground/20" />
+                <p className="text-foreground/40 text-sm">
+                  Add your first portfolio photo
+                </p>
+              </button>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {portfolioImages.map((img) => (
+                  <div
+                    key={img.id}
+                    className="relative aspect-square rounded-xl overflow-hidden border border-border group"
+                  >
+                    <img
+                      src={img.url}
+                      alt="Portfolio"
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      onClick={() => deletePortfolioImage(img.id)}
+                      className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                ))}
+                {portfolioImages.length < 5 && (
+                  <button
+                    onClick={() => filePortfolioRef.current?.click()}
+                    disabled={isUploadingPortfolio}
+                    className="aspect-square rounded-xl border border-dashed border-border hover:border-gold/40 flex flex-col items-center justify-center gap-2 transition-colors disabled:opacity-40"
+                  >
+                    <ImagePlus size={18} className="text-foreground/30" />
+                    <span className="text-xs text-foreground/30">
+                      Add photo
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

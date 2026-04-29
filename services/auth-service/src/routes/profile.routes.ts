@@ -14,9 +14,25 @@ import {
   uploadKycDocumentHandler,
   getKycDocumentsHandler,
   resubmitKycHandler,
+  uploadPortfolioImageHandler,
+  deletePortfolioImageHandler,
+  getPortfolioImagesHandler,
 } from "../controllers/profile.controller";
 
 const router: IRouter = Router();
+
+router.get("/me/portfolio", authenticate, getPortfolioImagesHandler);
+router.post(
+  "/me/portfolio",
+  authenticate,
+  upload.single("image"),
+  uploadPortfolioImageHandler,
+);
+router.delete(
+  "/me/portfolio/:imageId",
+  authenticate,
+  deletePortfolioImageHandler,
+);
 
 // All /me routes must come before /:id to avoid Express matching "me" as an ID
 router.get("/me", authenticate, getProfileMeHandler);

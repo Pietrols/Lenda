@@ -201,15 +201,26 @@ export async function assignRoles(
   });
   if (!user) throw new AppError("User not found", 404);
 
-  const existingRoles = user.roles as string[];
-  const finalRoles = [...roles];
-  if (existingRoles.includes("ADMIN") && !finalRoles.includes("ADMIN")) {
-    finalRoles.push("ADMIN");
+  const currentRoles = user.roles as string[];
+  const hadAdmin = currentRoles.includes("ADMIN");
+  const willHaveAdmin = roles.includes("ADMIN");
+
+  if (hadAdmin !== willHaveAdmin) {
+    const requestingAdmin = await prisma.user.findUnique({
+      where: { id: adminId },
+      select: { email: true },
+    });
+    if (requestingAdmin?.email !== config.MASTER_ADMIN_EMAIL) {
+      throw new AppError(
+        "Only the master admin can assign or remove the ADMIN role",
+        403,
+      );
+    }
   }
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { roles: { set: finalRoles as any[] } },
+    data: { roles: { set: roles as any[] } },
     select: { id: true, email: true, roles: true },
   });
 

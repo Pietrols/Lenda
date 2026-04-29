@@ -718,7 +718,7 @@ export default function AdminUserDetail() {
               <p className="text-sm font-semibold text-foreground">Roles</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {(["GUEST", "HOST"] as const).map((role) => {
+              {(["GUEST", "HOST", "ADMIN"] as const).map((role) => {
                 const hasRole = user.roles.includes(role);
                 return (
                   <button

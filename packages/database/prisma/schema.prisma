@@ -140,6 +140,8 @@ model User {
 
   kycDocuments     KycDocument[]
 
+  portfolioImages  PortfolioImage[]
+
   @@map("users")
 }
 
@@ -181,6 +183,18 @@ model ListingImage {
   createdAt DateTime @default(now())
 
   @@map("listing_images")
+}
+
+model PortfolioImage {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  url       String
+  caption   String?
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("portfolio_images")
 }
 
 model Booking {

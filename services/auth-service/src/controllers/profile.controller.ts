@@ -9,6 +9,9 @@ import {
   uploadKycDocument,
   getKycDocuments,
   resubmitKyc,
+  uploadPortfolioImage,
+  deletePortfolioImage,
+  getPortfolioImages,
 } from "../services/profile.service";
 
 export async function updateProfileHandler(
@@ -151,6 +154,50 @@ export async function resubmitKycHandler(
     const userId = req.user!.sub;
     const user = await resubmitKyc(userId);
     res.json({ user });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function uploadPortfolioImageHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.file) throw new Error("No file uploaded");
+    const userId = req.user!.sub;
+    const caption = req.body.caption as string | undefined;
+    const image = await uploadPortfolioImage(userId, req.file, caption);
+    res.status(201).json({ image });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deletePortfolioImageHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    await deletePortfolioImage(req.params.imageId, userId);
+    res.json({ message: "Image deleted" });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getPortfolioImagesHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const userId = req.user!.sub;
+    const images = await getPortfolioImages(userId);
+    res.json({ images });
   } catch (err) {
     next(err);
   }
