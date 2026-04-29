@@ -31,8 +31,8 @@ async function request<T>(
     body: body ? JSON.stringify(body) : undefined,
   });
 
-  // Token expired — try to refresh once
-  if (res.status === 401 && retry) {
+  // Token expired - try to refresh once
+  if (res.status === 401 && retry && token) {
     const { tokens, setAuth, clearAuth } = useAuthStore.getState();
 
     if (tokens?.refreshToken) {
