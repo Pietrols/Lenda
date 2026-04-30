@@ -28,6 +28,7 @@ const CreateListingSchema = z.object({
   subcategory: z.string().optional(),
   pricePerDay: z.number().positive("Price must be positive"),
   currency: z.string().min(1, "Currency is required"),
+  pricingMode: z.enum(["FIXED", "HOURLY", "NEGOTIABLE"]),
   location: z.string().min(1, "Location is required"),
   metadata: z.record(z.unknown()),
 });
@@ -80,6 +81,7 @@ export default function DashboardCreateListing() {
     defaultValues: {
       pillar: "RENTAL",
       currency: "ZMW",
+      pricingMode: "FIXED",
       metadata: {},
     },
   });
@@ -96,15 +98,22 @@ export default function DashboardCreateListing() {
   const category = watch("category");
 
   async function onSubmit(data: CreateListingForm) {
+    if (
+      data.pricingMode !== "NEGOTIABLE" &&
+      (!data.pricePerDay || data.pricePerDay <= 0)
+    ) {
+      toast.error("Please enter a valid price");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const res = await api.post<{ listing: { id: string } }>(
         "/listings",
-        data,
+        { ...data, pricePerDay: data.pricePerDay || 0 },
         accessToken,
         BOOKING_URL,
       );
-      setCreatedListingId(res.listing.id);
+      setCreatedListingId(res.listing.id); // this line must be present
       setStep(3);
       toast.success("Listing created. Now add your photos.");
     } catch (err: unknown) {
@@ -445,24 +454,137 @@ export default function DashboardCreateListing() {
         {step === 2 && (
           <div className="flex flex-col gap-5">
             <div className="grid grid-cols-2 gap-4">
+              {/* Pricing mode */}
               <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  Price Per Day
+                <label className="block text-sm font-semibold text-foreground mb-3">
+                  Pricing Type
                 </label>
-                <input
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  {...register("pricePerDay", { valueAsNumber: true })}
-                  placeholder="0.00"
-                  className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-transparent placeholder:text-foreground/30 focus:outline-none focus:border-gold/50 transition-colors"
-                />
-                {errors.pricePerDay && (
-                  <p className="text-red-400 text-xs mt-1">
-                    {errors.pricePerDay.message}
-                  </p>
-                )}
+                <div className="grid grid-cols-3 gap-3">
+                  {(
+                    [
+                      {
+                        value: "FIXED",
+                        label: "Fixed",
+                        desc: "Set price per day",
+                      },
+                      {
+                        value: "HOURLY",
+                        label: "Hourly",
+                        desc: "Set price per hour",
+                      },
+                      {
+                        value: "NEGOTIABLE",
+                        label: "Negotiable",
+                        desc: "Open to offers",
+                      },
+                    ] as const
+                  ).map((mode) => (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      onClick={() => setValue("pricingMode", mode.value)}
+                      className={cn(
+                        "glass-card p-3 border text-left transition-all duration-200",
+                        watch("pricingMode") === mode.value
+                          ? "border-gold bg-gold/5"
+                          : "border-border hover:border-gold/30",
+                      )}
+                    >
+                      <p className="font-semibold text-sm text-foreground">
+                        {mode.label}
+                      </p>
+                      <p className="text-foreground/40 text-xs mt-0.5">
+                        {mode.desc}
+                      </p>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Price + currency -- only show when not NEGOTIABLE */}
+              {watch("pricingMode") !== "NEGOTIABLE" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      {watch("pricingMode") === "HOURLY"
+                        ? "Price Per Hour"
+                        : "Price Per Day"}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="0.01"
+                      {...register("pricePerDay", { valueAsNumber: true })}
+                      placeholder="0.00"
+                      className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-transparent placeholder:text-foreground/30 focus:outline-none focus:border-gold/50 transition-colors"
+                    />
+                    {errors.pricePerDay && (
+                      <p className="text-red-400 text-xs mt-1">
+                        {errors.pricePerDay.message}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-foreground mb-2">
+                      Currency
+                    </label>
+                    <select
+                      {...register("currency")}
+                      className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-background focus:outline-none focus:border-gold/50 transition-colors"
+                    >
+                      {CURRENCIES.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Negotiable note */}
+              {watch("pricingMode") === "NEGOTIABLE" && (
+                <div className="glass-card border border-gold/20 bg-gold/5 rounded-xl p-4">
+                  <p className="text-sm text-gold font-medium">
+                    Negotiable pricing
+                  </p>
+                  <p className="text-foreground/50 text-xs mt-1">
+                    Guests will be able to contact you to discuss pricing before
+                    booking. You can still set a starting price or leave it as
+                    0.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4 mt-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-foreground/60 mb-1">
+                        Starting Price (optional)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        {...register("pricePerDay", { valueAsNumber: true })}
+                        placeholder="0.00"
+                        className="w-full glass-card border border-border rounded-xl px-3 py-2 text-sm text-foreground bg-transparent placeholder:text-foreground/30 focus:outline-none focus:border-gold/50 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-foreground/60 mb-1">
+                        Currency
+                      </label>
+                      <select
+                        {...register("currency")}
+                        className="w-full glass-card border border-border rounded-xl px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:border-gold/50 transition-colors"
+                      >
+                        {CURRENCIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-semibold text-foreground mb-2">
@@ -492,6 +614,7 @@ export default function DashboardCreateListing() {
                   { label: "Subcategory", value: watch("subcategory") || "--" },
                   { label: "Title", value: watch("title") },
                   { label: "Location", value: watch("location") },
+                  { label: "Pricing", value: watch("pricingMode") },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between gap-4">
                     <span className="text-foreground/40 shrink-0">{label}</span>

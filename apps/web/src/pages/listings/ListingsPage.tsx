@@ -26,6 +26,7 @@ type Listing = {
   location: string;
   pricePerDay: string;
   currency: string;
+  pricingMode?: string;
   status: string;
   discoveryScore: number;
   responseRate: number;
@@ -35,6 +36,7 @@ type Listing = {
     fullName: string | null;
     photoUrl: string | null;
     kycStatus: string;
+    pricingMode?: string;
   };
 };
 
@@ -173,6 +175,34 @@ export default function ListingsPage() {
     e.preventDefault();
     applyFilters();
   };
+
+  // Helper to add to both files at the top level
+  function PriceDisplay({
+    currency,
+    price,
+    pricingMode,
+  }: {
+    currency: string;
+    price: string | number;
+    pricingMode?: string;
+  }) {
+    if (pricingMode === "NEGOTIABLE") {
+      return (
+        <span className="font-display font-bold text-sm text-gold">
+          Negotiable
+        </span>
+      );
+    }
+    const suffix = pricingMode === "HOURLY" ? "/hr" : "/day";
+    return (
+      <>
+        <span className="font-display font-bold text-sm text-foreground">
+          {currency} {price}
+        </span>
+        <span className="text-foreground/40 text-xs">{suffix}</span>
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -580,12 +610,11 @@ export default function ListingsPage() {
                               </div>
                             </div>
                             <div className="text-right">
-                              <span className="font-display font-bold text-sm text-foreground">
-                                {listing.currency} {listing.pricePerDay}
-                              </span>
-                              <span className="text-foreground/40 text-xs">
-                                /day
-                              </span>
+                              <PriceDisplay
+                                currency={listing.currency}
+                                price={listing.pricePerDay}
+                                pricingMode={listing.pricingMode}
+                              />
                             </div>
                           </div>
                         </div>

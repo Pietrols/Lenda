@@ -61,6 +61,7 @@ export async function createListing(hostId: string, data: CreateListingInput) {
       subcategory: data.subcategory,
       pricePerDay: data.pricePerDay,
       currency: data.currency,
+      pricingMode: (data.pricingMode ?? "FIXED") as any,
       location: data.location,
       metadata: data.metadata as Prisma.InputJsonValue,
       status: ListingStatus.ACTIVE,

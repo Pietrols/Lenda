@@ -50,8 +50,9 @@ export const CreateListingSchema = z.object({
   subcategory: z.string().optional(),
   pricePerDay: z.number().positive("Price must be positive"),
   currency: z.string().min(1, "Currency is required"),
+  pricingMode: z.enum(["FIXED", "HOURLY", "NEGOTIABLE"]).default("FIXED"),
   location: z.string().min(1, "Location is required"),
-  metadata: z.record(z.unknown())
+  metadata: z.record(z.unknown()),
 });
 
 export type CreateListingInput = z.infer<typeof CreateListingSchema>;
@@ -88,6 +89,7 @@ export const UpdateListingSchema = z.object({
   subcategory: z.string().optional(),
   pricePerDay: z.number().positive().optional(),
   currency: z.string().optional(),
+  pricingMode: z.enum(["FIXED", "HOURLY", "NEGOTIABLE"]).optional(),
   location: z.string().optional(),
   metadata: z.record(z.unknown()).optional(),
 });

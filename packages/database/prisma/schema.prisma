@@ -98,6 +98,12 @@ enum NotificationType {
   FLOAT_LOW_BALANCE
 }
 
+enum PricingMode {
+  FIXED
+  HOURLY
+  NEGOTIABLE
+}
+
 // ── Models ────────────────────────────────────────────────────────────────────
 
 model User {
@@ -156,6 +162,7 @@ model Listing {
   description    String?
   pricePerDay    Decimal       @db.Decimal(10, 2)
   currency       String        @default("USD")
+  pricingMode    PricingMode   @default(FIXED)
   location       String
   status         ListingStatus @default(DRAFT)
   metadata       Json          @default("{}")

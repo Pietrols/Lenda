@@ -52,6 +52,7 @@ type Listing = {
   location: string;
   pricePerDay: string;
   currency: string;
+  pricingMode?: string;
   status: string;
   discoveryScore: number;
   responseRate: number;
@@ -333,9 +334,17 @@ export default function ListingDetailPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-display font-black text-3xl text-foreground">
-                    {listing.currency} {listing.pricePerDay}
+                    {listing.pricingMode === "NEGOTIABLE"
+                      ? "Negotiable"
+                      : `${listing.currency} ${listing.pricePerDay}`}
                   </p>
-                  <p className="text-foreground/40 text-sm">per day</p>
+                  <p className="text-foreground/40 text-sm">
+                    {listing.pricingMode === "HOURLY"
+                      ? "per hour"
+                      : listing.pricingMode === "NEGOTIABLE"
+                        ? "contact host"
+                        : "per day"}
+                  </p>
                 </div>
               </div>
 
@@ -507,9 +516,17 @@ export default function ListingDetailPage() {
               <div className="glass-card p-6 border border-border">
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="font-display font-black text-2xl text-foreground">
-                    {listing.currency} {listing.pricePerDay}
+                    {listing.pricingMode === "NEGOTIABLE"
+                      ? "Negotiable"
+                      : `${listing.currency} ${listing.pricePerDay}`}
                   </span>
-                  <span className="text-foreground/40 text-sm">/ day</span>
+                  <span className="text-foreground/40 text-sm">
+                    {listing.pricingMode === "HOURLY"
+                      ? "/ hr"
+                      : listing.pricingMode === "NEGOTIABLE"
+                        ? ""
+                        : "/ day"}
+                  </span>
                 </div>
                 <GoldLine className="w-10 mb-5" />
 
