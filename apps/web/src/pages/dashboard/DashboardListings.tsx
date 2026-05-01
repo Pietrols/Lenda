@@ -65,11 +65,15 @@ export default function DashboardListings() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
-  queryKey: ["my-listings"],
-  queryFn: () =>
-    api.get<{ listings: Listing[] }>("/listings/mine", accessToken, BOOKING_URL),
-  enabled: !!accessToken,
-});
+    queryKey: ["my-listings"],
+    queryFn: () =>
+      api.get<{ listings: Listing[] }>(
+        "/listings/mine",
+        accessToken,
+        BOOKING_URL,
+      ),
+    enabled: !!accessToken,
+  });
 
   const { mutate: deleteListing, isPending: isDeleting } = useMutation({
     mutationFn: (listingId: string) =>
@@ -104,12 +108,19 @@ export default function DashboardListings() {
             {myListings.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Link to="/dashboard/listings/create">
-          <Button variant="gold" size="sm" className="gap-2 shrink-0">
-            <Plus size={15} />
-            New Listing
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link to="/listings">
+            <Button variant="outlineGold" size="sm">
+              Browse Listings
+            </Button>
+          </Link>
+          <Link to="/dashboard/listings/create">
+            <Button variant="gold" size="sm" className="gap-2">
+              <Plus size={15} />
+              New Listing
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Listings */}
