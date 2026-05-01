@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { api, BOOKING_URL } from "@/api/client";
+import { api, BOOKING_URL, AUTH_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -19,9 +19,22 @@ import {
   Bell,
 } from "lucide-react";
 
+// 1. Define specific statuses to fix the indexing error
+type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "EN_ROUTE"
+  | "HANDED_OVER"
+  | "ACTIVE"
+  | "RETURN_PENDING"
+  | "RETURNED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "DISPUTED";
+
 type Booking = {
   id: string;
-  status: string;
+  status: BookingStatus; // Use the union here
   startDate: string;
   endDate: string;
   totalAmount: string;
@@ -43,8 +56,9 @@ type NotificationsResponse = {
   notifications: { id: string; isRead: boolean }[];
 };
 
+// 2. Fixed the Record syntax: Record<Key, Value>
 const statusConfig: Record<
-  string,
+  BookingStatus,
   { label: string; color: string; icon: React.ReactNode }
 > = {
   PENDING: {
@@ -99,7 +113,7 @@ const statusConfig: Record<
   },
 };
 
-const activeStatuses = [
+const activeStatuses: BookingStatus[] = [
   "PENDING",
   "CONFIRMED",
   "EN_ROUTE",
@@ -136,6 +150,29 @@ export default function DashboardHome({ activeRole }: DashboardHomeProps) {
     enabled: !!accessToken,
   });
 
+  const { data: floatData } = useQuery({
+    queryKey: ["float"],
+    queryFn: () =>
+      api.get<{ float: { balance: string } | null }>(
+        "/float/me",
+        accessToken,
+        AUTH_URL,
+      ),
+    enabled: !!accessToken && isHostView,
+    retry: false,
+  });
+
+  const { data: listingsData } = useQuery({
+    queryKey: ["my-listings"],
+    queryFn: () =>
+      api.get<{ listings: { id: string; status: string }[] }>(
+        "/listings/mine",
+        accessToken,
+        BOOKING_URL,
+      ),
+    enabled: !!accessToken && isHostView,
+  });
+
   const bookings = data?.bookings ?? [];
   const unreadCount = (notifData?.notifications ?? []).filter(
     (n) => !n.isRead,
@@ -152,6 +189,16 @@ export default function DashboardHome({ activeRole }: DashboardHomeProps) {
   const displayBookings = isHostView
     ? hostBookings.slice(0, 3)
     : guestBookings.slice(0, 3);
+
+  const floatBalance = floatData?.float
+    ? `K${parseFloat(floatData.float.balance).toFixed(2)}`
+    : "Setup";
+
+  const activeListingsCount = (listingsData?.listings ?? []).filter(
+    (l) => l.status === "ACTIVE",
+  ).length;
+
+  const totalListingsCount = listingsData?.listings?.length ?? 0;
 
   const firstName = user?.fullName?.split(" ")[0] ?? "";
 
@@ -215,20 +262,24 @@ export default function DashboardHome({ activeRole }: DashboardHomeProps) {
               href="/dashboard/bookings"
             />
             <StatCard
-              label="Total Bookings"
-              value={isLoading ? "—" : hostBookings.length}
+              label="Completed"
+              value={
+                isLoading
+                  ? "—"
+                  : hostBookings.filter((b) => b.status === "COMPLETED").length
+              }
               icon={<CheckCircle size={20} className="text-gold" />}
               href="/dashboard/bookings"
             />
             <StatCard
-              label="My Listings"
-              value="Manage"
+              label={`Listings (${activeListingsCount} active)`}
+              value={totalListingsCount}
               icon={<ListChecks size={20} className="text-gold" />}
               href="/dashboard/listings"
             />
             <StatCard
               label="Float Balance"
-              value="View"
+              value={floatBalance}
               icon={<Wallet size={20} className="text-gold" />}
               href="/dashboard/float"
             />
@@ -394,7 +445,7 @@ export default function DashboardHome({ activeRole }: DashboardHomeProps) {
                 List a rental or service to start receiving bookings.
               </p>
             </div>
-            <Link to="/dashboard/listings" className="shrink-0">
+            <Link to="/dashboard/listings/create" className="shrink-0">
               <Button variant="gold" size="sm" className="gap-2">
                 <Plus size={14} /> New Listing
               </Button>
