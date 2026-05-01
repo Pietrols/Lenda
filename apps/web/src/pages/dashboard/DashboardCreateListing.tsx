@@ -96,6 +96,7 @@ export default function DashboardCreateListing() {
 
   const pillar = watch("pillar");
   const category = watch("category");
+  const pricingMode = watch("pricingMode");
 
   async function onSubmit(data: CreateListingForm) {
     if (
@@ -113,7 +114,7 @@ export default function DashboardCreateListing() {
         accessToken,
         BOOKING_URL,
       );
-      setCreatedListingId(res.listing.id); // this line must be present
+      setCreatedListingId(res.listing.id);
       setStep(3);
       toast.success("Listing created. Now add your photos.");
     } catch (err: unknown) {
@@ -132,17 +133,14 @@ export default function DashboardCreateListing() {
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-
     const remaining = MAX_IMAGES - images.length;
     const toAdd = files.slice(0, remaining);
-
     const newImages: UploadedImage[] = toAdd.map((file) => ({
       file,
       preview: URL.createObjectURL(file),
       uploading: false,
       done: false,
     }));
-
     setImages((prev) => [...prev, ...newImages]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
@@ -163,19 +161,15 @@ export default function DashboardCreateListing() {
       navigate("/dashboard/listings");
       return;
     }
-
     for (let i = 0; i < images.length; i++) {
       if (images[i].done) continue;
-
       setImages((prev) =>
         prev.map((img, idx) => (idx === i ? { ...img, uploading: true } : img)),
       );
-
       try {
         const formData = new FormData();
         formData.append("image", images[i].file);
         formData.append("isPrimary", i === 0 ? "true" : "false");
-
         const res = await fetch(
           `${BOOKING_URL}/listings/${createdListingId}/images`,
           {
@@ -184,12 +178,10 @@ export default function DashboardCreateListing() {
             body: formData,
           },
         );
-
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.message ?? "Upload failed");
         }
-
         setImages((prev) =>
           prev.map((img, idx) =>
             idx === i ? { ...img, uploading: false, done: true } : img,
@@ -205,7 +197,6 @@ export default function DashboardCreateListing() {
         toast.error(`Image ${i + 1}: ${message}`);
       }
     }
-
     toast.success("Listing published successfully");
     navigate("/dashboard/listings");
   }
@@ -259,6 +250,7 @@ export default function DashboardCreateListing() {
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)}>
+        {/* Step 0: Pillar + Category */}
         {step === 0 && (
           <div className="flex flex-col gap-6">
             <div>
@@ -370,6 +362,7 @@ export default function DashboardCreateListing() {
           </div>
         )}
 
+        {/* Step 1: Details */}
         {step === 1 && (
           <div className="flex flex-col gap-5">
             <div>
@@ -451,86 +444,128 @@ export default function DashboardCreateListing() {
           </div>
         )}
 
+        {/* Step 2: Pricing */}
         {step === 2 && (
           <div className="flex flex-col gap-5">
-            <div className="grid grid-cols-2 gap-4">
-              {/* Pricing mode */}
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-3">
-                  Pricing Type
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {(
-                    [
-                      {
-                        value: "FIXED",
-                        label: "Fixed",
-                        desc: "Set price per day",
-                      },
-                      {
-                        value: "HOURLY",
-                        label: "Hourly",
-                        desc: "Set price per hour",
-                      },
-                      {
-                        value: "NEGOTIABLE",
-                        label: "Negotiable",
-                        desc: "Open to offers",
-                      },
-                    ] as const
-                  ).map((mode) => (
-                    <button
-                      key={mode.value}
-                      type="button"
-                      onClick={() => setValue("pricingMode", mode.value)}
-                      className={cn(
-                        "glass-card p-3 border text-left transition-all duration-200",
-                        watch("pricingMode") === mode.value
-                          ? "border-gold bg-gold/5"
-                          : "border-border hover:border-gold/30",
-                      )}
-                    >
-                      <p className="font-semibold text-sm text-foreground">
-                        {mode.label}
-                      </p>
-                      <p className="text-foreground/40 text-xs mt-0.5">
-                        {mode.desc}
-                      </p>
-                    </button>
-                  ))}
+            {/* Pricing mode -- full width, flex wrap for mobile */}
+            <div>
+              <label className="block text-sm font-semibold text-foreground mb-3">
+                Pricing Type
+              </label>
+              <div className="flex flex-wrap gap-3">
+                {(
+                  [
+                    {
+                      value: "FIXED",
+                      label: "Fixed",
+                      desc: "Set price per day",
+                    },
+                    {
+                      value: "HOURLY",
+                      label: "Hourly",
+                      desc: "Set price per hour",
+                    },
+                    {
+                      value: "NEGOTIABLE",
+                      label: "Negotiable",
+                      desc: "Open to offers",
+                    },
+                  ] as const
+                ).map((mode) => (
+                  <button
+                    key={mode.value}
+                    type="button"
+                    onClick={() => setValue("pricingMode", mode.value)}
+                    className={cn(
+                      "glass-card p-3 border text-left transition-all duration-200 min-w-[100px] flex-1",
+                      pricingMode === mode.value
+                        ? "border-gold bg-gold/5"
+                        : "border-border hover:border-gold/30",
+                    )}
+                  >
+                    <p className="font-semibold text-sm text-foreground">
+                      {mode.label}
+                    </p>
+                    <p className="text-foreground/40 text-xs mt-0.5">
+                      {mode.desc}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Price + currency for FIXED and HOURLY */}
+            {pricingMode !== "NEGOTIABLE" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">
+                    {pricingMode === "HOURLY"
+                      ? "Price Per Hour"
+                      : "Price Per Day"}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    {...register("pricePerDay", { valueAsNumber: true })}
+                    placeholder="0.00"
+                    className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-transparent placeholder:text-foreground/30 focus:outline-none focus:border-gold/50 transition-colors"
+                  />
+                  {errors.pricePerDay && (
+                    <p className="text-red-400 text-xs mt-1">
+                      {errors.pricePerDay.message}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-foreground mb-2">
+                    Currency
+                  </label>
+                  <select
+                    {...register("currency")}
+                    className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-background focus:outline-none focus:border-gold/50 transition-colors"
+                  >
+                    {CURRENCIES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
+            )}
 
-              {/* Price + currency -- only show when not NEGOTIABLE */}
-              {watch("pricingMode") !== "NEGOTIABLE" && (
-                <div className="grid grid-cols-2 gap-4">
+            {/* Negotiable */}
+            {pricingMode === "NEGOTIABLE" && (
+              <div className="glass-card border border-gold/20 bg-gold/5 rounded-xl p-4">
+                <p className="text-sm text-gold font-medium">
+                  Negotiable pricing
+                </p>
+                <p className="text-foreground/50 text-xs mt-1">
+                  Guests will contact you to discuss pricing before booking. You
+                  can set a starting price or leave it as 0.
+                </p>
+                <div className="grid grid-cols-2 gap-4 mt-3">
                   <div>
-                    <label className="block text-sm font-semibold text-foreground mb-2">
-                      {watch("pricingMode") === "HOURLY"
-                        ? "Price Per Hour"
-                        : "Price Per Day"}
+                    <label className="block text-xs font-semibold text-foreground/60 mb-1">
+                      Starting Price (optional)
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min="0"
                       step="0.01"
                       {...register("pricePerDay", { valueAsNumber: true })}
                       placeholder="0.00"
-                      className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-transparent placeholder:text-foreground/30 focus:outline-none focus:border-gold/50 transition-colors"
+                      className="w-full glass-card border border-border rounded-xl px-3 py-2 text-sm text-foreground bg-transparent placeholder:text-foreground/30 focus:outline-none focus:border-gold/50 transition-colors"
                     />
-                    {errors.pricePerDay && (
-                      <p className="text-red-400 text-xs mt-1">
-                        {errors.pricePerDay.message}
-                      </p>
-                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-foreground mb-2">
+                    <label className="block text-xs font-semibold text-foreground/60 mb-1">
                       Currency
                     </label>
                     <select
                       {...register("currency")}
-                      className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-background focus:outline-none focus:border-gold/50 transition-colors"
+                      className="w-full glass-card border border-border rounded-xl px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:border-gold/50 transition-colors"
                     >
                       {CURRENCIES.map((c) => (
                         <option key={c} value={c}>
@@ -540,69 +575,10 @@ export default function DashboardCreateListing() {
                     </select>
                   </div>
                 </div>
-              )}
-
-              {/* Negotiable note */}
-              {watch("pricingMode") === "NEGOTIABLE" && (
-                <div className="glass-card border border-gold/20 bg-gold/5 rounded-xl p-4">
-                  <p className="text-sm text-gold font-medium">
-                    Negotiable pricing
-                  </p>
-                  <p className="text-foreground/50 text-xs mt-1">
-                    Guests will be able to contact you to discuss pricing before
-                    booking. You can still set a starting price or leave it as
-                    0.
-                  </p>
-                  <div className="grid grid-cols-2 gap-4 mt-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-foreground/60 mb-1">
-                        Starting Price (optional)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        {...register("pricePerDay", { valueAsNumber: true })}
-                        placeholder="0.00"
-                        className="w-full glass-card border border-border rounded-xl px-3 py-2 text-sm text-foreground bg-transparent placeholder:text-foreground/30 focus:outline-none focus:border-gold/50 transition-colors"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-foreground/60 mb-1">
-                        Currency
-                      </label>
-                      <select
-                        {...register("currency")}
-                        className="w-full glass-card border border-border rounded-xl px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:border-gold/50 transition-colors"
-                      >
-                        {CURRENCIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-semibold text-foreground mb-2">
-                  Currency
-                </label>
-                <select
-                  {...register("currency")}
-                  className="w-full glass-card border border-border rounded-xl px-4 py-3 text-sm text-foreground bg-background focus:outline-none focus:border-gold/50 transition-colors"
-                >
-                  {CURRENCIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
               </div>
-            </div>
+            )}
 
+            {/* Summary */}
             <div className="glass-card border border-border rounded-xl p-5 flex flex-col gap-3 mt-1">
               <p className="text-xs font-semibold text-foreground/40 uppercase tracking-wider">
                 Summary
@@ -614,7 +590,7 @@ export default function DashboardCreateListing() {
                   { label: "Subcategory", value: watch("subcategory") || "--" },
                   { label: "Title", value: watch("title") },
                   { label: "Location", value: watch("location") },
-                  { label: "Pricing", value: watch("pricingMode") },
+                  { label: "Pricing", value: pricingMode },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between gap-4">
                     <span className="text-foreground/40 shrink-0">{label}</span>
@@ -650,6 +626,7 @@ export default function DashboardCreateListing() {
         )}
       </form>
 
+      {/* Step 3: Photos */}
       {step === 3 && (
         <div className="flex flex-col gap-6">
           <div>
@@ -658,7 +635,7 @@ export default function DashboardCreateListing() {
             </p>
             <p className="text-foreground/40 text-xs">
               First photo becomes the primary image shown in search results.
-              Photos are optional -- you can skip this step.
+              Photos are optional.
             </p>
           </div>
 
