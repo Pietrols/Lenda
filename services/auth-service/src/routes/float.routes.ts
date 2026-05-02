@@ -7,6 +7,7 @@ import {
   requestWithdrawalHandler,
   adminTopUpHandler,
   adminApproveWithdrawalHandler,
+  adminGetFloatHandler,
 } from "../controllers/float.controller";
 import { deductCommissionHandler } from "../controllers/float.controller";
 
@@ -15,6 +16,13 @@ const router: IRouter = Router();
 router.post("/setup", authenticate, setupFloatHandler);
 router.get("/me", authenticate, getFloatHandler);
 router.post("/withdraw", authenticate, requestWithdrawalHandler);
+
+router.get(
+  "/admin/:id",
+  authenticate,
+  requireRole(Role.ADMIN),
+  adminGetFloatHandler,
+);
 
 router.patch(
   "/admin/:id/topup",

@@ -2,7 +2,7 @@
 
 > This document is the single source of truth for understanding, deploying, and managing the Lenda platform. It is written for a developer joining the project with no prior context. Read it from top to bottom before touching any code or server.
 
----
+-
 
 ## Table of Contents
 
@@ -29,7 +29,7 @@
 21. [ARM Migration - When the Hunt Succeeds](#21-arm-migration)
 22. [Troubleshooting Guide](#22-troubleshooting-guide)
 
----
+-
 
 ## 1. What is Lenda?
 
@@ -54,7 +54,7 @@ PENDING → CONFIRMED → EN_ROUTE → HANDED_OVER → ACTIVE → RETURN_PENDING
 
 With side states: `CANCELLED`, `DISPUTED`
 
----
+-
 
 ## 2. The Big Picture
 
@@ -97,7 +97,7 @@ ORACLE AMD MICRO VM (129.151.136.212)
 
 Image uploads (profile photos, listing images) go directly from the browser to **Supabase Storage** - the server is never involved in image uploads.
 
----
+-
 
 ## 3. The Tech Stack
 
@@ -177,7 +177,7 @@ Used only for Redis. Rather than installing Redis directly on Ubuntu, it runs in
 
 A static site hosting platform with a global CDN. The React frontend is deployed here. Netlify serves the built HTML/CSS/JS files from edge servers around the world, meaning users get fast load times regardless of where they are. Every push to the `main` branch on GitHub triggers an automatic redeploy.
 
----
+-
 
 ## 4. The Monorepo Structure
 
@@ -229,7 +229,7 @@ lenda/
 └── package.json                # Root package.json
 ```
 
----
+-
 
 ## 5. Local Development Setup
 
@@ -268,8 +268,8 @@ psql -U postgres -c "CREATE DATABASE lenda_dev;"
 
 # 6. Start Redis via Docker
 docker run -d \
-  --name lenda_redis_dev \
-  --restart unless-stopped \
+  -name lenda_redis_dev \
+  -restart unless-stopped \
   -p 6380:6379 \
   redis:7-alpine
 
@@ -280,19 +280,19 @@ pnpm migrate     # applies all migrations to lenda_dev
 cd ../..
 
 # 8. Build shared packages (must be done before running services)
-pnpm --filter @lenda/types build
-pnpm --filter @lenda/schemas build
-pnpm --filter @lenda/database build
+pnpm -filter @lenda/types build
+pnpm -filter @lenda/schemas build
+pnpm -filter @lenda/database build
 
 # 9. Start all services
 # Terminal 1 - auth service
-pnpm --filter auth-service dev
+pnpm -filter auth-service dev
 
 # Terminal 2 - booking service
-pnpm --filter booking-service dev
+pnpm -filter booking-service dev
 
 # Terminal 3 - frontend
-pnpm --filter web dev
+pnpm -filter web dev
 ```
 
 The frontend runs at `http://localhost:5173`.
@@ -306,18 +306,18 @@ Booking service runs at `http://localhost:3002`.
 pnpm vitest run
 
 # Just auth service
-pnpm --filter auth-service test
+pnpm -filter auth-service test
 
 # Just booking service
-pnpm --filter booking-service test
+pnpm -filter booking-service test
 
 # Just frontend
-pnpm --filter web test
+pnpm -filter web test
 ```
 
 Total: 98 tests across auth, booking, listing, review, message, admin, and frontend utils/components.
 
----
+-
 
 ## 6. The Database
 
@@ -348,7 +348,7 @@ Migration files live in `packages/database/prisma/migrations/`. Each folder is n
 
 **Soft deletes** - Listings have a `deletedAt` timestamp. When a listing is deleted, it is not removed from the database - `deletedAt` is set to the current time. All queries filter for `deletedAt IS NULL`. This preserves historical booking data.
 
----
+-
 
 ## 7. The Backend Services
 
@@ -432,7 +432,7 @@ The `requireRole` middleware:
 1. Checks `req.user.roles` contains the required role
 2. If not, returns 403 before the handler runs
 
----
+-
 
 ## 8. The Frontend
 
@@ -496,7 +496,7 @@ VITE_GROQ_API_KEY      - API key for the AI chatbot (Groq LLama)
 In development: `apps/web/.env`
 In production: `apps/web/.env.production`
 
----
+-
 
 ## 9. Oracle Cloud
 
@@ -553,7 +553,7 @@ Breaking this down:
 
 **OCPU** - Oracle Compute Unit. Approximately equivalent to 1 CPU thread on a modern Intel/AMD processor.
 
----
+-
 
 ## 10. Server Setup
 
@@ -620,16 +620,16 @@ sudo usermod -aG docker ubuntu
 
 ```bash
 sudo docker run -d \
-  --name lenda_redis \
-  --restart unless-stopped \
+  -name lenda_redis \
+  -restart unless-stopped \
   -p 6380:6379 \
   redis:7-alpine
 ```
 
 - `docker run` - create and start a container
 - `-d` - detached mode (runs in the background)
-- `--name lenda_redis` - gives the container a name so you can reference it later
-- `--restart unless-stopped` - automatically restart the container if it crashes or the server reboots, unless you explicitly stop it
+- `-name lenda_redis` - gives the container a name so you can reference it later
+- `-restart unless-stopped` - automatically restart the container if it crashes or the server reboots, unless you explicitly stop it
 - `-p 6380:6379` - maps port 6380 on the host to port 6379 inside the container (format is `host:container`)
 - `redis:7-alpine` - the Docker image to use (Redis version 7, alpine Linux base for small size)
 
@@ -663,16 +663,16 @@ SQL
 Oracle has two layers of firewall - the cloud security list (configured in the Oracle Console) and the OS-level iptables firewall. Both must allow traffic.
 
 ```bash
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 80 -j ACCEPT
-sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport 443 -j ACCEPT
+sudo iptables -I INPUT 6 -m state -state NEW -p tcp -dport 80 -j ACCEPT
+sudo iptables -I INPUT 6 -m state -state NEW -p tcp -dport 443 -j ACCEPT
 sudo netfilter-persistent save
 ```
 
 - `iptables` - the Linux firewall tool
 - `-I INPUT 6` - insert a rule at position 6 in the INPUT chain. CRITICAL: the default Oracle setup has a REJECT ALL rule. Rules are evaluated top to bottom, so position matters. New rules must go BEFORE the REJECT rule.
-- `-m state --state NEW` - only match new connections (not established ones, which are handled by an earlier rule)
+- `-m state -state NEW` - only match new connections (not established ones, which are handled by an earlier rule)
 - `-p tcp` - match TCP protocol
-- `--dport 80` - match traffic destined for port 80
+- `-dport 80` - match traffic destined for port 80
 - `-j ACCEPT` - the action: accept the packet
 - `netfilter-persistent save` - saves the rules to disk so they survive a reboot
 
@@ -680,13 +680,13 @@ sudo netfilter-persistent save
 
 ```bash
 # Check current rules with line numbers
-sudo iptables -L INPUT --line-numbers
+sudo iptables -L INPUT -line-numbers
 
 # If REJECT is at position 5 and your ACCEPT rules are at 6+, delete the REJECT rule
 sudo iptables -D INPUT 5
 
 # Re-add REJECT at the end (after your ACCEPT rules)
-sudo iptables -A INPUT -j REJECT --reject-with icmp-host-prohibited
+sudo iptables -A INPUT -j REJECT -reject-with icmp-host-prohibited
 
 # Save
 sudo netfilter-persistent save
@@ -703,7 +703,7 @@ DATABASE_URL='postgresql://lenda:LendaProd2026!@localhost:5432/lenda_prod' pnpm 
 - Single quotes around the URL prevent bash from interpreting the `!` character as a history event
 - `pnpm migrate:deploy` runs `prisma migrate deploy` which applies all pending migrations to the production database without prompting
 
----
+-
 
 ## 11. Nginx
 
@@ -771,7 +771,7 @@ sudo systemctl reload nginx
 sudo systemctl restart nginx
 ```
 
----
+-
 
 ## 12. PM2
 
@@ -834,7 +834,7 @@ pm2 logs lenda-auth
 pm2 logs lenda-booking
 
 # View last 100 lines of logs
-pm2 logs lenda-auth --lines 100
+pm2 logs lenda-auth -lines 100
 
 # Restart a specific app
 pm2 restart lenda-auth
@@ -863,13 +863,13 @@ PM2 uses systemd to ensure services start on server reboot:
 ```bash
 pm2 startup
 # This outputs a command like:
-sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu --hp /home/ubuntu
+sudo env PATH=$PATH:/usr/bin /usr/lib/node_modules/pm2/bin/pm2 startup systemd -u ubuntu -hp /home/ubuntu
 
 # Run that command, then save the process list
 pm2 save
 ```
 
----
+-
 
 ## 13. SSL
 
@@ -880,10 +880,10 @@ SSL (Secure Sockets Layer) / TLS encrypts traffic between the user's browser and
 Certbot is a free tool by the Electronic Frontier Foundation (EFF) that automates getting SSL certificates from Let's Encrypt.
 
 ```bash
-sudo certbot --nginx -d lenda.work -d www.lenda.work
+sudo certbot -nginx -d lenda.work -d www.lenda.work
 ```
 
-- `--nginx` - use the Nginx plugin, which automatically modifies the Nginx config to use the certificate
+- `-nginx` - use the Nginx plugin, which automatically modifies the Nginx config to use the certificate
 - `-d lenda.work -d www.lenda.work` - issue the certificate for both the bare domain and the www subdomain
 
 Certbot places the certificate files at:
@@ -897,13 +897,13 @@ Certbot installs a systemd timer that runs twice daily and renews certificates t
 
 ```bash
 # Test that renewal would work (dry run, no actual renewal)
-sudo certbot renew --dry-run
+sudo certbot renew -dry-run
 
 # Check certbot timer status
 systemctl status certbot.timer
 ```
 
----
+-
 
 ## 14. The Domain
 
@@ -928,7 +928,7 @@ nslookup lenda.work
 dig lenda.work A
 ```
 
----
+-
 
 ## 15. The Frontend Host - Netlify
 
@@ -970,7 +970,7 @@ VITE_API_BOOKING_URL  = https://lenda.work/api/booking
 VITE_GROQ_API_KEY     = [secret]
 ```
 
----
+-
 
 ## 16. Full Deployment Flow - Code to Live
 
@@ -980,10 +980,10 @@ This is the complete process for deploying a code change.
 
 ```bash
 # 1. Make changes locally and test
-pnpm --filter web dev
+pnpm -filter web dev
 
 # 2. Run tests
-pnpm --filter web test
+pnpm -filter web test
 
 # 3. Commit and push
 git add .
@@ -998,8 +998,8 @@ git push origin main
 
 ```bash
 # 1. Make changes locally and test
-pnpm --filter auth-service dev
-pnpm --filter auth-service test
+pnpm -filter auth-service dev
+pnpm -filter auth-service test
 
 # 2. Commit and push
 git add .
@@ -1014,9 +1014,9 @@ cd ~/lenda
 git pull origin main
 
 # 5. Build the changed service
-pnpm --filter auth-service build
+pnpm -filter auth-service build
 # or
-pnpm --filter booking-service build
+pnpm -filter booking-service build
 
 # 6. Restart the service
 pm2 restart lenda-auth
@@ -1025,7 +1025,7 @@ pm2 restart lenda-booking
 
 # 7. Verify it's running
 pm2 status
-pm2 logs lenda-auth --lines 20
+pm2 logs lenda-auth -lines 20
 ```
 
 ### For Database Schema Changes
@@ -1053,12 +1053,12 @@ DATABASE_URL='postgresql://lenda:LendaProd2026!@localhost:5432/lenda_prod' pnpm 
 
 # 6. Rebuild and restart affected services
 cd ~/lenda
-pnpm --filter auth-service build
-pnpm --filter booking-service build
+pnpm -filter auth-service build
+pnpm -filter booking-service build
 pm2 restart all
 ```
 
----
+-
 
 ## 17. How Requests Flow at Runtime
 
@@ -1094,7 +1094,7 @@ pm2 restart all
 9. Returns the created booking
 10. React updates the TanStack Query cache and shows the booking in the dashboard
 
----
+-
 
 ## 18. What Happens When the Server Restarts
 
@@ -1103,7 +1103,7 @@ When the Oracle VM reboots (planned maintenance, power event, or manual restart)
 1. **Ubuntu boots** - Linux starts, systemd initialises services
 2. **PostgreSQL starts** - enabled with `systemctl enable postgresql`, starts automatically
 3. **Docker starts** - enabled with `systemctl enable docker`, starts automatically
-4. **Redis container starts** - the container has `--restart unless-stopped`, so Docker restarts it
+4. **Redis container starts** - the container has `-restart unless-stopped`, so Docker restarts it
 5. **PM2 starts** - the `pm2-ubuntu` systemd service is enabled, it reads the saved process list and starts `lenda-auth` and `lenda-booking`
 6. **Nginx starts** - enabled during installation, starts automatically and loads the lenda site config
 7. All services are back up within ~30 seconds. No manual intervention needed.
@@ -1124,7 +1124,7 @@ curl https://lenda.work/api/auth/health
 curl https://lenda.work/api/booking/health
 ```
 
----
+-
 
 ## 19. Server Management
 
@@ -1159,7 +1159,7 @@ pm2 logs lenda-auth
 pm2 logs lenda-booking
 
 # Last 50 lines
-pm2 logs lenda-auth --lines 50
+pm2 logs lenda-auth -lines 50
 
 # Nginx access log
 sudo tail -f /var/log/nginx/access.log
@@ -1216,7 +1216,7 @@ TTL key_name     # check remaining TTL on a key
 \q               # quit
 ```
 
----
+-
 
 ## 20. Environment Variables - Complete Reference
 
@@ -1265,7 +1265,7 @@ VITE_API_BOOKING_URL=https://lenda.work/api/booking
 VITE_GROQ_API_KEY=<groq api key>
 ```
 
----
+-
 
 ## 21. ARM Migration
 
@@ -1320,7 +1320,7 @@ In Namecheap Advanced DNS, update both A records to point to the ARM instance's 
 
 Once confirmed working on ARM, terminate the AMD micro in the Oracle Console to avoid using both free tier allocations.
 
----
+-
 
 ## 22. Troubleshooting Guide
 
@@ -1330,7 +1330,7 @@ Check both firewall layers:
 
 ```bash
 # OS firewall - check for misplaced REJECT rule
-sudo iptables -L INPUT --line-numbers
+sudo iptables -L INPUT -line-numbers
 # REJECT should be at the bottom, AFTER the ACCEPT rules for 80/443
 
 # Nginx status
@@ -1342,7 +1342,7 @@ sudo nginx -t
 
 ```bash
 # Check logs for the error
-pm2 logs lenda-auth --lines 50
+pm2 logs lenda-auth -lines 50
 
 # Common causes:
 # 1. Missing .env file
@@ -1418,7 +1418,7 @@ sudo apt autoremove
 sudo apt clean
 ```
 
----
+-
 
 ## Summary - Deployed Infrastructure
 
@@ -1436,6 +1436,6 @@ sudo apt clean
 | Domain          | lenda.work              | Namecheap                 | Human-readable address   |
 | Source Control  | Git + GitHub            | github.com/Pietrols/lenda | Code versioning          |
 
----
+-
 
 _Document last updated: April 2026. Maintained by Pietrols Enterprise Ltd._

@@ -25,6 +25,7 @@ import {
   Zap,
   Crown,
   Users,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -241,6 +242,22 @@ export default function AdminUserDetail() {
     enabled: !!accessToken && !!id,
     retry: false,
   });
+
+  const { data: floatData } = useQuery({
+    queryKey: ["admin-user-float", id],
+    queryFn: () =>
+      api.get<{ float: { balance: string; totalEarned: string } | null }>(
+        `/float/admin/${id}`,
+        accessToken,
+        AUTH_URL,
+      ),
+    enabled: !!accessToken && !!id,
+    retry: false,
+  });
+
+  const floatBalance = floatData?.float
+    ? `K${parseFloat(floatData.float.balance).toFixed(2)}`
+    : "No account";
 
   const kycMutation = useMutation({
     mutationFn: ({ status, reason }: { status: string; reason?: string }) =>
@@ -584,6 +601,15 @@ export default function AdminUserDetail() {
             value: listingsLoading ? "—" : userListings.length,
             icon: <ListChecks size={18} />,
           },
+          ...(isHost
+            ? [
+                {
+                  label: "Float Balance",
+                  value: floatData === undefined ? "—" : floatBalance,
+                  icon: <Wallet size={18} />,
+                },
+              ]
+            : []),
         ].map((stat) => (
           <div
             key={stat.label}

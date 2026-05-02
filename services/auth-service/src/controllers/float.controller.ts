@@ -107,3 +107,25 @@ export async function deductCommissionHandler(
     next(err);
   }
 }
+
+export async function adminGetFloatHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const { id } = req.params;
+    const float = await getFloat(id);
+    res.json({ float });
+  } catch (err: unknown) {
+    if (
+      err instanceof Error &&
+      "statusCode" in err &&
+      (err as any).statusCode === 404
+    ) {
+      res.json({ float: null });
+      return;
+    }
+    next(err);
+  }
+}
