@@ -99,7 +99,7 @@
   }
 
   .pinned-section {
-    @apply w-screen h-screen overflow-hidden;
+    @apply w-screen overflow-hidden;
   }
 
   .flowing-section {
