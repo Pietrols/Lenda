@@ -14,6 +14,51 @@ import { config } from "../config";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
+const HOST_TIPS = [
+  "Complete your profile to improve your listing visibility.",
+  "Add more photos to your listing to attract more guests.",
+  "Respond quickly to booking requests to improve your response rate.",
+  "Keep your listing description detailed and accurate to set clear expectations.",
+  "Set competitive prices to attract more bookings.",
+  "Upload portfolio images to show guests the quality of your work.",
+  "A fast response time builds trust with potential guests.",
+];
+
+const GUEST_TIPS = [
+  "Message your host if you have any questions before the booking starts.",
+  "Read the listing description carefully before confirming.",
+  "Make sure to confirm pickup details with your host in the chat.",
+  "Leave a review after your booking to help other guests make decisions.",
+  "Your booking price is locked — no surprise charges.",
+];
+
+async function sendRandomTip(userId: string, tips: string[]) {
+  const tip = tips[Math.floor(Math.random() * tips.length)];
+  await createNotification(userId, NotificationType.TIP, tip);
+}
+
+async function deductCommission(
+  hostId: string,
+  bookingId: string,
+  totalAmount: number,
+  commissionRate: number,
+) {
+  try {
+    await fetch(`${config.AUTH_URL}/float/internal/deduct`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        hostId,
+        bookingId,
+        bookingAmount: totalAmount,
+        commissionRate,
+      }),
+    });
+  } catch (err) {
+    console.error("Commission deduction failed:", err);
+  }
+}
+
 export async function createBooking(
   guestId: string,
   data: CreateBookingInput,
@@ -26,6 +71,7 @@ export async function createBooking(
       status: true,
       pricePerDay: true,
       currency: true,
+      title: true,
     },
   });
 
@@ -112,6 +158,29 @@ export async function createBooking(
     include: { history: true },
   });
 
+  // Notify host of new booking request
+  await createNotification(
+    listing.hostId,
+    NotificationType.BOOKING_CREATED,
+    `New booking request for "${listing.title}" — review and confirm.`,
+  );
+
+  // Check if this is the host's first ever booking request
+  const hostBookingCount = await prisma.booking.count({
+    where: { hostId: listing.hostId },
+  });
+  if (hostBookingCount === 1) {
+    await createNotification(
+      listing.hostId,
+      NotificationType.FIRST_BOOKING,
+      "Congratulations on your first booking request! You are officially a Lenda host.",
+    );
+  }
+
+  // Send a random tip to both parties
+  await sendRandomTip(guestId, GUEST_TIPS);
+  await sendRandomTip(listing.hostId, HOST_TIPS);
+
   return booking;
 }
 
@@ -196,7 +265,7 @@ export async function transitionBookingStatus(
       hostId: true,
       listingId: true,
       totalAmount: true,
-      listing: { select: { pillar: true } },
+      listing: { select: { pillar: true, title: true } },
     },
   });
 
@@ -256,42 +325,59 @@ export async function transitionBookingStatus(
     }
   }
 
+  // Commission deduction and completion logic
   if (toStatus === BookingStatus.COMPLETED) {
     await recalculateDiscoveryScore(booking.listingId);
 
-    try {
-      const host = await prisma.user.findUnique({
-        where: { id: booking.hostId },
-        select: { commissionRate: true },
-      });
+    const host = await prisma.user.findUnique({
+      where: { id: booking.hostId },
+      select: { commissionRate: true },
+    });
 
-      const totalAmount = parseFloat(booking.totalAmount.toString());
-      const commissionRate = host?.commissionRate
-        ? parseFloat(host.commissionRate.toString())
-        : 0.15;
+    const totalAmount = parseFloat(booking.totalAmount.toString());
+    const commissionRate = host?.commissionRate
+      ? parseFloat(host.commissionRate.toString())
+      : 0.15;
 
-      await fetch(`${config.AUTH_URL}/float/internal/deduct`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          hostId: booking.hostId,
-          bookingId: booking.id,
-          bookingAmount: totalAmount,
-          commissionRate,
-        }),
-      });
-    } catch (err) {
-      console.error("Commission deduction failed:", err);
+    await deductCommission(
+      booking.hostId,
+      booking.id,
+      totalAmount,
+      commissionRate,
+    );
+
+    await createNotification(
+      booking.guestId,
+      NotificationType.BOOKING_COMPLETED,
+      `Your booking for "${booking.listing.title}" is complete. Leave a review!`,
+    );
+    await createNotification(
+      booking.hostId,
+      NotificationType.BOOKING_COMPLETED,
+      `Booking for "${booking.listing.title}" completed. Earnings have been added to your float.`,
+    );
+
+    // Check for first ever completed booking for this host
+    const completedCount = await prisma.booking.count({
+      where: { hostId: booking.hostId, status: BookingStatus.COMPLETED },
+    });
+    if (completedCount === 1) {
+      await createNotification(
+        booking.hostId,
+        NotificationType.FIRST_BOOKING,
+        "You completed your first booking on Lenda! Keep it up — more bookings mean better visibility.",
+      );
     }
   }
 
-  // Send notifications based on transition
+  // Notification per transition
   if (toStatus === BookingStatus.CONFIRMED) {
     await createNotification(
       booking.guestId,
       NotificationType.BOOKING_CONFIRMED,
-      "Your booking has been confirmed by the host",
+      `Your booking for "${booking.listing.title}" has been confirmed by the host.`,
     );
+    await sendRandomTip(booking.hostId, HOST_TIPS);
   }
 
   if (toStatus === BookingStatus.CANCELLED) {
@@ -300,7 +386,20 @@ export async function transitionBookingStatus(
     await createNotification(
       otherPartyId,
       NotificationType.BOOKING_CANCELLED,
-      "A booking has been cancelled",
+      `A booking for "${booking.listing.title}" has been cancelled.`,
+    );
+  }
+
+  if (toStatus === BookingStatus.EN_ROUTE) {
+    await createNotification(
+      booking.guestId,
+      NotificationType.BOOKING_EN_ROUTE,
+      `Your host is on the way for "${booking.listing.title}". Get ready for the handover.`,
+    );
+    await createNotification(
+      booking.hostId,
+      NotificationType.BOOKING_EN_ROUTE,
+      `En route confirmed for "${booking.listing.title}".`,
     );
   }
 
@@ -308,12 +407,38 @@ export async function transitionBookingStatus(
     await createNotification(
       booking.guestId,
       NotificationType.HANDOVER_CONFIRMED,
-      "Item handed over — please confirm receipt",
+      `Item handed over for "${booking.listing.title}" — please confirm receipt in the app.`,
     );
     await createNotification(
       booking.hostId,
       NotificationType.HANDOVER_CONFIRMED,
-      "Item handed over — awaiting guest confirmation",
+      `Handover marked for "${booking.listing.title}" — awaiting guest confirmation.`,
+    );
+  }
+
+  if (toStatus === BookingStatus.ACTIVE) {
+    await createNotification(
+      booking.guestId,
+      NotificationType.BOOKING_ACTIVE,
+      `Your booking for "${booking.listing.title}" is now active. Enjoy!`,
+    );
+    await createNotification(
+      booking.hostId,
+      NotificationType.BOOKING_ACTIVE,
+      `Booking for "${booking.listing.title}" is now active.`,
+    );
+  }
+
+  if (toStatus === BookingStatus.RETURN_PENDING) {
+    await createNotification(
+      booking.hostId,
+      NotificationType.BOOKING_RETURN_PENDING,
+      `Return initiated for "${booking.listing.title}". Confirm receipt when the item is back.`,
+    );
+    await createNotification(
+      booking.guestId,
+      NotificationType.BOOKING_RETURN_PENDING,
+      `Return process started for "${booking.listing.title}". Both parties must confirm.`,
     );
   }
 
@@ -333,7 +458,14 @@ export async function confirmHandover(
 ) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    select: { guestId: true, hostId: true, status: true },
+    select: {
+      guestId: true,
+      hostId: true,
+      status: true,
+      totalAmount: true,
+      listingId: true,
+      listing: { select: { title: true } },
+    },
   });
 
   if (!booking) throw new AppError(404, "Booking not found");
@@ -368,15 +500,11 @@ export async function confirmHandover(
     (isHost && updated.hostConfirmed && handover.guestConfirmed);
 
   if (bothConfirmed) {
-    const now = new Date();
-    const updateData = isGuest
-      ? { guestConfirmed: true, guestConfirmedAt: now }
-      : { hostConfirmed: true, hostConfirmedAt: now };
-
+    // PICKUP → ACTIVE, RETURN → COMPLETED (auto-complete, no admin needed)
     const nextStatus =
       type === HandoverType.PICKUP
         ? BookingStatus.ACTIVE
-        : BookingStatus.RETURNED;
+        : BookingStatus.COMPLETED;
 
     await prisma.booking.update({
       where: { id: bookingId },
@@ -392,6 +520,63 @@ export async function confirmHandover(
         },
       },
     });
+
+    if (nextStatus === BookingStatus.ACTIVE) {
+      await createNotification(
+        booking.guestId,
+        NotificationType.BOOKING_ACTIVE,
+        `Your booking for "${booking.listing.title}" is now active. Enjoy!`,
+      );
+      await createNotification(
+        booking.hostId,
+        NotificationType.BOOKING_ACTIVE,
+        `Booking for "${booking.listing.title}" is now active.`,
+      );
+    }
+
+    if (nextStatus === BookingStatus.COMPLETED) {
+      await recalculateDiscoveryScore(booking.listingId);
+
+      const host = await prisma.user.findUnique({
+        where: { id: booking.hostId },
+        select: { commissionRate: true },
+      });
+
+      const totalAmount = parseFloat(booking.totalAmount.toString());
+      const commissionRate = host?.commissionRate
+        ? parseFloat(host.commissionRate.toString())
+        : 0.15;
+
+      await deductCommission(
+        booking.hostId,
+        bookingId,
+        totalAmount,
+        commissionRate,
+      );
+
+      await createNotification(
+        booking.guestId,
+        NotificationType.BOOKING_COMPLETED,
+        `Your booking for "${booking.listing.title}" is complete. Leave a review!`,
+      );
+      await createNotification(
+        booking.hostId,
+        NotificationType.BOOKING_COMPLETED,
+        `Booking for "${booking.listing.title}" completed. Earnings have been added to your float.`,
+      );
+
+      // First completed booking congrats
+      const completedCount = await prisma.booking.count({
+        where: { hostId: booking.hostId, status: BookingStatus.COMPLETED },
+      });
+      if (completedCount === 1) {
+        await createNotification(
+          booking.hostId,
+          NotificationType.FIRST_BOOKING,
+          "You completed your first booking on Lenda! Keep it up — more bookings mean better visibility.",
+        );
+      }
+    }
   }
 
   return updated;

@@ -24,6 +24,8 @@ import {
   Send,
   Package,
   RotateCcw,
+  Trophy,
+  MessageCircle,
 } from "lucide-react";
 
 type BookingHistory = {
@@ -92,10 +94,13 @@ type BookingMessage = {
   };
 };
 
-const statusConfig: Record<
-  string,
-  { label: string; color: string; icon: React.ReactNode }
-> = {
+type StatusConfig = {
+  label: string;
+  color: string;
+  icon: React.ReactNode;
+};
+
+const statusConfig: Record<string, StatusConfig> = {
   PENDING: {
     label: "Pending",
     color: "text-yellow-500",
@@ -248,13 +253,11 @@ function HandoverCard({
             : `Confirm ${isPickup ? "Pickup" : "Return"}`}
         </Button>
       )}
-
       {!bothConfirmed && myConfirmed && (
         <p className="text-foreground/40 text-xs">
           Waiting for the other party to confirm.
         </p>
       )}
-
       {bothConfirmed && (
         <p className="text-green-400 text-xs font-medium">
           {isPickup ? "Pickup" : "Return"} confirmed by both parties.
@@ -264,11 +267,115 @@ function HandoverCard({
   );
 }
 
+function ReviewModal({
+  isGuest,
+  onSubmit,
+  onSkip,
+  isSubmitting,
+}: {
+  isGuest: boolean;
+  onSubmit: (data: ReviewForm) => void;
+  onSkip: () => void;
+  isSubmitting: boolean;
+}) {
+  const { register, handleSubmit, control } = useForm<ReviewForm>({
+    resolver: zodResolver(reviewSchema),
+    defaultValues: { rating: 5 },
+  });
+  const rating = useWatch({ control, name: "rating" });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="glass-card border border-gold/30 w-full max-w-md">
+        <div className="p-6 flex flex-col items-center text-center border-b border-border">
+          <div className="w-14 h-14 rounded-full bg-gold/20 flex items-center justify-center mb-3">
+            <Trophy size={28} className="text-gold" />
+          </div>
+          <h3 className="font-display font-bold text-xl text-foreground uppercase tracking-tight mb-1">
+            Booking Complete!
+          </h3>
+          <GoldLine className="w-10 mb-2" />
+          <p className="text-foreground/50 text-sm">
+            {isGuest
+              ? "How was your experience with this host?"
+              : "How was this guest to work with?"}
+          </p>
+        </div>
+
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className="p-6 flex flex-col gap-5"
+        >
+          <div className="flex flex-col gap-2 items-center">
+            <div className="flex items-center gap-3">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <label key={star} className="cursor-pointer">
+                  <input
+                    type="radio"
+                    value={star}
+                    {...register("rating")}
+                    className="sr-only"
+                  />
+                  <Star
+                    size={32}
+                    className={cn(
+                      "transition-all",
+                      star <= Number(rating)
+                        ? "text-gold fill-gold scale-110"
+                        : "text-foreground/20",
+                    )}
+                  />
+                </label>
+              ))}
+            </div>
+            <p className="text-foreground/40 text-sm">{Number(rating)} / 5</p>
+          </div>
+
+          <textarea
+            {...register("comment")}
+            rows={3}
+            placeholder={
+              isGuest
+                ? "Share what made this experience great (or not)..."
+                : "How was this guest to work with?"
+            }
+            className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none focus:border-gold/60 resize-none"
+          />
+
+          <div className="flex gap-3">
+            <Button
+              type="submit"
+              variant="gold"
+              size="md"
+              className="flex-1 gap-2"
+              disabled={isSubmitting}
+            >
+              <Star size={15} />
+              {isSubmitting ? "Submitting..." : "Submit Review"}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="md"
+              onClick={onSkip}
+              className="shrink-0"
+            >
+              Skip
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardBookingDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, accessToken } = useAuth();
   const queryClient = useQueryClient();
   const [messageInput, setMessageInput] = useState("");
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [hasPromptedReview, setHasPromptedReview] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading } = useQuery({
@@ -280,6 +387,7 @@ export default function DashboardBookingDetail() {
         BOOKING_URL,
       ),
     enabled: !!id && !!accessToken,
+    refetchInterval: 15000,
   });
 
   const { data: messagesData, refetch: refetchMessages } = useQuery({
@@ -294,7 +402,7 @@ export default function DashboardBookingDetail() {
     refetchInterval: 10000,
   });
 
-  const { data: reviewsData } = useQuery({
+  const { data: reviewsData, refetch: refetchReviews } = useQuery({
     queryKey: ["booking-reviews", id],
     queryFn: async () => {
       const booking = data?.booking;
@@ -308,21 +416,31 @@ export default function DashboardBookingDetail() {
     enabled: !!data?.booking,
   });
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm<ReviewForm>({
-    resolver: zodResolver(reviewSchema),
-    defaultValues: { rating: 5 },
-  });
-
-  const rating = useWatch({ control, name: "rating" });
-
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messagesData]);
+
+  const booking = data?.booking;
+  const reviews = reviewsData?.reviews ?? [];
+  const isGuest = user?.id === booking?.guestId;
+  const isHost = user?.id === booking?.hostId;
+  const isRental = booking?.listing.pillar === "RENTAL";
+  const myReviewType = isGuest ? "GUEST_TO_HOST" : "HOST_TO_GUEST";
+  const hasReviewed = reviews.some(
+    (r) => r.reviewerId === user?.id && r.type === myReviewType,
+  );
+  const canReview =
+    booking?.status === "COMPLETED" && (isGuest || isHost) && !hasReviewed;
+
+  useEffect(() => {
+    if (canReview && !hasPromptedReview) {
+      const timer = setTimeout(() => {
+        setShowReviewModal(true);
+        setHasPromptedReview(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [canReview, hasPromptedReview]);
 
   const { mutate: sendMessage, isPending: isSending } = useMutation({
     mutationFn: (message: string) =>
@@ -379,25 +497,12 @@ export default function DashboardBookingDetail() {
         BOOKING_URL,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["booking-reviews", id] });
-      toast.success("Review submitted.");
+      refetchReviews();
+      setShowReviewModal(false);
+      toast.success("Review submitted. Thank you!");
     },
     onError: (err: Error) => toast.error(err.message),
   });
-
-  const booking = data?.booking;
-  const reviews = reviewsData?.reviews ?? [];
-
-  const isGuest = user?.id === booking?.guestId;
-  const isHost = user?.id === booking?.hostId;
-  const isRental = booking?.listing.pillar === "RENTAL";
-
-  const myReviewType = isGuest ? "GUEST_TO_HOST" : "HOST_TO_GUEST";
-  const hasReviewed = reviews.some(
-    (r) => r.reviewerId === user?.id && r.type === myReviewType,
-  );
-  const canReview =
-    booking?.status === "COMPLETED" && (isGuest || isHost) && !hasReviewed;
 
   const primaryImage =
     booking?.listing.images?.find((i) => i.isPrimary)?.url ??
@@ -405,7 +510,6 @@ export default function DashboardBookingDetail() {
 
   const status = booking ? statusConfig[booking.status] : null;
 
-  // Find active handover
   const pickupHandover = booking?.handovers.find((h) => h.type === "PICKUP");
   const returnHandover = booking?.handovers.find((h) => h.type === "RETURN");
   const activeHandover =
@@ -414,6 +518,9 @@ export default function DashboardBookingDetail() {
       : booking?.status === "RETURN_PENDING"
         ? returnHandover
         : null;
+
+  const isActiveBooking =
+    booking && !["COMPLETED", "CANCELLED"].includes(booking.status);
 
   if (isLoading || !booking) {
     return (
@@ -430,6 +537,15 @@ export default function DashboardBookingDetail() {
 
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
+      {showReviewModal && (
+        <ReviewModal
+          isGuest={isGuest}
+          onSubmit={(d) => submitReview(d)}
+          onSkip={() => setShowReviewModal(false)}
+          isSubmitting={isReviewing}
+        />
+      )}
+
       <Link
         to="/dashboard/bookings"
         className="inline-flex items-center gap-2 text-sm text-foreground/40 hover:text-foreground transition-colors"
@@ -487,7 +603,7 @@ export default function DashboardBookingDetail() {
             <div className="flex items-center gap-1 mt-1">
               <Calendar size={11} className="text-foreground/30" />
               <p className="text-foreground/40 text-xs">
-                {new Date(booking.startDate).toLocaleDateString()} →{" "}
+                {new Date(booking.startDate).toLocaleDateString()} {"->"}{" "}
                 {new Date(booking.endDate).toLocaleDateString()}
               </p>
             </div>
@@ -502,7 +618,7 @@ export default function DashboardBookingDetail() {
 
         <div className="border-t border-border p-4 flex items-center justify-between">
           <p className="text-foreground/50 text-sm">
-            {booking.currency} {booking.listing.pricePerDay} ×{" "}
+            {booking.currency} {booking.listing.pricePerDay} x{" "}
             {booking.totalDays} day{booking.totalDays !== 1 ? "s" : ""}
           </p>
           <p className="font-display font-bold text-foreground">
@@ -517,8 +633,6 @@ export default function DashboardBookingDetail() {
           </div>
         )}
       </div>
-
-      {/* Action cards based on status + pillar + role */}
 
       {/* PENDING: Host confirms or declines */}
       {booking.status === "PENDING" && isHost && (
@@ -576,7 +690,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* CONFIRMED: Mark en route (both parties, rental) or go active (service) */}
+      {/* CONFIRMED */}
       {booking.status === "CONFIRMED" && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
@@ -611,7 +725,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* EN_ROUTE: Mark as handed over */}
+      {/* EN_ROUTE */}
       {booking.status === "EN_ROUTE" && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
@@ -633,8 +747,8 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* HANDED_OVER: Dual confirm pickup handover */}
-      {booking.status === "HANDED_OVER" && activeHandover && user && (
+      {/* HANDED_OVER: Dual confirm pickup */}
+      {booking.status === "HANDED_OVER" && activeHandover && (
         <HandoverCard
           handover={activeHandover}
           isGuest={isGuest}
@@ -644,7 +758,7 @@ export default function DashboardBookingDetail() {
         />
       )}
 
-      {/* ACTIVE (rental): Request return */}
+      {/* ACTIVE rental: Request return */}
       {booking.status === "ACTIVE" && isRental && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
@@ -666,7 +780,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* ACTIVE (service): Complete */}
+      {/* ACTIVE service: Complete */}
       {booking.status === "ACTIVE" && !isRental && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
@@ -688,8 +802,8 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* RETURN_PENDING: Dual confirm return handover */}
-      {booking.status === "RETURN_PENDING" && activeHandover && user && (
+      {/* RETURN_PENDING: Dual confirm return */}
+      {booking.status === "RETURN_PENDING" && activeHandover && (
         <HandoverCard
           handover={activeHandover}
           isGuest={isGuest}
@@ -699,20 +813,51 @@ export default function DashboardBookingDetail() {
         />
       )}
 
-      {/* RETURNED: waiting for admin */}
-      {booking.status === "RETURNED" && (isGuest || isHost) && (
+      {/* COMPLETED */}
+      {booking.status === "COMPLETED" && (
         <div className="glass-card p-5 border border-border">
           <div className="flex items-center gap-3">
-            <CheckCircle size={16} className="text-gold shrink-0" />
+            <Trophy size={16} className="text-gold shrink-0" />
             <div>
               <p className="font-semibold text-sm text-foreground">
-                Return confirmed
+                Booking Completed
               </p>
               <p className="text-foreground/40 text-xs">
-                Lenda will review and mark this booking as completed shortly.
+                This booking has been successfully completed.
               </p>
             </div>
+            {canReview && (
+              <Button
+                variant="outlineGold"
+                size="sm"
+                className="ml-auto shrink-0"
+                onClick={() => setShowReviewModal(true)}
+              >
+                Leave Review
+              </Button>
+            )}
+            {hasReviewed && (
+              <span className="ml-auto flex items-center gap-1.5 text-xs text-green-400">
+                <CheckCircle size={13} /> Reviewed
+              </span>
+            )}
           </div>
+        </div>
+      )}
+
+      {/* Dispute / Support */}
+      {isActiveBooking && (isGuest || isHost) && (
+        <div className="flex items-center gap-2 px-1">
+          <AlertCircle size={13} className="text-foreground/30 shrink-0" />
+          <p className="text-foreground/30 text-xs">
+            Having issues with this booking?{" "}
+            <a
+              href={`mailto:support@lenda.work?subject=Booking Dispute ${booking.id}`}
+              className="text-gold hover:text-gold/80 underline"
+            >
+              Contact support
+            </a>
+          </p>
         </div>
       )}
 
@@ -760,7 +905,8 @@ export default function DashboardBookingDetail() {
 
       {/* Messages */}
       <div className="glass-card border border-border overflow-hidden">
-        <div className="px-5 py-4 border-b border-border">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+          <MessageCircle size={14} className="text-foreground/40" />
           <h3 className="font-display font-bold text-sm text-foreground uppercase tracking-tight">
             Messages
           </h3>
@@ -836,93 +982,6 @@ export default function DashboardBookingDetail() {
           </button>
         </div>
       </div>
-
-      {/* Review form */}
-      {canReview && (
-        <div className="glass-card p-6 border border-gold/20">
-          <h3 className="font-display font-bold text-sm text-foreground uppercase tracking-tight mb-1">
-            {isGuest ? "Review the Host" : "Review the Guest"}
-          </h3>
-          <GoldLine className="w-8 mb-4" />
-          <p className="text-foreground/50 text-sm mb-5">
-            {isGuest
-              ? "Share your experience to help others make informed decisions."
-              : "Leave feedback about the guest to help other hosts."}
-          </p>
-
-          <form
-            onSubmit={handleSubmit((d) => submitReview(d))}
-            className="flex flex-col gap-4"
-          >
-            <div className="flex flex-col gap-1.5">
-              <label className="text-micro text-foreground/60">Rating</label>
-              <div className="flex items-center gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <label key={star} className="cursor-pointer">
-                    <input
-                      type="radio"
-                      value={star}
-                      {...register("rating")}
-                      className="sr-only"
-                    />
-                    <Star
-                      size={24}
-                      className={cn(
-                        "transition-colors",
-                        star <= Number(rating)
-                          ? "text-gold fill-gold"
-                          : "text-foreground/20",
-                      )}
-                    />
-                  </label>
-                ))}
-                <span className="text-foreground/40 text-sm ml-1">
-                  {rating}/5
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-micro text-foreground/60">
-                Comment (optional)
-              </label>
-              <textarea
-                {...register("comment")}
-                rows={3}
-                placeholder={
-                  isGuest
-                    ? "How was your experience with this host?"
-                    : "How was this guest to work with?"
-                }
-                className={cn(
-                  "w-full px-4 py-3 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60 resize-none",
-                  errors.comment ? "border-destructive/60" : "border-border",
-                )}
-              />
-            </div>
-
-            <Button
-              type="submit"
-              variant="gold"
-              size="md"
-              className="gap-2 self-start"
-              disabled={isReviewing}
-            >
-              <Star size={15} />
-              {isReviewing ? "Submitting..." : "Submit Review"}
-            </Button>
-          </form>
-        </div>
-      )}
-
-      {hasReviewed && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-foreground/5 border border-border">
-          <CheckCircle size={16} className="text-gold shrink-0" />
-          <p className="text-foreground/60 text-sm">
-            You have already submitted your review for this booking.
-          </p>
-        </div>
-      )}
 
       {/* Parties */}
       <div className="glass-card p-5 border border-border">
