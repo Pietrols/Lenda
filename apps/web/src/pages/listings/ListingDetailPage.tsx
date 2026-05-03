@@ -176,7 +176,11 @@ export default function ListingDetailPage() {
       navigate("/login");
       return;
     }
-    createBooking(data);
+    createBooking({
+      ...data,
+      startDate: new Date(data.startDate).toISOString(),
+      endDate: new Date(data.endDate).toISOString(),
+    });
   };
 
   const reviews = reviewsData?.reviews ?? [];
