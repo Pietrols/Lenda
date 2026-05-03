@@ -445,6 +445,7 @@ export async function getBookingById(
           id: true,
           title: true,
           category: true,
+          pillar: true,
           location: true,
           pricePerDay: true,
           images: { orderBy: { order: "asc" } },

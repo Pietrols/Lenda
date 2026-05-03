@@ -22,6 +22,8 @@ import {
   User,
   ArrowRight,
   Send,
+  Package,
+  RotateCcw,
 } from "lucide-react";
 
 type BookingHistory = {
@@ -30,6 +32,16 @@ type BookingHistory = {
   toStatus: string;
   changedById: string;
   reason: string | null;
+  createdAt: string;
+};
+
+type Handover = {
+  id: string;
+  type: string;
+  guestConfirmed: boolean;
+  hostConfirmed: boolean;
+  guestConfirmedAt: string | null;
+  hostConfirmedAt: string | null;
   createdAt: string;
 };
 
@@ -49,18 +61,13 @@ type Booking = {
     id: string;
     title: string;
     category: string;
+    pillar: string;
     location: string;
     pricePerDay: string;
     images: { url: string; isPrimary: boolean; order: number }[];
   };
   history: BookingHistory[];
-  handovers: {
-    id: string;
-    type: string;
-    guestConfirmed: boolean;
-    hostConfirmed: boolean;
-    createdAt: string;
-  }[];
+  handovers: Handover[];
 };
 
 type Review = {
@@ -91,17 +98,17 @@ const statusConfig: Record<
 > = {
   PENDING: {
     label: "Pending",
-    color: "text-gold",
+    color: "text-yellow-500",
     icon: <Clock size={14} />,
   },
   CONFIRMED: {
     label: "Confirmed",
-    color: "text-foreground",
+    color: "text-blue-400",
     icon: <CheckCircle size={14} />,
   },
   EN_ROUTE: {
     label: "En Route",
-    color: "text-foreground",
+    color: "text-blue-400",
     icon: <Clock size={14} />,
   },
   HANDED_OVER: {
@@ -111,17 +118,17 @@ const statusConfig: Record<
   },
   ACTIVE: {
     label: "Active",
-    color: "text-gold",
+    color: "text-green-400",
     icon: <CheckCircle size={14} />,
   },
   RETURN_PENDING: {
     label: "Return Pending",
-    color: "text-gold",
+    color: "text-yellow-500",
     icon: <Clock size={14} />,
   },
   RETURNED: {
     label: "Returned",
-    color: "text-foreground",
+    color: "text-foreground/60",
     icon: <CheckCircle size={14} />,
   },
   COMPLETED: {
@@ -136,20 +143,126 @@ const statusConfig: Record<
   },
   DISPUTED: {
     label: "Disputed",
-    color: "text-gold",
+    color: "text-orange-400",
     icon: <AlertCircle size={14} />,
   },
 };
 
 const reviewSchema = z.object({
   rating: z.coerce.number().min(1).max(5),
-  comment: z
-    .string()
-    .min(10, "Comment must be at least 10 characters")
-    .optional(),
+  comment: z.string().optional(),
 });
 
 type ReviewForm = z.infer<typeof reviewSchema>;
+
+function HandoverCard({
+  handover,
+  isGuest,
+  isHost,
+  onConfirm,
+  isConfirming,
+}: {
+  handover: Handover;
+  isGuest: boolean;
+  isHost: boolean;
+  onConfirm: () => void;
+  isConfirming: boolean;
+}) {
+  const isPickup = handover.type === "PICKUP";
+  const myConfirmed = isGuest
+    ? handover.guestConfirmed
+    : handover.hostConfirmed;
+  const bothConfirmed = handover.guestConfirmed && handover.hostConfirmed;
+
+  return (
+    <div className="glass-card p-5 border border-gold/20 bg-gold/[0.02]">
+      <div className="flex items-center gap-2 mb-3">
+        {isPickup ? (
+          <Package size={16} className="text-gold" />
+        ) : (
+          <RotateCcw size={16} className="text-gold" />
+        )}
+        <h3 className="font-display font-bold text-sm text-foreground uppercase tracking-tight">
+          {isPickup ? "Pickup Confirmation" : "Return Confirmation"}
+        </h3>
+      </div>
+      <GoldLine className="w-8 mb-4" />
+      <p className="text-foreground/50 text-xs mb-4">
+        {isPickup
+          ? "Both parties must confirm the item has been handed over."
+          : "Both parties must confirm the item has been returned."}
+      </p>
+
+      <div className="flex flex-col gap-2 mb-4">
+        {[
+          {
+            label: "Guest",
+            confirmed: handover.guestConfirmed,
+            confirmedAt: handover.guestConfirmedAt,
+          },
+          {
+            label: "Host",
+            confirmed: handover.hostConfirmed,
+            confirmedAt: handover.hostConfirmedAt,
+          },
+        ].map((party) => (
+          <div key={party.label} className="flex items-center gap-3">
+            <div
+              className={cn(
+                "w-6 h-6 rounded-full flex items-center justify-center",
+                party.confirmed ? "bg-green-400/20" : "bg-foreground/5",
+              )}
+            >
+              {party.confirmed ? (
+                <CheckCircle size={13} className="text-green-400" />
+              ) : (
+                <Clock size={13} className="text-foreground/30" />
+              )}
+            </div>
+            <span className="text-sm text-foreground">{party.label}</span>
+            <span
+              className={cn(
+                "text-xs ml-auto",
+                party.confirmed ? "text-green-400" : "text-foreground/30",
+              )}
+            >
+              {party.confirmed
+                ? `Confirmed ${new Date(party.confirmedAt!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                : "Pending"}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {!bothConfirmed && !myConfirmed && (isGuest || isHost) && (
+        <Button
+          variant="gold"
+          size="sm"
+          className="gap-2"
+          disabled={isConfirming}
+          onClick={onConfirm}
+        >
+          <CheckCircle size={14} />
+          {isConfirming
+            ? "Confirming..."
+            : `Confirm ${isPickup ? "Pickup" : "Return"}`}
+        </Button>
+      )}
+
+      {!bothConfirmed && myConfirmed && (
+        <p className="text-foreground/40 text-xs">
+          Waiting for the other party to confirm.
+        </p>
+      )}
+
+      {bothConfirmed && (
+        <p className="text-green-400 text-xs font-medium">
+          {isPickup ? "Pickup" : "Return"} confirmed by both parties.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function DashboardBookingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -157,6 +270,17 @@ export default function DashboardBookingDetail() {
   const queryClient = useQueryClient();
   const [messageInput, setMessageInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["booking", id],
+    queryFn: () =>
+      api.get<{ booking: Booking }>(
+        `/bookings/${id}`,
+        accessToken,
+        BOOKING_URL,
+      ),
+    enabled: !!id && !!accessToken,
+  });
 
   const { data: messagesData, refetch: refetchMessages } = useQuery({
     queryKey: ["messages", id],
@@ -168,36 +292,6 @@ export default function DashboardBookingDetail() {
       ),
     enabled: !!id && !!accessToken,
     refetchInterval: 10000,
-  });
-
-  const { mutate: sendMessage, isPending: isSending } = useMutation({
-    mutationFn: (message: string) =>
-      api.post<{ message: BookingMessage }>(
-        `/bookings/${id}/messages`,
-        { message },
-        accessToken,
-        BOOKING_URL,
-      ),
-    onSuccess: () => {
-      setMessageInput("");
-      refetchMessages();
-    },
-    onError: (err: Error) => toast.error(err.message),
-  });
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messagesData]);
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["booking", id],
-    queryFn: () =>
-      api.get<{ booking: Booking }>(
-        `/bookings/${id}`,
-        accessToken,
-        BOOKING_URL,
-      ),
-    enabled: !!id && !!accessToken,
   });
 
   const { data: reviewsData } = useQuery({
@@ -226,6 +320,25 @@ export default function DashboardBookingDetail() {
 
   const rating = useWatch({ control, name: "rating" });
 
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messagesData]);
+
+  const { mutate: sendMessage, isPending: isSending } = useMutation({
+    mutationFn: (message: string) =>
+      api.post<{ message: BookingMessage }>(
+        `/bookings/${id}/messages`,
+        { message },
+        accessToken,
+        BOOKING_URL,
+      ),
+    onSuccess: () => {
+      setMessageInput("");
+      refetchMessages();
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const { mutate: transitionStatus, isPending: isTransitioning } = useMutation({
     mutationFn: (toStatus: string) =>
       api.patch<{ booking: Booking }>(
@@ -237,16 +350,31 @@ export default function DashboardBookingDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["booking", id] });
       queryClient.invalidateQueries({ queryKey: ["bookings"] });
-      toast.success("Booking status updated.");
+      toast.success("Booking updated.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const { mutate: confirmHandover, isPending: isConfirming } = useMutation({
+    mutationFn: (type: "PICKUP" | "RETURN") =>
+      api.post(
+        `/bookings/${id}/handover/confirm`,
+        { type },
+        accessToken,
+        BOOKING_URL,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      toast.success("Handover confirmation recorded.");
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
   const { mutate: submitReview, isPending: isReviewing } = useMutation({
-    mutationFn: (data: ReviewForm) =>
+    mutationFn: (formData: ReviewForm) =>
       api.post<{ review: Review }>(
         "/reviews",
-        { bookingId: id, ...data },
+        { bookingId: id, ...formData },
         accessToken,
         BOOKING_URL,
       ),
@@ -262,12 +390,12 @@ export default function DashboardBookingDetail() {
 
   const isGuest = user?.id === booking?.guestId;
   const isHost = user?.id === booking?.hostId;
+  const isRental = booking?.listing.pillar === "RENTAL";
 
   const myReviewType = isGuest ? "GUEST_TO_HOST" : "HOST_TO_GUEST";
   const hasReviewed = reviews.some(
     (r) => r.reviewerId === user?.id && r.type === myReviewType,
   );
-
   const canReview =
     booking?.status === "COMPLETED" && (isGuest || isHost) && !hasReviewed;
 
@@ -276,6 +404,16 @@ export default function DashboardBookingDetail() {
     booking?.listing.images?.[0]?.url;
 
   const status = booking ? statusConfig[booking.status] : null;
+
+  // Find active handover
+  const pickupHandover = booking?.handovers.find((h) => h.type === "PICKUP");
+  const returnHandover = booking?.handovers.find((h) => h.type === "RETURN");
+  const activeHandover =
+    booking?.status === "HANDED_OVER"
+      ? pickupHandover
+      : booking?.status === "RETURN_PENDING"
+        ? returnHandover
+        : null;
 
   if (isLoading || !booking) {
     return (
@@ -310,9 +448,8 @@ export default function DashboardBookingDetail() {
         {status && (
           <span
             className={cn(
-              "flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border shrink-0",
+              "flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border border-current/20 bg-current/5 shrink-0",
               status.color,
-              "border-current/20 bg-current/5",
             )}
           >
             {status.icon}
@@ -365,7 +502,7 @@ export default function DashboardBookingDetail() {
 
         <div className="border-t border-border p-4 flex items-center justify-between">
           <p className="text-foreground/50 text-sm">
-            {booking.currency} {booking.listing.pricePerDay} x{" "}
+            {booking.currency} {booking.listing.pricePerDay} ×{" "}
             {booking.totalDays} day{booking.totalDays !== 1 ? "s" : ""}
           </p>
           <p className="font-display font-bold text-foreground">
@@ -381,7 +518,9 @@ export default function DashboardBookingDetail() {
         )}
       </div>
 
-      {/* Actions */}
+      {/* Action cards based on status + pillar + role */}
+
+      {/* PENDING: Host confirms or declines */}
       {booking.status === "PENDING" && isHost && (
         <div className="glass-card p-5 border border-gold/20 flex items-center justify-between gap-4">
           <div>
@@ -406,6 +545,7 @@ export default function DashboardBookingDetail() {
               size="sm"
               disabled={isTransitioning}
               onClick={() => transitionStatus("CANCELLED")}
+              className="text-destructive hover:text-destructive"
             >
               Decline
             </Button>
@@ -413,37 +553,128 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
+      {/* PENDING: Guest can cancel */}
+      {booking.status === "PENDING" && isGuest && (
+        <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-sm text-foreground mb-0.5">
+              Awaiting confirmation
+            </p>
+            <p className="text-foreground/40 text-xs">
+              The host will confirm or decline your request.
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isTransitioning}
+            onClick={() => transitionStatus("CANCELLED")}
+            className="text-destructive hover:text-destructive shrink-0"
+          >
+            Cancel Request
+          </Button>
+        </div>
+      )}
+
+      {/* CONFIRMED: Mark en route (both parties, rental) or go active (service) */}
       {booking.status === "CONFIRMED" && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-sm text-foreground mb-0.5">
-              Ready to start?
+              {isRental ? "Ready to head over?" : "Ready to start?"}
             </p>
             <p className="text-foreground/40 text-xs">
-              {isHost
-                ? "Mark as en route when heading to the guest."
-                : "Confirm when the host is on their way."}
+              {isRental
+                ? "Mark as en route when heading to meet the other party."
+                : "Mark as active when the service begins."}
+            </p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              variant="outlineGold"
+              size="sm"
+              disabled={isTransitioning}
+              onClick={() => transitionStatus(isRental ? "EN_ROUTE" : "ACTIVE")}
+            >
+              {isRental ? "Mark En Route" : "Start Service"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isTransitioning}
+              onClick={() => transitionStatus("CANCELLED")}
+              className="text-destructive hover:text-destructive"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* EN_ROUTE: Mark as handed over */}
+      {booking.status === "EN_ROUTE" && (isGuest || isHost) && (
+        <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-sm text-foreground mb-0.5">
+              At the handover point?
+            </p>
+            <p className="text-foreground/40 text-xs">
+              Mark as handed over once the item is with the guest.
             </p>
           </div>
           <Button
             variant="outlineGold"
             size="sm"
             disabled={isTransitioning}
-            onClick={() => transitionStatus("EN_ROUTE")}
+            onClick={() => transitionStatus("HANDED_OVER")}
           >
-            Mark En Route
+            Mark Handed Over
           </Button>
         </div>
       )}
 
-      {booking.status === "ACTIVE" && (isGuest || isHost) && (
+      {/* HANDED_OVER: Dual confirm pickup handover */}
+      {booking.status === "HANDED_OVER" && activeHandover && user && (
+        <HandoverCard
+          handover={activeHandover}
+          isGuest={isGuest}
+          isHost={isHost}
+          onConfirm={() => confirmHandover("PICKUP")}
+          isConfirming={isConfirming}
+        />
+      )}
+
+      {/* ACTIVE (rental): Request return */}
+      {booking.status === "ACTIVE" && isRental && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-sm text-foreground mb-0.5">
-              Ready to complete?
+              Ready to return?
             </p>
             <p className="text-foreground/40 text-xs">
-              Mark as complete once the booking is finished.
+              Initiate the return process when the rental period is ending.
+            </p>
+          </div>
+          <Button
+            variant="outlineGold"
+            size="sm"
+            disabled={isTransitioning}
+            onClick={() => transitionStatus("RETURN_PENDING")}
+          >
+            Request Return
+          </Button>
+        </div>
+      )}
+
+      {/* ACTIVE (service): Complete */}
+      {booking.status === "ACTIVE" && !isRental && (isGuest || isHost) && (
+        <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
+          <div>
+            <p className="font-semibold text-sm text-foreground mb-0.5">
+              Service complete?
+            </p>
+            <p className="text-foreground/40 text-xs">
+              Mark as completed once the service has been delivered.
             </p>
           </div>
           <Button
@@ -452,8 +683,36 @@ export default function DashboardBookingDetail() {
             disabled={isTransitioning}
             onClick={() => transitionStatus("COMPLETED")}
           >
-            Complete
+            Mark Complete
           </Button>
+        </div>
+      )}
+
+      {/* RETURN_PENDING: Dual confirm return handover */}
+      {booking.status === "RETURN_PENDING" && activeHandover && user && (
+        <HandoverCard
+          handover={activeHandover}
+          isGuest={isGuest}
+          isHost={isHost}
+          onConfirm={() => confirmHandover("RETURN")}
+          isConfirming={isConfirming}
+        />
+      )}
+
+      {/* RETURNED: waiting for admin */}
+      {booking.status === "RETURNED" && (isGuest || isHost) && (
+        <div className="glass-card p-5 border border-border">
+          <div className="flex items-center gap-3">
+            <CheckCircle size={16} className="text-gold shrink-0" />
+            <div>
+              <p className="font-semibold text-sm text-foreground">
+                Return confirmed
+              </p>
+              <p className="text-foreground/40 text-xs">
+                Lenda will review and mark this booking as completed shortly.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -471,7 +730,7 @@ export default function DashboardBookingDetail() {
                 <div
                   className={cn(
                     "w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5",
-                    i === 0
+                    i === booking.history.length - 1
                       ? "bg-gold/20 text-gold"
                       : "bg-foreground/5 text-foreground/30",
                   )}
@@ -587,7 +846,7 @@ export default function DashboardBookingDetail() {
           <GoldLine className="w-8 mb-4" />
           <p className="text-foreground/50 text-sm mb-5">
             {isGuest
-              ? "Share your experience with this host to help others make informed decisions."
+              ? "Share your experience to help others make informed decisions."
               : "Leave feedback about the guest to help other hosts."}
           </p>
 
@@ -640,11 +899,6 @@ export default function DashboardBookingDetail() {
                   errors.comment ? "border-destructive/60" : "border-border",
                 )}
               />
-              {errors.comment && (
-                <p className="text-destructive text-xs">
-                  {errors.comment.message}
-                </p>
-              )}
             </div>
 
             <Button
