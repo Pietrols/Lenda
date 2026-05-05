@@ -361,3 +361,6 @@ docs: documentation updates
 - [ ] Payment integration (mobile money)
 - [ ] ARM instance migration (Oracle VM.Standard.A1.Flex)
 - [ ] CI/CD (GitHub Actions)
+
+Author - Pietrols.
+Made with love.
