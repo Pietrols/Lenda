@@ -29,7 +29,7 @@ const GUEST_TIPS = [
   "Read the listing description carefully before confirming.",
   "Make sure to confirm pickup details with your host in the chat.",
   "Leave a review after your booking to help other guests make decisions.",
-  "Your booking price is locked — no surprise charges.",
+  "Your booking price is locked - no surprise charges.",
 ];
 
 async function sendRandomTip(userId: string, tips: string[]) {
@@ -162,7 +162,7 @@ export async function createBooking(
   await createNotification(
     listing.hostId,
     NotificationType.BOOKING_CREATED,
-    `New booking request for "${listing.title}" — review and confirm.`,
+    `New booking request for "${listing.title}" - review and confirm.`,
   );
 
   // Check if this is the host's first ever booking request
@@ -365,7 +365,7 @@ export async function transitionBookingStatus(
       await createNotification(
         booking.hostId,
         NotificationType.FIRST_BOOKING,
-        "You completed your first booking on Lenda! Keep it up — more bookings mean better visibility.",
+        "You completed your first booking on Lenda! Keep it up - more bookings mean better visibility.",
       );
     }
   }
@@ -407,12 +407,12 @@ export async function transitionBookingStatus(
     await createNotification(
       booking.guestId,
       NotificationType.HANDOVER_CONFIRMED,
-      `Item handed over for "${booking.listing.title}" — please confirm receipt in the app.`,
+      `Item handed over for "${booking.listing.title}" - please confirm receipt in the app.`,
     );
     await createNotification(
       booking.hostId,
       NotificationType.HANDOVER_CONFIRMED,
-      `Handover marked for "${booking.listing.title}" — awaiting guest confirmation.`,
+      `Handover marked for "${booking.listing.title}" - awaiting guest confirmation.`,
     );
   }
 
@@ -573,7 +573,7 @@ export async function confirmHandover(
         await createNotification(
           booking.hostId,
           NotificationType.FIRST_BOOKING,
-          "You completed your first booking on Lenda! Keep it up — more bookings mean better visibility.",
+          "You completed your first booking on Lenda! Keep it up - more bookings mean better visibility.",
         );
       }
     }

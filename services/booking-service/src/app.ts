@@ -14,6 +14,7 @@ import messageRouter from "./routes/message.routes";
 import { authenticate, requireRole } from "./middleware/authenticate";
 import { Role } from "@lenda/types";
 import { prisma } from "@lenda/database";
+import categoryRoutes from "./routes/category.routes";
 
 const app: Application = express();
 app.set("trust proxy", 1);
@@ -28,6 +29,7 @@ app.use("/reviews", reviewRoutes);
 app.use("/likes", likeRoutes);
 app.use("/notifications", notificationRoutes);
 app.use("/admin", adminRoutes);
+app.use("/categories", categoryRoutes);
 
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", service: "booking-service" });
