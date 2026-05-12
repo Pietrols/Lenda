@@ -11,12 +11,19 @@ import {
   Search,
   SlidersHorizontal,
   MapPin,
-  Star,
   Heart,
   ChevronLeft,
   ChevronRight,
   X,
+  CheckCircle,
 } from "lucide-react";
+
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  suggestedPillars: string[];
+};
 
 type Listing = {
   id: string;
@@ -36,7 +43,6 @@ type Listing = {
     fullName: string | null;
     photoUrl: string | null;
     kycStatus: string;
-    pricingMode?: string;
   };
 };
 
@@ -50,23 +56,38 @@ type ListingsResponse = {
   };
 };
 
-const categories = [
-  "All",
-  "car",
-  "property",
-  "equipment",
-  "cleaning",
-  "repairs",
-  "delivery",
-  "tutoring",
-  "errands",
-];
-
 const pillars = [
   { value: "", label: "All" },
   { value: "RENTAL", label: "Rentals" },
   { value: "SERVICE", label: "Services" },
 ];
+
+function PriceDisplay({
+  currency,
+  price,
+  pricingMode,
+}: {
+  currency: string;
+  price: string | number;
+  pricingMode?: string;
+}) {
+  if (pricingMode === "NEGOTIABLE") {
+    return (
+      <span className="font-display font-bold text-sm text-gold">
+        Negotiable
+      </span>
+    );
+  }
+  const suffix = pricingMode === "HOURLY" ? "/hr" : "/day";
+  return (
+    <>
+      <span className="font-display font-bold text-sm text-foreground">
+        {currency} {price}
+      </span>
+      <span className="text-foreground/40 text-xs">{suffix}</span>
+    </>
+  );
+}
 
 export default function ListingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -88,6 +109,18 @@ export default function ListingsPage() {
   const [maxPriceInput, setMaxPriceInput] = useState(maxPrice);
   const [startDateInput, setStartDateInput] = useState(startDate);
   const [endDateInput, setEndDateInput] = useState(endDate);
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () =>
+      api.get<{ categories: Category[] }>(
+        "/categories",
+        undefined,
+        BOOKING_URL,
+      ),
+  });
+
+  const allCategories = categoriesData?.categories ?? [];
 
   const buildQuery = () => {
     const params = new URLSearchParams();
@@ -176,33 +209,15 @@ export default function ListingsPage() {
     applyFilters();
   };
 
-  // Helper to add to both files at the top level
-  function PriceDisplay({
-    currency,
-    price,
-    pricingMode,
-  }: {
-    currency: string;
-    price: string | number;
-    pricingMode?: string;
-  }) {
-    if (pricingMode === "NEGOTIABLE") {
-      return (
-        <span className="font-display font-bold text-sm text-gold">
-          Negotiable
-        </span>
-      );
-    }
-    const suffix = pricingMode === "HOURLY" ? "/hr" : "/day";
-    return (
-      <>
-        <span className="font-display font-bold text-sm text-foreground">
-          {currency} {price}
-        </span>
-        <span className="text-foreground/40 text-xs">{suffix}</span>
-      </>
-    );
-  }
+  // Sorted categories: pillar-relevant first, then others
+  const sortedCategories = [
+    ...allCategories.filter(
+      (c) => !pillar || c.suggestedPillars.includes(pillar),
+    ),
+    ...allCategories.filter(
+      (c) => pillar && !c.suggestedPillars.includes(pillar),
+    ),
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -221,7 +236,6 @@ export default function ListingsPage() {
             Find verified rentals and services across Zambia.
           </p>
 
-          {/* Search bar */}
           <form
             onSubmit={handleSearchSubmit}
             className="mt-8 flex gap-3 max-w-2xl flex-wrap"
@@ -262,7 +276,7 @@ export default function ListingsPage() {
           {/* Sidebar filters — desktop */}
           <aside className="hidden lg:flex flex-col gap-6 w-56 shrink-0">
             <div>
-              <p className="text-micro text-foreground/60 mb-3">Category</p>
+              <p className="text-micro text-foreground/60 mb-3">Pillar</p>
               <div className="flex flex-col gap-1">
                 {pillars.map((p) => (
                   <button
@@ -284,22 +298,31 @@ export default function ListingsPage() {
             <GoldLine className="opacity-20" />
 
             <div>
-              <p className="text-micro text-foreground/60 mb-3">Type</p>
-              <div className="flex flex-col gap-1">
-                {categories.map((cat) => (
+              <p className="text-micro text-foreground/60 mb-3">Category</p>
+              <div className="flex flex-col gap-1 max-h-64 overflow-y-auto">
+                <button
+                  onClick={() => setFilter("category", "")}
+                  className={cn(
+                    "text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+                    !category
+                      ? "bg-gold/15 text-gold"
+                      : "text-foreground/50 hover:text-foreground hover:bg-foreground/5",
+                  )}
+                >
+                  All Categories
+                </button>
+                {sortedCategories.map((cat) => (
                   <button
-                    key={cat}
-                    onClick={() =>
-                      setFilter("category", cat === "All" ? "" : cat)
-                    }
+                    key={cat.id}
+                    onClick={() => setFilter("category", cat.name)}
                     className={cn(
-                      "text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors capitalize",
-                      (cat === "All" && !category) || category === cat
+                      "text-left px-3 py-2 rounded-xl text-sm font-medium transition-colors",
+                      category === cat.name
                         ? "bg-gold/15 text-gold"
                         : "text-foreground/50 hover:text-foreground hover:bg-foreground/5",
                     )}
                   >
-                    {cat}
+                    {cat.name}
                   </button>
                 ))}
               </div>
@@ -309,7 +332,7 @@ export default function ListingsPage() {
 
             <div>
               <p className="text-micro text-foreground/60 mb-3">
-                Price Range (ZMW/day)
+                Price Range (ZMW)
               </p>
               <div className="flex flex-col gap-2">
                 <input
@@ -381,7 +404,7 @@ export default function ListingsPage() {
           {/* Main content */}
           <div className="flex-1 min-w-0">
             {/* Top bar */}
-            <div className="flex items-center justify-between mb-6 gap-4">
+            <div className="flex items-center justify-between mb-4 gap-4">
               <p className="text-foreground/50 text-sm">
                 {isLoading
                   ? "Loading..."
@@ -398,7 +421,7 @@ export default function ListingsPage() {
                     <span className="w-2 h-2 rounded-full bg-gold" />
                   )}
                 </button>
-                <div className="hidden md:flex gap-2">
+                <div className="hidden md:flex gap-2 flex-wrap">
                   {pillars.map((p) => (
                     <button
                       key={p.value}
@@ -416,6 +439,42 @@ export default function ListingsPage() {
                 </div>
               </div>
             </div>
+
+            {/* Category chips row */}
+            {allCategories.length > 0 && (
+              <div className="flex gap-2 flex-wrap mb-6">
+                <button
+                  onClick={() => setFilter("category", "")}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                    !category
+                      ? "bg-gold text-lenda-dark border-gold"
+                      : "border-border text-foreground/50 hover:border-gold/40",
+                  )}
+                >
+                  All
+                </button>
+                {sortedCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() =>
+                      setFilter(
+                        "category",
+                        category === cat.name ? "" : cat.name,
+                      )
+                    }
+                    className={cn(
+                      "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                      category === cat.name
+                        ? "bg-gold text-lenda-dark border-gold"
+                        : "border-border text-foreground/50 hover:border-gold/40",
+                    )}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Mobile filters panel */}
             {showFilters && (
@@ -435,24 +494,7 @@ export default function ListingsPage() {
                       {p.label}
                     </button>
                   ))}
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() =>
-                        setFilter("category", cat === "All" ? "" : cat)
-                      }
-                      className={cn(
-                        "px-3 py-1.5 rounded-full text-xs font-medium transition-colors capitalize",
-                        (cat === "All" && !category) || category === cat
-                          ? "bg-gold text-lenda-dark"
-                          : "bg-background border border-border text-foreground/50",
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  ))}
                 </div>
-
                 <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number"
@@ -485,7 +527,6 @@ export default function ListingsPage() {
                     className="h-9 px-3 rounded-xl bg-background border border-border text-foreground text-sm outline-none focus:border-gold/60"
                   />
                 </div>
-
                 <div className="flex gap-3">
                   <Button
                     variant="gold"
@@ -558,12 +599,17 @@ export default function ListingsPage() {
                               />
                             </div>
                           )}
-                          <div className="absolute top-3 left-3">
+                          <div className="absolute top-3 left-3 flex items-center gap-1.5">
                             <span className="lenda-tag text-xs">
                               {listing.pillar === "RENTAL"
                                 ? "Rental"
                                 : "Service"}
                             </span>
+                            {listing.category && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-black/40 backdrop-blur-sm text-white/80">
+                                {listing.category}
+                              </span>
+                            )}
                           </div>
                           <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white/60 hover:text-gold transition-colors">
                             <Heart size={14} />
@@ -599,17 +645,13 @@ export default function ListingsPage() {
                                   hostInitial
                                 )}
                               </div>
-                              <div className="flex items-center gap-1">
-                                <Star
-                                  size={10}
-                                  className="text-gold fill-gold"
-                                />
-                                <span className="text-foreground/40 text-xs">
-                                  {listing.discoveryScore.toFixed(1)}
+                              {listing.host?.kycStatus === "APPROVED" && (
+                                <span className="flex items-center gap-0.5 text-xs text-gold">
+                                  <CheckCircle size={10} /> Verified
                                 </span>
-                              </div>
+                              )}
                             </div>
-                            <div className="text-right">
+                            <div className="text-right flex items-baseline gap-1">
                               <PriceDisplay
                                 currency={listing.currency}
                                 price={listing.pricePerDay}

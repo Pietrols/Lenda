@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -13,6 +14,8 @@ import {
   ImagePlus,
   X,
   Loader2,
+  Search,
+  Plus,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { api, BOOKING_URL } from "@/api/client";
@@ -35,32 +38,19 @@ const CreateListingSchema = z.object({
 
 type CreateListingForm = z.infer<typeof CreateListingSchema>;
 
+type Category = {
+  id: string;
+  name: string;
+  slug: string;
+  suggestedPillars: string[];
+};
+
 type UploadedImage = {
   file: File;
   preview: string;
   uploading: boolean;
   done: boolean;
   error?: string;
-};
-
-const CATEGORIES: Record<"RENTAL" | "SERVICE", string[]> = {
-  RENTAL: [
-    "Vehicles",
-    "Property",
-    "Equipment",
-    "Electronics",
-    "Furniture",
-    "Other",
-  ],
-  SERVICE: [
-    "Cleaning",
-    "Repairs",
-    "Delivery",
-    "Tutoring",
-    "Errands",
-    "Photography",
-    "Other",
-  ],
 };
 
 const CURRENCIES = ["ZMW", "USD"];
@@ -74,7 +64,23 @@ export default function DashboardCreateListing() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const [images, setImages] = useState<UploadedImage[]>([]);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [showSuggestInput, setShowSuggestInput] = useState(false);
+  const [suggestValue, setSuggestValue] = useState("");
+  const [isSuggesting, setIsSuggesting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const { data: categoriesData, refetch: refetchCategories } = useQuery({
+    queryKey: ["categories"],
+    queryFn: () =>
+      api.get<{ categories: Category[] }>(
+        "/categories",
+        undefined,
+        BOOKING_URL,
+      ),
+  });
+
+  const allCategories = categoriesData?.categories ?? [];
 
   const form = useForm<CreateListingForm>({
     resolver: zodResolver(CreateListingSchema),
@@ -97,6 +103,47 @@ export default function DashboardCreateListing() {
   const pillar = watch("pillar");
   const category = watch("category");
   const pricingMode = watch("pricingMode");
+
+  const filteredCategories = allCategories.filter((cat) => {
+    const matchesPillar = cat.suggestedPillars.includes(pillar);
+    const matchesSearch =
+      !categorySearch ||
+      cat.name.toLowerCase().includes(categorySearch.toLowerCase());
+    return matchesPillar && matchesSearch;
+  });
+
+  const otherCategories = allCategories.filter((cat) => {
+    const notInPillar = !cat.suggestedPillars.includes(pillar);
+    const matchesSearch =
+      !categorySearch ||
+      cat.name.toLowerCase().includes(categorySearch.toLowerCase());
+    return notInPillar && matchesSearch;
+  });
+
+  async function handleSuggestCategory() {
+    if (!suggestValue.trim()) return;
+    setIsSuggesting(true);
+    try {
+      await api.post(
+        "/categories/suggest",
+        { name: suggestValue.trim(), suggestedPillars: [pillar] },
+        accessToken,
+        BOOKING_URL,
+      );
+      toast.success(
+        "Category suggested! It's pending admin approval but you can use it now.",
+      );
+      setSuggestValue("");
+      setShowSuggestInput(false);
+      refetchCategories();
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error ? err.message : "Failed to suggest category",
+      );
+    } finally {
+      setIsSuggesting(false);
+    }
+  }
 
   async function onSubmit(data: CreateListingForm) {
     if (
@@ -214,6 +261,7 @@ export default function DashboardCreateListing() {
         </p>
       </div>
 
+      {/* Step indicator */}
       <div className="flex items-center gap-2 mt-6 mb-8">
         {STEPS.map((label, i) => (
           <div key={label} className="flex items-center gap-2">
@@ -253,6 +301,7 @@ export default function DashboardCreateListing() {
         {/* Step 0: Pillar + Category */}
         {step === 0 && (
           <div className="flex flex-col gap-6">
+            {/* Pillar selector */}
             <div>
               <label className="block text-sm font-semibold text-foreground mb-3">
                 What are you listing?
@@ -265,6 +314,7 @@ export default function DashboardCreateListing() {
                     onClick={() => {
                       setValue("pillar", p);
                       setValue("category", "");
+                      setCategorySearch("");
                     }}
                     className={cn(
                       "glass-card p-5 border text-left transition-all duration-200",
@@ -298,36 +348,145 @@ export default function DashboardCreateListing() {
               </div>
             </div>
 
+            {/* Category search + picker */}
             <div>
               <label className="block text-sm font-semibold text-foreground mb-3">
                 Category
               </label>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES[pillar as "RENTAL" | "SERVICE"].map(
-                  (cat: string) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      onClick={() => setValue("category", cat)}
-                      className={cn(
-                        "px-4 py-2 rounded-full text-sm font-medium border transition-all duration-200",
-                        category === cat
-                          ? "border-gold bg-gold/10 text-gold"
-                          : "border-border text-foreground/50 hover:border-gold/30 hover:text-foreground",
-                      )}
-                    >
-                      {cat}
-                    </button>
-                  ),
-                )}
+
+              {/* Search input */}
+              <div className="relative mb-3">
+                <Search
+                  size={14}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30"
+                />
+                <input
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  placeholder="Search categories..."
+                  className="w-full h-10 pl-9 pr-4 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none focus:border-gold/60 transition-colors"
+                />
               </div>
+
+              {/* Suggested for this pillar */}
+              {filteredCategories.length > 0 && (
+                <div className="mb-3">
+                  {categorySearch === "" && (
+                    <p className="text-xs text-foreground/30 mb-2 font-medium uppercase tracking-wider">
+                      Suggested for{" "}
+                      {pillar === "RENTAL" ? "Rentals" : "Services"}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {filteredCategories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setValue("category", cat.name)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-sm font-medium border transition-all duration-200",
+                          category === cat.name
+                            ? "border-gold bg-gold/10 text-gold"
+                            : "border-border text-foreground/50 hover:border-gold/30 hover:text-foreground",
+                        )}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Other categories */}
+              {otherCategories.length > 0 && categorySearch !== "" && (
+                <div className="mb-3">
+                  <p className="text-xs text-foreground/30 mb-2 font-medium uppercase tracking-wider">
+                    Other categories
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {otherCategories.map((cat) => (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setValue("category", cat.name)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-sm font-medium border transition-all duration-200",
+                          category === cat.name
+                            ? "border-gold bg-gold/10 text-gold"
+                            : "border-border text-foreground/30 hover:border-gold/30 hover:text-foreground",
+                        )}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Suggest new category */}
+              {!showSuggestInput ? (
+                <button
+                  type="button"
+                  onClick={() => setShowSuggestInput(true)}
+                  className="flex items-center gap-1.5 text-xs text-foreground/40 hover:text-gold transition-colors mt-1"
+                >
+                  <Plus size={13} />
+                  Don't see your category? Suggest one
+                </button>
+              ) : (
+                <div className="flex gap-2 mt-2">
+                  <input
+                    value={suggestValue}
+                    onChange={(e) => setSuggestValue(e.target.value)}
+                    placeholder="e.g. Wedding Planner"
+                    className="flex-1 h-9 px-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none focus:border-gold/60"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleSuggestCategory();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outlineGold"
+                    size="sm"
+                    disabled={isSuggesting || !suggestValue.trim()}
+                    onClick={handleSuggestCategory}
+                  >
+                    {isSuggesting ? "Sending..." : "Suggest"}
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSuggestInput(false);
+                      setSuggestValue("");
+                    }}
+                    className="text-foreground/30 hover:text-foreground transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+
               {errors.category && (
                 <p className="text-red-400 text-xs mt-2">
                   {errors.category.message}
                 </p>
               )}
+
+              {/* Show selected category */}
+              {category && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-xs text-foreground/40">Selected:</span>
+                  <span className="text-xs font-semibold text-gold bg-gold/10 px-2 py-0.5 rounded-full border border-gold/20">
+                    {category}
+                  </span>
+                </div>
+              )}
             </div>
 
+            {/* Subcategory */}
             <div>
               <label className="block text-sm font-semibold text-foreground mb-2">
                 Subcategory{" "}
@@ -447,7 +606,6 @@ export default function DashboardCreateListing() {
         {/* Step 2: Pricing */}
         {step === 2 && (
           <div className="flex flex-col gap-5">
-            {/* Pricing mode -- full width, flex wrap for mobile */}
             <div>
               <label className="block text-sm font-semibold text-foreground mb-3">
                 Pricing Type
@@ -494,7 +652,6 @@ export default function DashboardCreateListing() {
               </div>
             </div>
 
-            {/* Price + currency for FIXED and HOURLY */}
             {pricingMode !== "NEGOTIABLE" && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -535,15 +692,13 @@ export default function DashboardCreateListing() {
               </div>
             )}
 
-            {/* Negotiable */}
             {pricingMode === "NEGOTIABLE" && (
               <div className="glass-card border border-gold/20 bg-gold/5 rounded-xl p-4">
                 <p className="text-sm text-gold font-medium">
                   Negotiable pricing
                 </p>
                 <p className="text-foreground/50 text-xs mt-1">
-                  Guests will contact you to discuss pricing before booking. You
-                  can set a starting price or leave it as 0.
+                  Guests will contact you to discuss pricing before booking.
                 </p>
                 <div className="grid grid-cols-2 gap-4 mt-3">
                   <div>
@@ -635,7 +790,6 @@ export default function DashboardCreateListing() {
             </p>
             <p className="text-foreground/40 text-xs">
               First photo becomes the primary image shown in search results.
-              Photos are optional.
             </p>
           </div>
 
