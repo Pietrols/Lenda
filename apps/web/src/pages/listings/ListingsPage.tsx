@@ -442,11 +442,11 @@ export default function ListingsPage() {
 
             {/* Category chips row */}
             {allCategories.length > 0 && (
-              <div className="flex gap-2 flex-wrap mb-6">
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-6 scrollbar-hide">
                 <button
                   onClick={() => setFilter("category", "")}
                   className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                    "px-3 py-1 rounded-full text-xs font-medium border transition-colors shrink-0",
                     !category
                       ? "bg-gold text-lenda-dark border-gold"
                       : "border-border text-foreground/50 hover:border-gold/40",
@@ -454,7 +454,12 @@ export default function ListingsPage() {
                 >
                   All
                 </button>
-                {sortedCategories.map((cat) => (
+                {(pillar
+                  ? sortedCategories.filter((c) =>
+                      c.suggestedPillars.includes(pillar),
+                    )
+                  : sortedCategories
+                ).map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() =>
