@@ -43,7 +43,9 @@ export async function register(
       email: data.email,
       phone: data.phone ?? null,
       passwordHash,
-      roles: data.roles as unknown as any,
+      roles: Array.from(
+        new Set(["GUEST", ...(data.roles ?? [])]),
+      ) as unknown as any,
     },
   });
 
