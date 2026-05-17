@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import { prisma } from "@lenda/database";
 import {
   verifyListing,
   suspendListing,
@@ -59,6 +60,31 @@ export async function boostUserDiscoveryHandler(
       amount,
     );
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getAllReviewsHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const reviews = await prisma.review.findMany({
+      orderBy: { createdAt: "desc" },
+      include: {
+        reviewer: { select: { id: true, fullName: true, email: true } },
+        reviewee: { select: { id: true, fullName: true, email: true } },
+        booking: {
+          select: {
+            id: true,
+            listing: { select: { id: true, title: true } },
+          },
+        },
+      },
+    });
+    res.json({ reviews });
   } catch (err) {
     next(err);
   }

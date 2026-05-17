@@ -5,11 +5,14 @@ import {
   suspendListingHandler,
   removeReviewHandler,
   boostUserDiscoveryHandler,
+  getAllReviewsHandler,
 } from "../controllers/admin.controller";
 
 const router: IRouter = Router();
 
 router.use(authenticate, requireRole("ADMIN"));
+
+router.get("/reviews", getAllReviewsHandler);
 
 router.patch("/listings/:id/verify", verifyListingHandler);
 router.patch("/listings/:id/suspend", suspendListingHandler);
