@@ -78,6 +78,9 @@ export const CreateBookingSchema = z.object({
   pickupType: z.enum(["CLIENT_TO_HOST", "HOST_TO_CLIENT"]),
   pickupLocation: z.string().optional(),
   notes: z.string().optional(),
+  isNegotiable: z.boolean().optional(),
+  budgetMin: z.number().positive().optional(),
+  budgetMax: z.number().positive().optional(),
 });
 
 export type CreateBookingInput = z.infer<typeof CreateBookingSchema>;

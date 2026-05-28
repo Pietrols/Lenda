@@ -146,6 +146,17 @@ export async function createBooking(
       pickupType: data.pickupType,
       pickupLocation: data.pickupLocation,
       notes: data.notes,
+      isNegotiable: data.isNegotiable ?? false,
+      budgetMin:
+        data.isNegotiable && data.budgetMin ? data.budgetMin : undefined,
+      budgetMax:
+        data.isNegotiable && data.budgetMax ? data.budgetMax : undefined,
+      currentOffer:
+        data.isNegotiable && data.budgetMax ? data.budgetMax : undefined,
+      negotiationExpiresAt: data.isNegotiable
+        ? new Date(Date.now() + 2 * 60 * 60 * 1000)
+        : undefined,
+
       history: {
         create: {
           fromStatus: null,
@@ -185,7 +196,7 @@ export async function createBooking(
 }
 
 type TransitionMap = {
-  [key in BookingStatus]: { to: BookingStatus[]; allowedRoles: Role[] }[];
+  [key: string]: { to: BookingStatus[]; allowedRoles: Role[] }[];
 };
 
 const RENTAL_TRANSITIONS: TransitionMap = {
@@ -222,6 +233,7 @@ const RENTAL_TRANSITIONS: TransitionMap = {
     { to: [BookingStatus.COMPLETED], allowedRoles: ["ADMIN"] },
     { to: [BookingStatus.CANCELLED], allowedRoles: ["ADMIN"] },
   ],
+  [BookingStatus.NEGOTIATION_FAILED]: [],
 };
 
 const SERVICE_TRANSITIONS: TransitionMap = {
@@ -247,6 +259,7 @@ const SERVICE_TRANSITIONS: TransitionMap = {
   [BookingStatus.HANDED_OVER]: [],
   [BookingStatus.RETURN_PENDING]: [],
   [BookingStatus.RETURNED]: [],
+  [BookingStatus.NEGOTIATION_FAILED]: [],
 };
 
 export async function transitionBookingStatus(

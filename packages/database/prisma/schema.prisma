@@ -59,6 +59,7 @@ enum BookingStatus {
   COMPLETED
   CANCELLED
   DISPUTED
+  NEGOTIATION_FAILED
 }
 
 enum PickupType {
@@ -258,6 +259,14 @@ model Booking {
   handovers Handover[]
   reviews   Review[]
   messages BookingMessage[]
+
+  isNegotiable        Boolean   @default(false)
+  budgetMin           Decimal?  @db.Decimal(10, 2)
+  budgetMax           Decimal?  @db.Decimal(10, 2)
+  currentOffer        Decimal?  @db.Decimal(10, 2)
+  hostCounterCount    Int       @default(0)
+  guestCounterCount   Int       @default(0)
+  negotiationExpiresAt DateTime?
 
   @@map("bookings")
 }

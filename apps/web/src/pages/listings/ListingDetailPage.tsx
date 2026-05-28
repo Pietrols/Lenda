@@ -24,6 +24,7 @@ import {
   Calendar,
   ArrowRight,
   User,
+  MessageSquare,
 } from "lucide-react";
 
 type ListingImage = {
@@ -75,19 +76,45 @@ type ReviewsResponse = {
   reviews: Review[];
 };
 
-const bookingSchema = z
-  .object({
+// Base schema fields shared across all pricing modes
+const baseSchema = z.object({
+  pickupType: z.enum(["CLIENT_TO_HOST", "HOST_TO_CLIENT"]),
+  notes: z.string().optional(),
+});
+
+// Fixed/daily schema
+const fixedSchema = baseSchema
+  .extend({
+    mode: z.literal("fixed"),
     startDate: z.string().min(1, "Start date is required"),
     endDate: z.string().min(1, "End date is required"),
-    pickupType: z.enum(["CLIENT_TO_HOST", "HOST_TO_CLIENT"]),
-    notes: z.string().optional(),
   })
-  .refine((data) => new Date(data.endDate) > new Date(data.startDate), {
+  .refine((d) => new Date(d.endDate) > new Date(d.startDate), {
     message: "End date must be after start date",
     path: ["endDate"],
   });
 
-type BookingForm = z.infer<typeof bookingSchema>;
+// Hourly schema
+const hourlySchema = baseSchema.extend({
+  mode: z.literal("hourly"),
+  startDate: z.string().min(1, "Start date is required"),
+  hours: z.number().min(1, "At least 1 hour required").max(720),
+});
+
+// Negotiable schema
+const negotiableSchema = baseSchema.extend({
+  mode: z.literal("negotiable"),
+  startDate: z.string().min(1, "Start date is required"),
+  durationType: z.enum(["days", "hours"]),
+  endDate: z.string().optional(),
+  hours: z.number().optional(),
+  budgetMax: z.number().positive("Please enter your offer amount"),
+  budgetMin: z.number().positive().optional(),
+});
+
+type FixedForm = z.infer<typeof fixedSchema>;
+type HourlyForm = z.infer<typeof hourlySchema>;
+type NegotiableForm = z.infer<typeof negotiableSchema>;
 
 export default function ListingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -114,43 +141,76 @@ export default function ListingDetailPage() {
     enabled: !!id,
   });
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    formState: { errors },
-  } = useForm<BookingForm>({
-    resolver: zodResolver(bookingSchema),
-    defaultValues: { pickupType: "CLIENT_TO_HOST" },
+  const listing = listingData?.listing;
+  const pricingMode = listing?.pricingMode ?? "FIXED";
+
+  // Fixed form
+  const fixedForm = useForm<FixedForm>({
+    resolver: zodResolver(fixedSchema),
+    defaultValues: { mode: "fixed", pickupType: "CLIENT_TO_HOST" },
   });
-
-  const startDate = useWatch({ control, name: "startDate" });
-  const endDate = useWatch({ control, name: "endDate" });
-
-  const totalDays =
-    startDate && endDate
+  const fixedStart = useWatch({
+    control: fixedForm.control,
+    name: "startDate",
+  });
+  const fixedEnd = useWatch({ control: fixedForm.control, name: "endDate" });
+  const fixedDays =
+    fixedStart && fixedEnd
       ? Math.max(
           0,
           Math.ceil(
-            (new Date(endDate).getTime() - new Date(startDate).getTime()) /
-              (1000 * 60 * 60 * 24),
+            (new Date(fixedEnd).getTime() - new Date(fixedStart).getTime()) /
+              86400000,
           ),
         )
       : 0;
+  const fixedTotal = listing ? fixedDays * parseFloat(listing.pricePerDay) : 0;
 
-  const listing = listingData?.listing;
-  const totalAmount = listing ? totalDays * parseFloat(listing.pricePerDay) : 0;
+  // Hourly form
+  const hourlyForm = useForm<HourlyForm>({
+    resolver: zodResolver(hourlySchema),
+    defaultValues: { mode: "hourly", pickupType: "CLIENT_TO_HOST", hours: 1 },
+  });
+  const hourlyHours =
+    useWatch({ control: hourlyForm.control, name: "hours" }) ?? 1;
+  const hourlyTotal = listing
+    ? (hourlyHours || 0) * parseFloat(listing.pricePerDay)
+    : 0;
+
+  // Negotiable form
+  const negForm = useForm<NegotiableForm>({
+    resolver: zodResolver(negotiableSchema),
+    defaultValues: {
+      mode: "negotiable",
+      pickupType: "CLIENT_TO_HOST",
+      durationType: "days",
+      hours: 1,
+    },
+  });
+  const negDurationType = useWatch({
+    control: negForm.control,
+    name: "durationType",
+  });
+  const negStart = useWatch({ control: negForm.control, name: "startDate" });
+  const negBudgetMax = useWatch({
+    control: negForm.control,
+    name: "budgetMax",
+  });
+  const negBudgetMin = useWatch({
+    control: negForm.control,
+    name: "budgetMin",
+  });
 
   const { mutate: createBooking, isPending: isBooking } = useMutation({
-    mutationFn: (data: BookingForm) =>
+    mutationFn: (payload: object) =>
       api.post<{ booking: { id: string } }>(
         "/bookings",
-        { listingId: id, ...data },
+        payload,
         accessToken,
         BOOKING_URL,
       ),
     onSuccess: () => {
-      toast.success("Booking created successfully!");
+      toast.success("Booking request sent!");
       navigate("/dashboard/bookings");
     },
     onError: (err: Error) => toast.error(err.message),
@@ -170,18 +230,63 @@ export default function ListingDetailPage() {
     },
   });
 
-  const onSubmit = (data: BookingForm) => {
+  function requireAuth() {
     if (!isAuthenticated) {
       toast.error("Please sign in to make a booking");
       navigate("/login");
-      return;
+      return false;
     }
+    return true;
+  }
+
+  function onFixedSubmit(data: FixedForm) {
+    if (!requireAuth()) return;
     createBooking({
-      ...data,
+      listingId: id,
       startDate: new Date(data.startDate).toISOString(),
       endDate: new Date(data.endDate).toISOString(),
+      pickupType: data.pickupType,
+      notes: data.notes,
+      isNegotiable: false,
     });
-  };
+  }
+
+  function onHourlySubmit(data: HourlyForm) {
+    if (!requireAuth()) return;
+    const start = new Date(data.startDate);
+    const end = new Date(start.getTime() + data.hours * 3600000);
+    createBooking({
+      listingId: id,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      pickupType: data.pickupType,
+      notes: data.notes,
+      isNegotiable: false,
+    });
+  }
+
+  function onNegotiableSubmit(data: NegotiableForm) {
+    if (!requireAuth()) return;
+    const start = new Date(data.startDate);
+    let end: Date;
+    if (data.durationType === "hours") {
+      end = new Date(start.getTime() + (data.hours ?? 1) * 3600000);
+    } else {
+      end = data.endDate
+        ? new Date(data.endDate)
+        : new Date(start.getTime() + 86400000);
+    }
+    createBooking({
+      listingId: id,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      pickupType: data.pickupType,
+      notes: data.notes,
+      isNegotiable: true,
+      budgetMax: data.budgetMax,
+      budgetMin: data.budgetMin,
+    });
+  }
 
   const reviews = reviewsData?.reviews ?? [];
   const images = listing?.images ?? [];
@@ -194,8 +299,9 @@ export default function ListingDetailPage() {
     setCurrentImage((i) => (i === 0 ? images.length - 1 : i - 1));
   const nextImage = () =>
     setCurrentImage((i) => (i === images.length - 1 ? 0 : i + 1));
-
   const isOwnListing = user?.id === listing?.host?.id;
+
+  const today = new Date().toISOString().split("T")[0];
 
   if (isLoading) {
     return (
@@ -322,7 +428,7 @@ export default function ListingDetailPage() {
               </div>
             )}
 
-            {/* Title */}
+            {/* Title + price */}
             <div>
               <div className="flex items-start justify-between gap-4 mb-2">
                 <div>
@@ -338,14 +444,14 @@ export default function ListingDetailPage() {
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-display font-black text-3xl text-foreground">
-                    {listing.pricingMode === "NEGOTIABLE"
+                    {pricingMode === "NEGOTIABLE"
                       ? "Negotiable"
                       : `${listing.currency} ${listing.pricePerDay}`}
                   </p>
                   <p className="text-foreground/40 text-sm">
-                    {listing.pricingMode === "HOURLY"
+                    {pricingMode === "HOURLY"
                       ? "per hour"
-                      : listing.pricingMode === "NEGOTIABLE"
+                      : pricingMode === "NEGOTIABLE"
                         ? "contact host"
                         : "per day"}
                   </p>
@@ -520,14 +626,14 @@ export default function ListingDetailPage() {
               <div className="glass-card p-6 border border-border">
                 <div className="flex items-baseline gap-1 mb-1">
                   <span className="font-display font-black text-2xl text-foreground">
-                    {listing.pricingMode === "NEGOTIABLE"
+                    {pricingMode === "NEGOTIABLE"
                       ? "Negotiable"
                       : `${listing.currency} ${listing.pricePerDay}`}
                   </span>
                   <span className="text-foreground/40 text-sm">
-                    {listing.pricingMode === "HOURLY"
+                    {pricingMode === "HOURLY"
                       ? "/ hr"
-                      : listing.pricingMode === "NEGOTIABLE"
+                      : pricingMode === "NEGOTIABLE"
                         ? ""
                         : "/ day"}
                   </span>
@@ -549,9 +655,10 @@ export default function ListingDetailPage() {
                       </Button>
                     </Link>
                   </div>
-                ) : (
+                ) : pricingMode === "FIXED" ? (
+                  /* ── FIXED: date range ── */
                   <form
-                    onSubmit={handleSubmit(onSubmit)}
+                    onSubmit={fixedForm.handleSubmit(onFixedSubmit)}
                     className="flex flex-col gap-4"
                   >
                     <div className="flex flex-col gap-1.5">
@@ -559,19 +666,19 @@ export default function ListingDetailPage() {
                         Start Date
                       </label>
                       <input
-                        {...register("startDate")}
+                        {...fixedForm.register("startDate")}
                         type="date"
-                        min={new Date().toISOString().split("T")[0]}
+                        min={today}
                         className={cn(
                           "w-full h-11 px-4 rounded-xl bg-background border text-foreground text-sm outline-none transition-colors focus:border-gold/60",
-                          errors.startDate
+                          fixedForm.formState.errors.startDate
                             ? "border-destructive/60"
                             : "border-border",
                         )}
                       />
-                      {errors.startDate && (
+                      {fixedForm.formState.errors.startDate && (
                         <p className="text-destructive text-xs">
-                          {errors.startDate.message}
+                          {fixedForm.formState.errors.startDate.message}
                         </p>
                       )}
                     </div>
@@ -581,75 +688,34 @@ export default function ListingDetailPage() {
                         End Date
                       </label>
                       <input
-                        {...register("endDate")}
+                        {...fixedForm.register("endDate")}
                         type="date"
-                        min={
-                          startDate || new Date().toISOString().split("T")[0]
-                        }
+                        min={fixedStart || today}
                         className={cn(
                           "w-full h-11 px-4 rounded-xl bg-background border text-foreground text-sm outline-none transition-colors focus:border-gold/60",
-                          errors.endDate
+                          fixedForm.formState.errors.endDate
                             ? "border-destructive/60"
                             : "border-border",
                         )}
                       />
-                      {errors.endDate && (
+                      {fixedForm.formState.errors.endDate && (
                         <p className="text-destructive text-xs">
-                          {errors.endDate.message}
+                          {fixedForm.formState.errors.endDate.message}
                         </p>
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-micro text-foreground/60">
-                        Pickup Type
-                      </label>
-                      <select
-                        {...register("pickupType")}
-                        className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm outline-none transition-colors focus:border-gold/60"
-                      >
-                        <option value="CLIENT_TO_HOST">
-                          I will go to the host
-                        </option>
-                        <option value="HOST_TO_CLIENT">
-                          Host delivers to me
-                        </option>
-                      </select>
-                    </div>
+                    <PickupField form={fixedForm} />
+                    <NotesField form={fixedForm} />
 
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-micro text-foreground/60">
-                        Notes (optional)
-                      </label>
-                      <textarea
-                        {...register("notes")}
-                        rows={2}
-                        placeholder="Any special requests..."
-                        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60 resize-none"
+                    {fixedDays > 0 && (
+                      <PriceSummary
+                        currency={listing.currency}
+                        rate={listing.pricePerDay}
+                        units={fixedDays}
+                        unitLabel="day"
+                        total={fixedTotal}
                       />
-                    </div>
-
-                    {totalDays > 0 && (
-                      <div className="bg-foreground/5 rounded-xl p-4 flex flex-col gap-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-foreground/50">
-                            {listing.currency} {listing.pricePerDay} x{" "}
-                            {totalDays} day{totalDays !== 1 ? "s" : ""}
-                          </span>
-                          <span className="text-foreground">
-                            {listing.currency} {totalAmount.toFixed(2)}
-                          </span>
-                        </div>
-                        <GoldLine className="opacity-20" />
-                        <div className="flex justify-between">
-                          <span className="font-semibold text-sm text-foreground">
-                            Total
-                          </span>
-                          <span className="font-display font-bold text-foreground">
-                            {listing.currency} {totalAmount.toFixed(2)}
-                          </span>
-                        </div>
-                      </div>
                     )}
 
                     <Button
@@ -662,9 +728,256 @@ export default function ListingDetailPage() {
                       {isBooking ? "Booking..." : "Request to Book"}
                       {!isBooking && <Calendar size={16} />}
                     </Button>
-
                     <p className="text-foreground/30 text-xs text-center">
-                      Price locked at booking. No charges until confirmed.
+                      Price locked at booking.
+                    </p>
+                  </form>
+                ) : pricingMode === "HOURLY" ? (
+                  /* ── HOURLY: start date + hours ── */
+                  <form
+                    onSubmit={hourlyForm.handleSubmit(onHourlySubmit)}
+                    className="flex flex-col gap-4"
+                  >
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-micro text-foreground/60">
+                        Start Date
+                      </label>
+                      <input
+                        {...hourlyForm.register("startDate")}
+                        type="date"
+                        min={today}
+                        className={cn(
+                          "w-full h-11 px-4 rounded-xl bg-background border text-foreground text-sm outline-none transition-colors focus:border-gold/60",
+                          hourlyForm.formState.errors.startDate
+                            ? "border-destructive/60"
+                            : "border-border",
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-micro text-foreground/60">
+                        Number of Hours
+                      </label>
+                      <input
+                        {...hourlyForm.register("hours", {
+                          valueAsNumber: true,
+                        })}
+                        type="number"
+                        min={1}
+                        max={720}
+                        placeholder="e.g. 3"
+                        className={cn(
+                          "w-full h-11 px-4 rounded-xl bg-background border text-foreground text-sm outline-none transition-colors focus:border-gold/60",
+                          hourlyForm.formState.errors.hours
+                            ? "border-destructive/60"
+                            : "border-border",
+                        )}
+                      />
+                      {hourlyForm.formState.errors.hours && (
+                        <p className="text-destructive text-xs">
+                          {hourlyForm.formState.errors.hours.message}
+                        </p>
+                      )}
+                    </div>
+
+                    <PickupField form={hourlyForm} />
+                    <NotesField form={hourlyForm} />
+
+                    {hourlyHours > 0 && (
+                      <PriceSummary
+                        currency={listing.currency}
+                        rate={listing.pricePerDay}
+                        units={hourlyHours}
+                        unitLabel="hour"
+                        total={hourlyTotal}
+                      />
+                    )}
+
+                    <Button
+                      type="submit"
+                      variant="gold"
+                      size="md"
+                      className="w-full gap-2"
+                      disabled={isBooking}
+                    >
+                      {isBooking ? "Booking..." : "Request to Book"}
+                      {!isBooking && <Calendar size={16} />}
+                    </Button>
+                    <p className="text-foreground/30 text-xs text-center">
+                      Price locked at booking.
+                    </p>
+                  </form>
+                ) : (
+                  /* ── NEGOTIABLE ── */
+                  <form
+                    onSubmit={negForm.handleSubmit(onNegotiableSubmit)}
+                    className="flex flex-col gap-4"
+                  >
+                    <div className="glass-card border border-gold/20 bg-gold/5 rounded-xl p-3 flex items-start gap-2">
+                      <MessageSquare
+                        size={14}
+                        className="text-gold shrink-0 mt-0.5"
+                      />
+                      <p className="text-xs text-foreground/60">
+                        This listing has negotiable pricing. Submit your offer
+                        and the host will accept, counter, or decline.
+                        Negotiation lasts 2 hours per round.
+                      </p>
+                    </div>
+
+                    {/* Duration type toggle */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-micro text-foreground/60">
+                        Duration Type
+                      </label>
+                      <div className="flex gap-2">
+                        {(["days", "hours"] as const).map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() =>
+                              negForm.setValue("durationType", type)
+                            }
+                            className={cn(
+                              "flex-1 py-2 rounded-xl text-xs font-medium border transition-colors",
+                              negDurationType === type
+                                ? "border-gold bg-gold/10 text-gold"
+                                : "border-border text-foreground/50 hover:border-gold/30",
+                            )}
+                          >
+                            {type === "days" ? "By Day" : "By Hour"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-micro text-foreground/60">
+                        Start Date
+                      </label>
+                      <input
+                        {...negForm.register("startDate")}
+                        type="date"
+                        min={today}
+                        className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm outline-none transition-colors focus:border-gold/60"
+                      />
+                      {negForm.formState.errors.startDate && (
+                        <p className="text-destructive text-xs">
+                          {negForm.formState.errors.startDate.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {negDurationType === "days" ? (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-micro text-foreground/60">
+                          End Date
+                        </label>
+                        <input
+                          {...negForm.register("endDate")}
+                          type="date"
+                          min={negStart || today}
+                          className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm outline-none transition-colors focus:border-gold/60"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-micro text-foreground/60">
+                          Number of Hours
+                        </label>
+                        <input
+                          {...negForm.register("hours", {
+                            valueAsNumber: true,
+                          })}
+                          type="number"
+                          min={1}
+                          placeholder="e.g. 3"
+                          className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm outline-none transition-colors focus:border-gold/60"
+                        />
+                      </div>
+                    )}
+
+                    {/* Budget fields */}
+                    <div className="flex flex-col gap-2">
+                      <label className="text-micro text-foreground/60">
+                        Your Offer ({listing.currency})
+                      </label>
+                      <input
+                        {...negForm.register("budgetMax", {
+                          valueAsNumber: true,
+                        })}
+                        type="number"
+                        min={1}
+                        step="0.01"
+                        placeholder="Maximum you will pay"
+                        className={cn(
+                          "w-full h-11 px-4 rounded-xl bg-background border text-foreground text-sm outline-none transition-colors focus:border-gold/60",
+                          negForm.formState.errors.budgetMax
+                            ? "border-destructive/60"
+                            : "border-border",
+                        )}
+                      />
+                      {negForm.formState.errors.budgetMax && (
+                        <p className="text-destructive text-xs">
+                          {negForm.formState.errors.budgetMax.message}
+                        </p>
+                      )}
+                      <input
+                        {...negForm.register("budgetMin", {
+                          valueAsNumber: true,
+                        })}
+                        type="number"
+                        min={1}
+                        step="0.01"
+                        placeholder="Minimum you hope for (optional)"
+                        className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm outline-none transition-colors focus:border-gold/60"
+                      />
+                      <p className="text-foreground/30 text-xs">
+                        Your max offer is what the host sees first.
+                      </p>
+                    </div>
+
+                    {/* Offer summary */}
+                    {negBudgetMax > 0 && (
+                      <div className="bg-foreground/5 rounded-xl p-4 flex flex-col gap-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-foreground/50">Your offer</span>
+                          <span className="text-foreground font-medium">
+                            {listing.currency} {negBudgetMax?.toFixed(2)}
+                          </span>
+                        </div>
+                        {(negBudgetMin ?? 0) > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-foreground/50">Minimum</span>
+                            <span className="text-foreground/60">
+                              {listing.currency} {negBudgetMin?.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <GoldLine className="opacity-20" />
+                        <p className="text-xs text-foreground/40">
+                          Host has 2 hours to respond. Up to 2 counters each.
+                        </p>
+                      </div>
+                    )}
+
+                    <PickupField form={negForm} />
+                    <NotesField form={negForm} />
+
+                    <Button
+                      type="submit"
+                      variant="gold"
+                      size="md"
+                      className="w-full gap-2"
+                      disabled={isBooking}
+                    >
+                      {isBooking ? "Sending Offer..." : "Send Offer"}
+                      {!isBooking && <MessageSquare size={16} />}
+                    </Button>
+                    <p className="text-foreground/30 text-xs text-center">
+                      No charges until negotiation is complete and booking
+                      confirmed.
                     </p>
                   </form>
                 )}
@@ -675,6 +988,74 @@ export default function ListingDetailPage() {
       </div>
 
       <Footer />
+    </div>
+  );
+}
+
+// ── Shared sub-components ─────────────────────────────────────────────────────
+
+function PickupField({ form }: { form: unknown }) {
+  const f = form as { register: (name: string) => object };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-micro text-foreground/60">Pickup Type</label>
+      <select
+        {...f.register("pickupType")}
+        className="w-full h-11 px-4 rounded-xl bg-background border border-border text-foreground text-sm outline-none transition-colors focus:border-gold/60"
+      >
+        <option value="CLIENT_TO_HOST">I will go to the host</option>
+        <option value="HOST_TO_CLIENT">Host delivers to me</option>
+      </select>
+    </div>
+  );
+}
+
+function NotesField({ form }: { form: unknown }) {
+  const f = form as { register: (name: string) => object };
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-micro text-foreground/60">Notes (optional)</label>
+      <textarea
+        {...f.register("notes")}
+        rows={2}
+        placeholder="Any special requests..."
+        className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none transition-colors focus:border-gold/60 resize-none"
+      />
+    </div>
+  );
+}
+
+function PriceSummary({
+  currency,
+  rate,
+  units,
+  unitLabel,
+  total,
+}: {
+  currency: string;
+  rate: string;
+  units: number;
+  unitLabel: string;
+  total: number;
+}) {
+  return (
+    <div className="bg-foreground/5 rounded-xl p-4 flex flex-col gap-2">
+      <div className="flex justify-between text-sm">
+        <span className="text-foreground/50">
+          {currency} {rate} x {units} {unitLabel}
+          {units !== 1 ? "s" : ""}
+        </span>
+        <span className="text-foreground">
+          {currency} {total.toFixed(2)}
+        </span>
+      </div>
+      <GoldLine className="opacity-20" />
+      <div className="flex justify-between">
+        <span className="font-semibold text-sm text-foreground">Total</span>
+        <span className="font-display font-bold text-foreground">
+          {currency} {total.toFixed(2)}
+        </span>
+      </div>
     </div>
   );
 }

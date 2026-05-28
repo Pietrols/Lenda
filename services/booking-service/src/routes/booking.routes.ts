@@ -9,6 +9,10 @@ import {
   getBookingsHandler,
   getBookingByIdHandler,
 } from "../controllers/booking.controller";
+import {
+  submitCounterHandler,
+  acceptOfferHandler,
+} from "../controllers/negotiation.controller";
 
 const router: IRouter = Router();
 
@@ -21,6 +25,8 @@ router.post(
 );
 
 router.post("/:id/handover/confirm", authenticate, confirmHandoverHandler);
+router.post("/:id/counter", authenticate, submitCounterHandler);
+router.post("/:id/accept-offer", authenticate, acceptOfferHandler);
 
 router.patch("/:id/status", authenticate, transitionBookingHandler);
 
