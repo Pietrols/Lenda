@@ -26,6 +26,8 @@ import {
   RotateCcw,
   Trophy,
   MessageCircle,
+  MessageSquare,
+  TrendingUp,
 } from "lucide-react";
 
 type BookingHistory = {
@@ -59,6 +61,13 @@ type Booking = {
   notes: string | null;
   guestId: string;
   hostId: string;
+  isNegotiable: boolean;
+  budgetMin: string | null;
+  budgetMax: string | null;
+  currentOffer: string | null;
+  hostCounterCount: number;
+  guestCounterCount: number;
+  negotiationExpiresAt: string | null;
   listing: {
     id: string;
     title: string;
@@ -151,6 +160,11 @@ const statusConfig: Record<string, StatusConfig> = {
     color: "text-orange-400",
     icon: <AlertCircle size={14} />,
   },
+  NEGOTIATION_FAILED: {
+    label: "Negotiation Failed",
+    color: "text-destructive",
+    icon: <XCircle size={14} />,
+  },
 };
 
 const reviewSchema = z.object({
@@ -159,6 +173,234 @@ const reviewSchema = z.object({
 });
 
 type ReviewForm = z.infer<typeof reviewSchema>;
+
+function useCountdown(expiresAt: string | null) {
+  const [remaining, setRemaining] = useState<number>(0);
+
+  useEffect(() => {
+    if (!expiresAt) return;
+    const update = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      setRemaining(Math.max(0, diff));
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  const hours = Math.floor(remaining / 3600000);
+  const minutes = Math.floor((remaining % 3600000) / 60000);
+  const seconds = Math.floor((remaining % 60000) / 1000);
+  const expired = remaining === 0 && !!expiresAt;
+
+  return { hours, minutes, seconds, expired };
+}
+
+function NegotiationCard({
+  booking,
+  isGuest,
+  isHost,
+  onCounter,
+  onAccept,
+  isCountering,
+  isAccepting,
+}: {
+  booking: Booking;
+  isGuest: boolean;
+  isHost: boolean;
+  onCounter: (amount: number) => void;
+  onAccept: () => void;
+  isCountering: boolean;
+  isAccepting: boolean;
+}) {
+  const [counterInput, setCounterInput] = useState("");
+  const { hours, minutes, seconds, expired } = useCountdown(
+    booking.negotiationExpiresAt,
+  );
+
+  const MAX_COUNTERS = 2;
+  const myCounterCount = isHost
+    ? booking.hostCounterCount
+    : booking.guestCounterCount;
+  const otherCounterCount = isHost
+    ? booking.guestCounterCount
+    : booking.hostCounterCount;
+  const canCounter = myCounterCount < MAX_COUNTERS && !expired;
+  const countersLeft = MAX_COUNTERS - myCounterCount;
+
+  const currentOffer = booking.currentOffer
+    ? parseFloat(booking.currentOffer)
+    : booking.budgetMax
+      ? parseFloat(booking.budgetMax)
+      : null;
+
+  const budgetMin = booking.budgetMin ? parseFloat(booking.budgetMin) : null;
+  const budgetMax = booking.budgetMax ? parseFloat(booking.budgetMax) : null;
+
+  return (
+    <div className="glass-card p-5 border border-gold/30 bg-gold/[0.02] flex flex-col gap-4">
+      <div className="flex items-center gap-2">
+        <MessageSquare size={16} className="text-gold" />
+        <h3 className="font-display font-bold text-sm text-foreground uppercase tracking-tight">
+          Negotiation in Progress
+        </h3>
+      </div>
+      <GoldLine className="w-8" />
+
+      <div className="flex flex-col gap-2">
+        {budgetMax !== null && (
+          <div className="flex justify-between text-sm">
+            <span className="text-foreground/50">Opening offer</span>
+            <span className="text-foreground font-medium">
+              {booking.currency} {budgetMax.toFixed(2)}
+            </span>
+          </div>
+        )}
+        {budgetMin !== null && (
+          <div className="flex justify-between text-sm">
+            <span className="text-foreground/50">Guest minimum</span>
+            <span className="text-foreground/60">
+              {booking.currency} {budgetMin.toFixed(2)}
+            </span>
+          </div>
+        )}
+        {currentOffer !== null && booking.currentOffer && (
+          <div className="flex justify-between text-sm border-t border-border pt-2 mt-1">
+            <span className="text-foreground/50">Current offer</span>
+            <span className="font-display font-bold text-gold">
+              {booking.currency} {currentOffer.toFixed(2)}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-6">
+        <div className="flex flex-col gap-0.5">
+          <p className="text-xs text-foreground/40">Your counters left</p>
+          <p
+            className={cn(
+              "text-sm font-bold",
+              countersLeft === 0 ? "text-destructive" : "text-foreground",
+            )}
+          >
+            {countersLeft} / {MAX_COUNTERS}
+          </p>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-xs text-foreground/40">Their counters left</p>
+          <p className="text-sm font-bold text-foreground">
+            {MAX_COUNTERS - otherCounterCount} / {MAX_COUNTERS}
+          </p>
+        </div>
+      </div>
+
+      {booking.negotiationExpiresAt && (
+        <div
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-xl text-sm",
+            expired
+              ? "bg-destructive/10 text-destructive"
+              : "bg-foreground/5 text-foreground/60",
+          )}
+        >
+          <Clock size={13} className="shrink-0" />
+          {expired ? (
+            <span>Negotiation window has expired.</span>
+          ) : (
+            <span>
+              Time remaining:{" "}
+              <span className="font-mono font-bold text-foreground">
+                {String(hours).padStart(2, "0")}:
+                {String(minutes).padStart(2, "0")}:
+                {String(seconds).padStart(2, "0")}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
+
+      {!expired && (isGuest || isHost) && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                Accept{" "}
+                {currentOffer !== null
+                  ? `${booking.currency} ${currentOffer.toFixed(2)}`
+                  : "offer"}
+              </p>
+              <p className="text-xs text-foreground/40">
+                Lock in this amount and confirm the booking.
+              </p>
+            </div>
+            <Button
+              variant="gold"
+              size="sm"
+              disabled={isAccepting || isCountering}
+              onClick={onAccept}
+              className="shrink-0"
+            >
+              {isAccepting ? "Accepting..." : "Accept"}
+            </Button>
+          </div>
+
+          {canCounter && (
+            <div className="border-t border-border pt-3 flex flex-col gap-2">
+              <p className="text-xs text-foreground/50">
+                Counter with a different amount ({countersLeft} counter
+                {countersLeft !== 1 ? "s" : ""} left)
+              </p>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground/30 text-xs">
+                    {booking.currency}
+                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    step="0.01"
+                    value={counterInput}
+                    onChange={(e) => setCounterInput(e.target.value)}
+                    placeholder="Enter amount"
+                    className="w-full h-10 pl-12 pr-3 rounded-xl bg-background border border-border text-foreground text-sm outline-none transition-colors focus:border-gold/60"
+                  />
+                </div>
+                <Button
+                  variant="outlineGold"
+                  size="sm"
+                  disabled={
+                    isCountering ||
+                    isAccepting ||
+                    !counterInput ||
+                    Number(counterInput) <= 0
+                  }
+                  onClick={() => {
+                    const amount = Number(counterInput);
+                    if (amount > 0) {
+                      onCounter(amount);
+                      setCounterInput("");
+                    }
+                  }}
+                  className="shrink-0 gap-1.5"
+                >
+                  <TrendingUp size={13} />
+                  {isCountering ? "Sending..." : "Counter"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!canCounter && !expired && (
+            <p className="text-xs text-foreground/40 border-t border-border pt-3">
+              You have used all your counters. You can only accept or wait for
+              the other party.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function HandoverCard({
   handover,
@@ -197,7 +439,6 @@ function HandoverCard({
           ? "Both parties must confirm the item has been handed over."
           : "Both parties must confirm the item has been returned."}
       </p>
-
       <div className="flex flex-col gap-2 mb-4">
         {[
           {
@@ -238,7 +479,6 @@ function HandoverCard({
           </div>
         ))}
       </div>
-
       {!bothConfirmed && !myConfirmed && (isGuest || isHost) && (
         <Button
           variant="gold"
@@ -301,7 +541,6 @@ function ReviewModal({
               : "How was this guest to work with?"}
           </p>
         </div>
-
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="p-6 flex flex-col gap-5"
@@ -330,7 +569,6 @@ function ReviewModal({
             </div>
             <p className="text-foreground/40 text-sm">{Number(rating)} / 5</p>
           </div>
-
           <textarea
             {...register("comment")}
             rows={3}
@@ -341,7 +579,6 @@ function ReviewModal({
             }
             className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none focus:border-gold/60 resize-none"
           />
-
           <div className="flex gap-3">
             <Button
               type="submit"
@@ -387,7 +624,7 @@ export default function DashboardBookingDetail() {
         BOOKING_URL,
       ),
     enabled: !!id && !!accessToken,
-    refetchInterval: 15000,
+    refetchInterval: 10000,
   });
 
   const { data: messagesData, refetch: refetchMessages } = useQuery({
@@ -488,6 +725,37 @@ export default function DashboardBookingDetail() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const { mutate: submitCounter, isPending: isCountering } = useMutation({
+    mutationFn: (amount: number) =>
+      api.post<{ booking: Booking }>(
+        `/bookings/${id}/counter`,
+        { amount },
+        accessToken,
+        BOOKING_URL,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      toast.success("Counter sent.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const { mutate: acceptOffer, isPending: isAccepting } = useMutation({
+    mutationFn: () =>
+      api.post<{ booking: Booking }>(
+        `/bookings/${id}/accept-offer`,
+        {},
+        accessToken,
+        BOOKING_URL,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      queryClient.invalidateQueries({ queryKey: ["bookings"] });
+      toast.success("Offer accepted! Booking confirmed.");
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   const { mutate: submitReview, isPending: isReviewing } = useMutation({
     mutationFn: (formData: ReviewForm) =>
       api.post<{ review: Review }>(
@@ -507,9 +775,7 @@ export default function DashboardBookingDetail() {
   const primaryImage =
     booking?.listing.images?.find((i) => i.isPrimary)?.url ??
     booking?.listing.images?.[0]?.url;
-
   const status = booking ? statusConfig[booking.status] : null;
-
   const pickupHandover = booking?.handovers.find((h) => h.type === "PICKUP");
   const returnHandover = booking?.handovers.find((h) => h.type === "RETURN");
   const activeHandover =
@@ -518,9 +784,11 @@ export default function DashboardBookingDetail() {
       : booking?.status === "RETURN_PENDING"
         ? returnHandover
         : null;
-
   const isActiveBooking =
-    booking && !["COMPLETED", "CANCELLED"].includes(booking.status);
+    booking &&
+    !["COMPLETED", "CANCELLED", "NEGOTIATION_FAILED"].includes(booking.status);
+  const isNegotiablePending =
+    booking?.status === "PENDING" && booking?.isNegotiable;
 
   if (isLoading || !booking) {
     return (
@@ -615,17 +883,19 @@ export default function DashboardBookingDetail() {
             <ArrowRight size={16} />
           </Link>
         </div>
-
         <div className="border-t border-border p-4 flex items-center justify-between">
-          <p className="text-foreground/50 text-sm">
-            {booking.currency} {booking.listing.pricePerDay} x{" "}
-            {booking.totalDays} day{booking.totalDays !== 1 ? "s" : ""}
-          </p>
+          {booking.isNegotiable ? (
+            <p className="text-foreground/50 text-sm">Negotiable pricing</p>
+          ) : (
+            <p className="text-foreground/50 text-sm">
+              {booking.currency} {booking.listing.pricePerDay} x{" "}
+              {booking.totalDays} day{booking.totalDays !== 1 ? "s" : ""}
+            </p>
+          )}
           <p className="font-display font-bold text-foreground">
-            {booking.currency} {booking.totalAmount}
+            {booking.currency} {parseFloat(booking.totalAmount).toFixed(2)}
           </p>
         </div>
-
         {booking.notes && (
           <div className="border-t border-border p-4">
             <p className="text-micro text-foreground/50 mb-1">Notes</p>
@@ -634,8 +904,39 @@ export default function DashboardBookingDetail() {
         )}
       </div>
 
-      {/* PENDING: Host confirms or declines */}
-      {booking.status === "PENDING" && isHost && (
+      {/* NEGOTIATION_FAILED */}
+      {booking.status === "NEGOTIATION_FAILED" && (
+        <div className="glass-card p-5 border border-destructive/20 bg-destructive/5">
+          <div className="flex items-center gap-3">
+            <XCircle size={16} className="text-destructive shrink-0" />
+            <div>
+              <p className="font-semibold text-sm text-foreground">
+                Negotiation Ended
+              </p>
+              <p className="text-foreground/40 text-xs">
+                No agreement was reached. This booking has been cancelled. You
+                are welcome to start a new request.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PENDING — Negotiable */}
+      {isNegotiablePending && (
+        <NegotiationCard
+          booking={booking}
+          isGuest={isGuest}
+          isHost={isHost}
+          onCounter={(amount) => submitCounter(amount)}
+          onAccept={() => acceptOffer()}
+          isCountering={isCountering}
+          isAccepting={isAccepting}
+        />
+      )}
+
+      {/* PENDING — Standard host */}
+      {booking.status === "PENDING" && !booking.isNegotiable && isHost && (
         <div className="glass-card p-5 border border-gold/20 flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-sm text-foreground mb-0.5">
@@ -667,8 +968,8 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* PENDING: Guest can cancel */}
-      {booking.status === "PENDING" && isGuest && (
+      {/* PENDING — Standard guest */}
+      {booking.status === "PENDING" && !booking.isNegotiable && isGuest && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
             <p className="font-semibold text-sm text-foreground mb-0.5">
@@ -747,7 +1048,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* HANDED_OVER: Dual confirm pickup */}
+      {/* HANDED_OVER */}
       {booking.status === "HANDED_OVER" && activeHandover && (
         <HandoverCard
           handover={activeHandover}
@@ -758,7 +1059,7 @@ export default function DashboardBookingDetail() {
         />
       )}
 
-      {/* ACTIVE rental: Request return */}
+      {/* ACTIVE rental */}
       {booking.status === "ACTIVE" && isRental && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
@@ -780,7 +1081,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* ACTIVE service: Complete */}
+      {/* ACTIVE service */}
       {booking.status === "ACTIVE" && !isRental && (isGuest || isHost) && (
         <div className="glass-card p-5 border border-border flex items-center justify-between gap-4">
           <div>
@@ -802,7 +1103,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* RETURN_PENDING: Dual confirm return */}
+      {/* RETURN_PENDING */}
       {booking.status === "RETURN_PENDING" && activeHandover && (
         <HandoverCard
           handover={activeHandover}
@@ -845,7 +1146,7 @@ export default function DashboardBookingDetail() {
         </div>
       )}
 
-      {/* Dispute / Support */}
+      {/* Support */}
       {isActiveBooking && (isGuest || isHost) && (
         <div className="flex items-center gap-2 px-1">
           <AlertCircle size={13} className="text-foreground/30 shrink-0" />
@@ -911,7 +1212,6 @@ export default function DashboardBookingDetail() {
             Messages
           </h3>
         </div>
-
         <div className="flex flex-col gap-3 p-4 max-h-80 overflow-y-auto">
           {(messagesData?.messages ?? []).length === 0 ? (
             <p className="text-foreground/30 text-sm text-center py-6">
@@ -957,7 +1257,6 @@ export default function DashboardBookingDetail() {
           )}
           <div ref={bottomRef} />
         </div>
-
         <div className="p-3 border-t border-border flex gap-2">
           <input
             value={messageInput}
