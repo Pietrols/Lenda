@@ -925,7 +925,8 @@ export default function ListingDetailPage() {
                       )}
                       <input
                         {...negForm.register("budgetMin", {
-                          valueAsNumber: true,
+                          setValueAs: (v) =>
+                            v === "" || v === undefined ? undefined : Number(v),
                         })}
                         type="number"
                         min={1}
