@@ -361,6 +361,7 @@ model Notification {
   type      NotificationType
   message   String
   isRead    Boolean          @default(false)
+  referenceId String?
   createdAt DateTime         @default(now())
 
   @@map("notifications")

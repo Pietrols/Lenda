@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { Bell, BellOff, Check, CheckCheck } from "lucide-react";
+import { Bell, BellOff, Check, CheckCheck, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { api, BOOKING_URL } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
@@ -13,6 +14,7 @@ type Notification = {
   type: string;
   message: string;
   isRead: boolean;
+  referenceId: string | null;
   createdAt: string;
 };
 
@@ -21,32 +23,55 @@ type NotificationsResponse = {
 };
 
 const typeColors: Record<string, string> = {
+  BOOKING_CREATED: "text-gold bg-gold/10",
   BOOKING_CONFIRMED: "text-green-400 bg-green-400/10",
   BOOKING_CANCELLED: "text-red-400 bg-red-400/10",
-  HANDED_OVER: "text-blue-400 bg-blue-400/10",
-  RETURN_PENDING: "text-yellow-500 bg-yellow-500/10",
-  COMPLETED: "text-gold bg-gold/10",
+  BOOKING_EN_ROUTE: "text-blue-400 bg-blue-400/10",
+  BOOKING_ACTIVE: "text-green-400 bg-green-400/10",
+  BOOKING_RETURN_PENDING: "text-yellow-500 bg-yellow-500/10",
+  BOOKING_COMPLETED: "text-gold bg-gold/10",
+  HANDOVER_CONFIRMED: "text-blue-400 bg-blue-400/10",
   KYC_APPROVED: "text-green-400 bg-green-400/10",
   KYC_REJECTED: "text-red-400 bg-red-400/10",
   TIER_UPGRADED: "text-gold bg-gold/10",
   SUBSCRIPTION_EXPIRED: "text-red-400 bg-red-400/10",
+  FIRST_BOOKING: "text-gold bg-gold/10",
+  TIP: "text-foreground/60 bg-foreground/5",
 };
 
 const typeLabels: Record<string, string> = {
+  BOOKING_CREATED: "New Booking Request",
   BOOKING_CONFIRMED: "Booking Confirmed",
   BOOKING_CANCELLED: "Booking Cancelled",
-  HANDED_OVER: "Handed Over",
-  RETURN_PENDING: "Return Pending",
-  COMPLETED: "Completed",
+  BOOKING_EN_ROUTE: "En Route",
+  BOOKING_ACTIVE: "Booking Active",
+  BOOKING_RETURN_PENDING: "Return Pending",
+  BOOKING_COMPLETED: "Booking Completed",
+  HANDOVER_CONFIRMED: "Handover Confirmed",
   KYC_APPROVED: "KYC Approved",
   KYC_REJECTED: "KYC Rejected",
   TIER_UPGRADED: "Tier Upgraded",
   SUBSCRIPTION_EXPIRED: "Subscription Expired",
+  FIRST_BOOKING: "Milestone",
+  TIP: "Tip",
 };
+
+const BOOKING_TYPES = new Set([
+  "BOOKING_CREATED",
+  "BOOKING_CONFIRMED",
+  "BOOKING_CANCELLED",
+  "BOOKING_EN_ROUTE",
+  "BOOKING_ACTIVE",
+  "BOOKING_RETURN_PENDING",
+  "BOOKING_COMPLETED",
+  "HANDOVER_CONFIRMED",
+  "FIRST_BOOKING",
+]);
 
 export default function DashboardNotifications() {
   const { accessToken } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data, isLoading } = useQuery({
     queryKey: ["notifications"],
@@ -59,7 +84,6 @@ export default function DashboardNotifications() {
     enabled: !!accessToken,
   });
 
-  // Fix the mutation:
   const { mutate: markRead, isPending: isMarking } = useMutation({
     mutationFn: (ids?: string[]) =>
       api.patch<{ message: string }>(
@@ -73,19 +97,24 @@ export default function DashboardNotifications() {
       queryClient.invalidateQueries({
         queryKey: ["notifications", "unread-count"],
       });
-      toast.success("Notifications marked as read.");
     },
     onError: (err: Error) => toast.error(err.message),
   });
 
-  // Add after mutation definition - auto-mark all read on page open:
   useEffect(() => {
     if (accessToken) markRead([]);
+    // markRead is stable from useMutation, safe to omit
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken]);
 
   const notifications = data?.notifications ?? [];
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  function handleNotificationClick(notification: Notification) {
+    if (notification.referenceId && BOOKING_TYPES.has(notification.type)) {
+      navigate(`/dashboard/bookings/${notification.referenceId}`);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -141,15 +170,21 @@ export default function DashboardNotifications() {
               typeColors[notification.type] ??
               "text-foreground/60 bg-foreground/5";
             const label = typeLabels[notification.type] ?? notification.type;
+            const isClickable =
+              !!notification.referenceId &&
+              BOOKING_TYPES.has(notification.type);
 
             return (
               <div
                 key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
                 className={cn(
                   "glass-card p-4 border transition-all duration-200",
                   notification.isRead
                     ? "border-border opacity-60"
                     : "border-gold/20 bg-gold/[0.02]",
+                  isClickable &&
+                    "cursor-pointer hover:border-gold/40 hover:opacity-100",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -178,10 +213,18 @@ export default function DashboardNotifications() {
                     <p className="text-foreground/70 text-sm mt-1 leading-relaxed">
                       {notification.message}
                     </p>
+                    {isClickable && (
+                      <p className="text-gold text-xs mt-1.5 flex items-center gap-1">
+                        View booking <ArrowRight size={11} />
+                      </p>
+                    )}
                   </div>
                   {!notification.isRead && (
                     <button
-                      onClick={() => markRead([notification.id])}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        markRead([notification.id]);
+                      }}
                       className="text-foreground/30 hover:text-gold transition-colors shrink-0"
                       title="Mark as read"
                     >

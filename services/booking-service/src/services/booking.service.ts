@@ -95,7 +95,9 @@ export async function createBooking(
   );
 
   const priceSnapshot = Number(listing.pricePerDay);
-  const totalAmount = priceSnapshot * totalDays;
+  const totalAmount = data.isNegotiable
+    ? (data.budgetMax ?? 0)
+    : priceSnapshot * totalDays;
 
   const overlapping = await prisma.booking.findFirst({
     where: {
@@ -156,7 +158,6 @@ export async function createBooking(
       negotiationExpiresAt: data.isNegotiable
         ? new Date(Date.now() + 2 * 60 * 60 * 1000)
         : undefined,
-
       history: {
         create: {
           fromStatus: null,
@@ -169,14 +170,13 @@ export async function createBooking(
     include: { history: true },
   });
 
-  // Notify host of new booking request
   await createNotification(
     listing.hostId,
     NotificationType.BOOKING_CREATED,
     `New booking request for "${listing.title}" - review and confirm.`,
+    booking.id,
   );
 
-  // Check if this is the host's first ever booking request
   const hostBookingCount = await prisma.booking.count({
     where: { hostId: listing.hostId },
   });
@@ -185,10 +185,10 @@ export async function createBooking(
       listing.hostId,
       NotificationType.FIRST_BOOKING,
       "Congratulations on your first booking request! You are officially a Lenda host.",
+      booking.id,
     );
   }
 
-  // Send a random tip to both parties
   await sendRandomTip(guestId, GUEST_TIPS);
   await sendRandomTip(listing.hostId, HOST_TIPS);
 
@@ -233,7 +233,7 @@ const RENTAL_TRANSITIONS: TransitionMap = {
     { to: [BookingStatus.COMPLETED], allowedRoles: ["ADMIN"] },
     { to: [BookingStatus.CANCELLED], allowedRoles: ["ADMIN"] },
   ],
-  [BookingStatus.NEGOTIATION_FAILED]: [],
+  NEGOTIATION_FAILED: [],
 };
 
 const SERVICE_TRANSITIONS: TransitionMap = {
@@ -259,7 +259,7 @@ const SERVICE_TRANSITIONS: TransitionMap = {
   [BookingStatus.HANDED_OVER]: [],
   [BookingStatus.RETURN_PENDING]: [],
   [BookingStatus.RETURNED]: [],
-  [BookingStatus.NEGOTIATION_FAILED]: [],
+  NEGOTIATION_FAILED: [],
 };
 
 export async function transitionBookingStatus(
@@ -328,7 +328,6 @@ export async function transitionBookingStatus(
     include: { history: { orderBy: { createdAt: "desc" }, take: 1 } },
   });
 
-  // Auto-create handover records for RENTAL only
   if (booking.listing.pillar === "RENTAL") {
     if (toStatus === BookingStatus.HANDED_OVER) {
       await createHandover(bookingId, HandoverType.PICKUP);
@@ -338,7 +337,6 @@ export async function transitionBookingStatus(
     }
   }
 
-  // Commission deduction and completion logic
   if (toStatus === BookingStatus.COMPLETED) {
     await recalculateDiscoveryScore(booking.listingId);
 
@@ -363,14 +361,15 @@ export async function transitionBookingStatus(
       booking.guestId,
       NotificationType.BOOKING_COMPLETED,
       `Your booking for "${booking.listing.title}" is complete. Leave a review!`,
+      bookingId,
     );
     await createNotification(
       booking.hostId,
       NotificationType.BOOKING_COMPLETED,
       `Booking for "${booking.listing.title}" completed. Earnings have been added to your float.`,
+      bookingId,
     );
 
-    // Check for first ever completed booking for this host
     const completedCount = await prisma.booking.count({
       where: { hostId: booking.hostId, status: BookingStatus.COMPLETED },
     });
@@ -379,16 +378,17 @@ export async function transitionBookingStatus(
         booking.hostId,
         NotificationType.FIRST_BOOKING,
         "You completed your first booking on Lenda! Keep it up - more bookings mean better visibility.",
+        bookingId,
       );
     }
   }
 
-  // Notification per transition
   if (toStatus === BookingStatus.CONFIRMED) {
     await createNotification(
       booking.guestId,
       NotificationType.BOOKING_CONFIRMED,
       `Your booking for "${booking.listing.title}" has been confirmed by the host.`,
+      bookingId,
     );
     await sendRandomTip(booking.hostId, HOST_TIPS);
   }
@@ -400,6 +400,7 @@ export async function transitionBookingStatus(
       otherPartyId,
       NotificationType.BOOKING_CANCELLED,
       `A booking for "${booking.listing.title}" has been cancelled.`,
+      bookingId,
     );
   }
 
@@ -408,11 +409,13 @@ export async function transitionBookingStatus(
       booking.guestId,
       NotificationType.BOOKING_EN_ROUTE,
       `Your host is on the way for "${booking.listing.title}". Get ready for the handover.`,
+      bookingId,
     );
     await createNotification(
       booking.hostId,
       NotificationType.BOOKING_EN_ROUTE,
       `En route confirmed for "${booking.listing.title}".`,
+      bookingId,
     );
   }
 
@@ -421,11 +424,13 @@ export async function transitionBookingStatus(
       booking.guestId,
       NotificationType.HANDOVER_CONFIRMED,
       `Item handed over for "${booking.listing.title}" - please confirm receipt in the app.`,
+      bookingId,
     );
     await createNotification(
       booking.hostId,
       NotificationType.HANDOVER_CONFIRMED,
       `Handover marked for "${booking.listing.title}" - awaiting guest confirmation.`,
+      bookingId,
     );
   }
 
@@ -434,11 +439,13 @@ export async function transitionBookingStatus(
       booking.guestId,
       NotificationType.BOOKING_ACTIVE,
       `Your booking for "${booking.listing.title}" is now active. Enjoy!`,
+      bookingId,
     );
     await createNotification(
       booking.hostId,
       NotificationType.BOOKING_ACTIVE,
       `Booking for "${booking.listing.title}" is now active.`,
+      bookingId,
     );
   }
 
@@ -447,11 +454,13 @@ export async function transitionBookingStatus(
       booking.hostId,
       NotificationType.BOOKING_RETURN_PENDING,
       `Return initiated for "${booking.listing.title}". Confirm receipt when the item is back.`,
+      bookingId,
     );
     await createNotification(
       booking.guestId,
       NotificationType.BOOKING_RETURN_PENDING,
       `Return process started for "${booking.listing.title}". Both parties must confirm.`,
+      bookingId,
     );
   }
 
@@ -513,7 +522,6 @@ export async function confirmHandover(
     (isHost && updated.hostConfirmed && handover.guestConfirmed);
 
   if (bothConfirmed) {
-    // PICKUP → ACTIVE, RETURN → COMPLETED (auto-complete, no admin needed)
     const nextStatus =
       type === HandoverType.PICKUP
         ? BookingStatus.ACTIVE
@@ -539,11 +547,13 @@ export async function confirmHandover(
         booking.guestId,
         NotificationType.BOOKING_ACTIVE,
         `Your booking for "${booking.listing.title}" is now active. Enjoy!`,
+        bookingId,
       );
       await createNotification(
         booking.hostId,
         NotificationType.BOOKING_ACTIVE,
         `Booking for "${booking.listing.title}" is now active.`,
+        bookingId,
       );
     }
 
@@ -571,14 +581,15 @@ export async function confirmHandover(
         booking.guestId,
         NotificationType.BOOKING_COMPLETED,
         `Your booking for "${booking.listing.title}" is complete. Leave a review!`,
+        bookingId,
       );
       await createNotification(
         booking.hostId,
         NotificationType.BOOKING_COMPLETED,
         `Booking for "${booking.listing.title}" completed. Earnings have been added to your float.`,
+        bookingId,
       );
 
-      // First completed booking congrats
       const completedCount = await prisma.booking.count({
         where: { hostId: booking.hostId, status: BookingStatus.COMPLETED },
       });
@@ -587,6 +598,7 @@ export async function confirmHandover(
           booking.hostId,
           NotificationType.FIRST_BOOKING,
           "You completed your first booking on Lenda! Keep it up - more bookings mean better visibility.",
+          bookingId,
         );
       }
     }
