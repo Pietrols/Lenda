@@ -10,7 +10,6 @@ import { AppError } from "../middleware/errorHandler";
 import { recalculateDiscoveryScore } from "./discovery.service";
 import { createNotification } from "./notification.service";
 import { NotificationType } from "@lenda/database";
-import { config } from "../config";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
@@ -39,25 +38,28 @@ async function sendRandomTip(userId: string, tips: string[]) {
   await createNotification(userId, NotificationType.TIP, tip);
 }
 
-async function deductCommission(
+async function recordCommission(
   hostId: string,
   bookingId: string,
   totalAmount: number,
-  commissionRate: number,
+  rate: number,
 ) {
   try {
-    await fetch(`${config.AUTH_URL}/float/internal/deduct`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        hostId,
+    const amount = new Prisma.Decimal(totalAmount).mul(rate);
+    // Unique on bookingId makes this idempotent — re-completing a booking
+    // never records a second commission.
+    await prisma.commissionLedger.upsert({
+      where: { bookingId },
+      update: {},
+      create: {
         bookingId,
-        bookingAmount: totalAmount,
-        commissionRate,
-      }),
+        hostId,
+        amount,
+        rate: new Prisma.Decimal(rate),
+      },
     });
   } catch (err) {
-    console.error("Commission deduction failed:", err);
+    console.error("Commission recording failed:", err);
   }
 }
 
@@ -354,7 +356,7 @@ export async function transitionBookingStatus(
       ? parseFloat(host.commissionRate.toString())
       : 0.15;
 
-    await deductCommission(
+    await recordCommission(
       booking.hostId,
       booking.id,
       totalAmount,
@@ -574,7 +576,7 @@ export async function confirmHandover(
         ? parseFloat(host.commissionRate.toString())
         : 0.15;
 
-      await deductCommission(
+      await recordCommission(
         booking.hostId,
         bookingId,
         totalAmount,

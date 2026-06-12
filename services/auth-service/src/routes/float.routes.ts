@@ -1,5 +1,6 @@
 import { Router, IRouter } from "express";
 import { authenticate, requireRole } from "../middleware/authenticate";
+import { requireInternalKey } from "../middleware/requireInternalKey";
 import { Role } from "@lenda/types";
 import {
   setupFloatHandler,
@@ -37,6 +38,6 @@ router.patch(
   adminApproveWithdrawalHandler,
 );
 
-router.post("/internal/deduct", deductCommissionHandler);
+router.post("/internal/deduct", requireInternalKey, deductCommissionHandler);
 
 export default router;

@@ -3,6 +3,7 @@ import app from "./app";
 import { config } from "./config";
 import { prisma } from "@lenda/database";
 import { expireNegotiations } from "./services/negotiation.service";
+import { processCommissions } from "./services/commission.worker";
 
 async function main() {
   await prisma.$connect();
@@ -16,6 +17,11 @@ async function main() {
         console.error("Negotiation expiry sweep failed:", err),
       );
     }, 5 * 60 * 1000);
+    setInterval(() => {
+      processCommissions().catch((err) =>
+        console.error("Commission processing sweep failed:", err),
+      );
+    }, 60_000);
   });
 }
 

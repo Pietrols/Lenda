@@ -21,6 +21,7 @@ const envSchema = z.object({
   R2_SECRET_ACCESS_KEY: z.string().min(1, "R2_SECRET_ACCESS_KEY is required"),
   R2_LISTING_BUCKET: z.string().default("lenda-listing"),
   R2_LISTING_PUBLIC_URL: z.string().min(1, "R2_LISTING_PUBLIC_URL is required"),
+  INTERNAL_API_KEY: z.string().optional(),
 });
 
 const result = envSchema.safeParse(process.env);
@@ -31,6 +32,14 @@ if (!result.success) {
   process.exit(1);
 }
 
-export const config = result.data;
+if (result.data.NODE_ENV === "production" && !result.data.INTERNAL_API_KEY) {
+  console.error("INTERNAL_API_KEY is required in production");
+  process.exit(1);
+}
+
+export const config = {
+  ...result.data,
+  INTERNAL_API_KEY: result.data.INTERNAL_API_KEY ?? "dev-internal-key",
+};
 export const isDev = config.NODE_ENV === "development";
 export const isProd = config.NODE_ENV === "production";

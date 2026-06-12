@@ -36,6 +36,7 @@ const envSchema = z.object({
     .string()
     .min(1, "R2_HOST_IMAGES_PUBLIC_URL is required"),
   MASTER_ADMIN_EMAIL: z.string().email().default("kabambapeter3@gmail.com"),
+  INTERNAL_API_KEY: z.string().optional(),
 });
 
 const result = envSchema.safeParse(process.env);
@@ -46,6 +47,14 @@ if (!result.success) {
   process.exit(1);
 }
 
-export const config = result.data;
+if (result.data.NODE_ENV === "production" && !result.data.INTERNAL_API_KEY) {
+  console.error("INTERNAL_API_KEY is required in production");
+  process.exit(1);
+}
+
+export const config = {
+  ...result.data,
+  INTERNAL_API_KEY: result.data.INTERNAL_API_KEY ?? "dev-internal-key",
+};
 export const isDev = config.NODE_ENV === "development";
 export const isProd = config.NODE_ENV === "production";

@@ -451,6 +451,27 @@ model FloatWithdrawal {
   @@map("float_withdrawals")
 }
 
+enum CommissionStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model CommissionLedger {
+  id          String           @id @default(uuid())
+  bookingId   String           @unique
+  hostId      String
+  amount      Decimal          @db.Decimal(10, 2)
+  rate        Decimal          @db.Decimal(5, 4)
+  status      CommissionStatus @default(PENDING)
+  attempts    Int              @default(0)
+  lastError   String?
+  createdAt   DateTime         @default(now())
+  processedAt DateTime?
+
+  @@map("commission_ledger")
+}
+
 model BookingMessage {
   id         String   @id @default(uuid())
   bookingId  String
