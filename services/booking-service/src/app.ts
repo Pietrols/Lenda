@@ -2,6 +2,7 @@ import express, { Application } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import morgan from "morgan";
+import rateLimit from "express-rate-limit";
 import { config } from "./config";
 import { errorHandler } from "./middleware/errorHandler";
 import listingRoutes from "./routes/listing.routes";
@@ -20,9 +21,22 @@ const app: Application = express();
 app.set("trust proxy", 1);
 
 app.use(helmet());
-app.use(cors({ origin: config.CORS_ORIGINS.split(",") }));
+
+const allowedOrigins = config.CORS_ORIGINS.split(",").map((o) => o.trim());
+app.use(cors({ origin: allowedOrigins, credentials: true }));
+
 app.use(express.json());
 app.use(morgan("dev"));
+
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { message: "Too many requests. Please try again later." },
+    standardHeaders: true,
+    legacyHeaders: false,
+  }),
+);
 
 app.use("/bookings", bookingRoutes);
 app.use("/reviews", reviewRoutes);

@@ -14,6 +14,8 @@ import { config } from "../config";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
+const NEGOTIATION_FAILED_STATUS = "NEGOTIATION_FAILED" as unknown as BookingStatus;
+
 const HOST_TIPS = [
   "Complete your profile to improve your listing visibility.",
   "Add more photos to your listing to attract more guests.",
@@ -107,6 +109,7 @@ export async function createBooking(
           BookingStatus.CANCELLED,
           BookingStatus.COMPLETED,
           BookingStatus.DISPUTED,
+          NEGOTIATION_FAILED_STATUS,
         ],
       },
       AND: [{ startDate: { lt: end } }, { endDate: { gt: start } }],
@@ -125,6 +128,7 @@ export async function createBooking(
           BookingStatus.CANCELLED,
           BookingStatus.COMPLETED,
           BookingStatus.DISPUTED,
+          NEGOTIATION_FAILED_STATUS,
         ],
       },
     },
@@ -297,7 +301,7 @@ export async function transitionBookingStatus(
       ? RENTAL_TRANSITIONS
       : SERVICE_TRANSITIONS;
 
-  const allowedTransitions = transitionMap[booking.status];
+  const allowedTransitions = transitionMap[booking.status] ?? [];
   const match = allowedTransitions.find((t) => t.to.includes(toStatus));
 
   if (!match) {

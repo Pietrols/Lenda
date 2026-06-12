@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { submitCounter, acceptOffer } from "../services/negotiation.service";
+import { AppError } from "../middleware/errorHandler";
 
 export async function submitCounterHandler(
   req: Request,
@@ -7,8 +8,9 @@ export async function submitCounterHandler(
   next: NextFunction,
 ) {
   try {
+    if (!req.user) return next(new AppError(401, "Unauthorized"));
     const { id } = req.params;
-    const userId = (req as any).user?.sub;
+    const userId = req.user.sub;
     const { amount } = req.body;
 
     if (!amount || isNaN(Number(amount))) {
@@ -29,8 +31,9 @@ export async function acceptOfferHandler(
   next: NextFunction,
 ) {
   try {
+    if (!req.user) return next(new AppError(401, "Unauthorized"));
     const { id } = req.params;
-    const userId = (req as any).user?.sub;
+    const userId = req.user.sub;
     const booking = await acceptOffer(id, userId);
     res.json({ booking });
   } catch (err) {

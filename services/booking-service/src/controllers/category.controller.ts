@@ -5,6 +5,7 @@ import {
   getAllCategoriesAdmin,
   reviewCategory,
 } from "../services/category.service";
+import { AppError } from "../middleware/errorHandler";
 
 export async function getCategoriesHandler(
   req: Request,
@@ -26,7 +27,8 @@ export async function suggestCategoryHandler(
   next: NextFunction,
 ) {
   try {
-    const userId = (req as any).user?.id;
+    if (!req.user) return next(new AppError(401, "Unauthorized"));
+    const userId = req.user.sub;
     const { name, suggestedPillars = [] } = req.body;
 
     if (!name || typeof name !== "string" || name.trim().length < 2) {

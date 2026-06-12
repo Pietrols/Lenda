@@ -104,6 +104,8 @@ enum NotificationType {
   BOOKING_COMPLETED
   FIRST_BOOKING
   TIP
+  NEGOTIATION_COUNTER
+  NEGOTIATION_FAILED
 }
 
 enum PricingMode {

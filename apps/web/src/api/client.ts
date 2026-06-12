@@ -65,10 +65,19 @@ async function request<T>(
     }
   }
 
-  const data = await res.json();
+  let data: unknown = null;
+  const text = await res.text();
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    /* non-JSON body */
+  }
 
   if (!res.ok) {
-    throw new Error(data.message ?? "Something went wrong");
+    const message =
+      (data as { message?: string } | null)?.message ??
+      `Request failed (${res.status})`;
+    throw new Error(message);
   }
 
   return data as T;

@@ -99,7 +99,7 @@ export async function submitCounter(
   const otherPartyId = isGuest ? booking.hostId : booking.guestId;
   await createNotification(
     otherPartyId,
-    NotificationType.BOOKING_CONFIRMED,
+    NotificationType.NEGOTIATION_COUNTER,
     `${isHost ? "The host" : "The guest"} has countered on "${booking.listing.title}". You have 2 hours to respond.`,
     bookingId,
   );
@@ -220,13 +220,13 @@ export async function expireNegotiations() {
     });
     await createNotification(
       booking.guestId,
-      NotificationType.BOOKING_CANCELLED,
+      NotificationType.NEGOTIATION_FAILED,
       `Your negotiation for "${booking.listing.title}" has expired with no deal reached.`,
       booking.id,
     );
     await createNotification(
       booking.hostId,
-      NotificationType.BOOKING_CANCELLED,
+      NotificationType.NEGOTIATION_FAILED,
       `A negotiation for "${booking.listing.title}" has expired with no deal reached.`,
       booking.id,
     );

@@ -37,6 +37,8 @@ const typeColors: Record<string, string> = {
   SUBSCRIPTION_EXPIRED: "text-red-400 bg-red-400/10",
   FIRST_BOOKING: "text-gold bg-gold/10",
   TIP: "text-foreground/60 bg-foreground/5",
+  NEGOTIATION_COUNTER: "text-gold bg-gold/10",
+  NEGOTIATION_FAILED: "text-red-400 bg-red-400/10",
 };
 
 const typeLabels: Record<string, string> = {
@@ -54,6 +56,8 @@ const typeLabels: Record<string, string> = {
   SUBSCRIPTION_EXPIRED: "Subscription Expired",
   FIRST_BOOKING: "Milestone",
   TIP: "Tip",
+  NEGOTIATION_COUNTER: "Counter Offer",
+  NEGOTIATION_FAILED: "Negotiation Failed",
 };
 
 const BOOKING_TYPES = new Set([
@@ -66,6 +70,8 @@ const BOOKING_TYPES = new Set([
   "BOOKING_COMPLETED",
   "HANDOVER_CONFIRMED",
   "FIRST_BOOKING",
+  "NEGOTIATION_COUNTER",
+  "NEGOTIATION_FAILED",
 ]);
 
 export default function DashboardNotifications() {
