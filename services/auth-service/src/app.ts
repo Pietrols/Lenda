@@ -26,7 +26,7 @@ export function createApp(): Express {
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: 100,
+      max: 1000,
       message: { message: "Too many requests. Please try again later." },
       standardHeaders: true,
       legacyHeaders: false,
