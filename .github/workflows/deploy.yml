@@ -70,6 +70,17 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      # Redis backs OTP storage (auth-service) and the commission worker /
+      # notifications (booking-service); without it auth flows return 500.
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       # Pull the repository onto the runner.
