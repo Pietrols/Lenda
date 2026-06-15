@@ -169,6 +169,11 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
+      # rsync isn't guaranteed to be present on ubuntu-latest; install it before
+      # the steps that use it to push the build artifacts to the server.
+      - name: Install rsync
+        run: sudo apt-get install -y rsync
+
       # Bring the server's git checkout up to date. The running services use the
       # rsynced dist files, but the repo (Prisma schema, migrations, ecosystem
       # config) must match what we just built and tested.
