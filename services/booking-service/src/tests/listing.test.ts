@@ -87,11 +87,12 @@ describe("POST /listings", () => {
         pricePerDay: 50,
         currency: "USD",
         location: "Kitwe, Zambia",
+        metadata: {},
       });
 
     expect(res.status).toBe(201);
     expect(res.body.listing.title).toBe("Test Car Listing");
-    expect(res.body.listing.status).toBe("DRAFT");
+    expect(res.body.listing.status).toBe("ACTIVE");
     listingId = res.body.listing.id;
   });
 

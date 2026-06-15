@@ -39,7 +39,18 @@ async function cleanupTestData() {
   });
   await prisma.user.deleteMany({
     where: {
-      email: { in: ["bookinghost@lenda.com", "bookingguest@lenda.com"] },
+      email: {
+        // Include the auxiliary users created inside individual tests so a
+        // previously-crashed run can't leave stale rows that trip the unique
+        // email constraint on the next run.
+        in: [
+          "bookinghost@lenda.com",
+          "bookingguest@lenda.com",
+          "overlap@lenda.com",
+          "stranger@lenda.com",
+          "nosey@lenda.com",
+        ],
+      },
     },
   });
 }
