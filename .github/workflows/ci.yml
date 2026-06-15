@@ -1,0 +1,53 @@
+# Continuous integration for pull requests.
+#
+# This mirrors the build half of deploy.yml (install -> generate -> build ->
+# test) but never touches the server. It gives every PR a green/red signal so
+# broken code is caught before it can be merged into main and deployed.
+
+name: CI
+
+# Run on every pull request, regardless of the target branch.
+on:
+  pull_request:
+
+# A new push to a PR cancels the previous in-progress run for that PR, so we
+# don't waste runners validating commits that are already superseded.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # Pull the PR's code onto the runner.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install pnpm. No `version:` — pnpm/action-setup reads the
+      # `packageManager` field (pnpm@10.x) from package.json as the source of truth.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      # Install Node 24 with the pnpm store cache enabled for fast installs.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Install exactly what the lockfile pins; fail if it is out of date.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Generate the Prisma client so the services type-check and build.
+      - name: Generate Prisma client
+        run: pnpm --filter @lenda/database exec prisma generate
+
+      # Build every workspace via Turborepo (handles dependency ordering).
+      - name: Build all packages
+        run: pnpm -r build
+
+      # Run all test suites in single-run mode; a failure fails the PR check.
+      - name: Run tests
+        run: pnpm -r test -- --run
