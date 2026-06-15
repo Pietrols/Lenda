@@ -1,0 +1,237 @@
+# Deploy pipeline for Lenda.
+#
+# Builds happen in CI (not on the server) so that every deploy is tested before
+# it reaches the server, the shipped artifacts are reproducible, and the server
+# never needs a build toolchain installed.
+#
+# Strategy:
+#   1. `test-and-build` runs on GitHub's runners: install, generate the Prisma
+#      client, build every workspace package with Turborepo, run tests, and
+#      upload the compiled `dist` output as a build artifact.
+#   2. `deploy` (only on a push to main) downloads that artifact, rsyncs each
+#      `dist` to the server, runs DB migrations, restarts PM2, and health-checks
+#      the services. If a health check fails it rolls back to the previous dist.
+#
+# Everything that produces JavaScript happens in CI. The server only receives
+# pre-built files, runs `prisma generate` (codegen, not a compile), and restarts.
+
+name: Deploy
+
+# Run the whole pipeline whenever main moves. Pull-request validation lives in
+# ci.yml so that PRs get install+build+test without ever touching the server.
+on:
+  push:
+    branches: [main]
+
+# If two pushes land close together, cancel the older in-flight deploy so we
+# never have two deploys racing to swap files on the server at the same time.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+# Workspace `dist` directories that are built in CI and shipped to the server.
+# Order matters for the rsync/swap loop only in that dependencies (types,
+# schemas, database) should exist before the services that import them — but
+# because we swap all of them before restarting PM2, any order is safe here.
+env:
+  DIST_PATHS: >-
+    packages/types/dist
+    packages/schemas/dist
+    packages/database/dist
+    services/auth-service/dist
+    services/booking-service/dist
+    apps/web/dist
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      # Pull the repository onto the runner.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Install pnpm. We pin no `version:` here on purpose: pnpm/action-setup
+      # reads the `packageManager` field in package.json (pnpm@10.x), which is
+      # the single source of truth and avoids a version mismatch error.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      # Install Node 24 and turn on pnpm's store cache so installs are fast.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Install exactly what the lockfile pins; fail if it is out of date.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Generate the Prisma client into node_modules so the services type-check
+      # and build against the real client.
+      - name: Generate Prisma client
+        run: pnpm --filter @lenda/database exec prisma generate
+
+      # Build every workspace. Turborepo resolves the dependency graph, so
+      # types/schemas/database build before the services and the web app.
+      - name: Build all packages
+        run: pnpm -r build
+
+      # Run the test suites. `-- --run` forces Vitest into single-run (non-watch)
+      # mode; a non-zero exit here fails the whole pipeline and blocks deploy.
+      - name: Run tests
+        run: pnpm -r test -- --run
+
+      # Bundle the compiled output + the Prisma schema/migrations as one
+      # artifact for the deploy job to download. `dist` folders are the only
+      # things the server needs; prisma/ carries the migrations to apply.
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          if-no-files-found: error
+          include-hidden-files: true
+          path: |
+            packages/*/dist
+            services/*/dist
+            apps/web/dist
+            packages/database/prisma
+
+  deploy:
+    # Only deploy after a green build, and only for real pushes to main.
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      # Download the artifact built above. It restores the same directory
+      # layout (packages/*/dist, services/*/dist, apps/web/dist) into the
+      # runner's working directory so rsync can read straight from those paths.
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+
+      # Load the deploy private key into an ssh-agent for this job. Every `ssh`
+      # and `rsync` step below authenticates through the agent — the key is
+      # never written to disk.
+      - name: Start ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      # Record the server's host key so ssh/rsync don't prompt or fail on an
+      # unknown host. ssh-keyscan fetches the server's public host key.
+      - name: Add server to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      # Bring the server's git checkout up to date. The running services use the
+      # rsynced dist files, but the repo (Prisma schema, migrations, ecosystem
+      # config) must match what we just built and tested.
+      - name: Pull latest source on server
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" 'cd ~/lenda && git pull origin main'
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      # Ship each freshly built dist into a temporary `<path>.new` on the server.
+      # --delete makes the remote .new an exact mirror of the local dist (no
+      # stale files left behind). We sync into .new first so the live dist is
+      # untouched until the atomic swap step.
+      - name: Rsync build output to server
+        run: |
+          set -euo pipefail
+          for p in ${DIST_PATHS}; do
+            echo "Syncing ${p} -> ${p}.new"
+            rsync -az --delete \
+              "${p}/" \
+              "${DEPLOY_USER}@${DEPLOY_HOST}:~/lenda/${p}.new/"
+          done
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      # Atomic swap: keep the current dist as `dist.old` (for rollback) and move
+      # the freshly-synced `dist.new` into place. A `mv` of a directory on the
+      # same filesystem is atomic, so there is no window where dist is missing.
+      - name: Swap in new dist directories
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "DIST_PATHS='${DIST_PATHS}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~/lenda
+          for p in ${DIST_PATHS}; do
+            mv "${p}" "${p}.old" || true
+            mv "${p}.new" "${p}"
+          done
+          REMOTE
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      # Apply any pending migrations and regenerate the Prisma client against the
+      # new schema. `migrate deploy` only runs un-applied migrations and never
+      # prompts; `generate` is codegen (writes the client into node_modules), not
+      # a TypeScript compile, so it does not require a build toolchain on the server.
+      - name: Run database migrations
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" 'cd ~/lenda && pnpm --filter @lenda/database exec prisma migrate deploy && pnpm --filter @lenda/database exec prisma generate'
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      # Restart the two Node services under PM2. --update-env re-reads
+      # environment variables so any config changes take effect.
+      - name: Restart services
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" 'pm2 restart lenda-auth lenda-booking --update-env'
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      # Verify both services answer their local health endpoints. If either is
+      # unhealthy we roll back: restore the `.old` dist, restart PM2, and fail
+      # the job loudly so the failure is impossible to miss. `curl -fsS` exits
+      # non-zero on any HTTP error, which trips the rollback branch.
+      - name: Health check (with rollback on failure)
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "DIST_PATHS='${DIST_PATHS}' bash -s" <<'REMOTE'
+          set -uo pipefail
+          # Give the services a moment to finish booting after the restart.
+          sleep 5
+          if curl -fsS http://localhost:3001/health > /dev/null \
+             && curl -fsS http://localhost:3002/health > /dev/null; then
+            echo "Health checks passed."
+            exit 0
+          fi
+
+          echo "::error::Health check FAILED — rolling back to previous dist."
+          cd ~/lenda
+          for p in ${DIST_PATHS}; do
+            if [ -d "${p}.old" ]; then
+              rm -rf "${p}"
+              mv "${p}.old" "${p}"
+            fi
+          done
+          pm2 restart lenda-auth lenda-booking --update-env
+          echo "::error::Rollback complete. Deploy failed."
+          exit 1
+          REMOTE
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+
+      # Deploy succeeded — discard the previous dist copies kept for rollback.
+      - name: Clean up old dist directories
+        run: |
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "DIST_PATHS='${DIST_PATHS}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~/lenda
+          for p in ${DIST_PATHS}; do
+            rm -rf "${p}.old"
+          done
+          REMOTE
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
