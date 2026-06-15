@@ -12,6 +12,20 @@ type RequestOptions = {
   baseURL?: string;
 };
 
+export type FieldErrors = Record<string, string[]>;
+
+export class ApiError extends Error {
+  status: number;
+  errors?: FieldErrors;
+
+  constructor(message: string, status: number, errors?: FieldErrors) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.errors = errors;
+  }
+}
+
 async function request<T>(
   path: string,
   options: RequestOptions = {},
@@ -74,10 +88,12 @@ async function request<T>(
   }
 
   if (!res.ok) {
-    const message =
-      (data as { message?: string } | null)?.message ??
-      `Request failed (${res.status})`;
-    throw new Error(message);
+    const errBody = data as {
+      message?: string;
+      errors?: FieldErrors;
+    } | null;
+    const message = errBody?.message ?? `Request failed (${res.status})`;
+    throw new ApiError(message, res.status, errBody?.errors);
   }
 
   return data as T;

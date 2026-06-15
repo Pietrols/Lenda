@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { api, BOOKING_URL } from "@/api/client";
+import { api, BOOKING_URL, ApiError, type FieldErrors } from "@/api/client";
 import { GoldLine } from "@/components/ui/GoldLine";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -539,17 +539,37 @@ function ReviewModal({
   onSubmit,
   onSkip,
   isSubmitting,
+  serverErrors,
 }: {
   isGuest: boolean;
   onSubmit: (data: ReviewForm) => void;
   onSkip: () => void;
   isSubmitting: boolean;
+  serverErrors: FieldErrors | null;
 }) {
-  const { register, handleSubmit, control } = useForm<ReviewForm>({
+  const {
+    register,
+    handleSubmit,
+    control,
+    setError,
+    clearErrors,
+    formState: { errors },
+  } = useForm<ReviewForm>({
     resolver: zodResolver(reviewSchema),
     defaultValues: { rating: 5 },
   });
   const rating = useWatch({ control, name: "rating" });
+
+  // Surface field-level validation errors returned by the server beneath
+  // their inputs. Re-runs whenever the parent receives a new error map.
+  useEffect(() => {
+    clearErrors();
+    if (serverErrors) {
+      for (const [field, messages] of Object.entries(serverErrors)) {
+        setError(field as keyof ReviewForm, { message: messages.join(" ") });
+      }
+    }
+  }, [serverErrors, setError, clearErrors]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
@@ -595,17 +615,34 @@ function ReviewModal({
               ))}
             </div>
             <p className="text-foreground/40 text-sm">{Number(rating)} / 5</p>
+            {errors.rating && (
+              <p className="text-destructive text-xs text-center">
+                {errors.rating.message}
+              </p>
+            )}
           </div>
-          <textarea
-            {...register("comment")}
-            rows={3}
-            placeholder={
-              isGuest
-                ? "Share what made this experience great (or not)..."
-                : "How was this guest to work with?"
-            }
-            className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground placeholder:text-foreground/30 text-sm outline-none focus:border-gold/60 resize-none"
-          />
+          <div className="flex flex-col gap-1.5">
+            <textarea
+              {...register("comment")}
+              rows={3}
+              placeholder={
+                isGuest
+                  ? "Share what made this experience great (or not)..."
+                  : "How was this guest to work with?"
+              }
+              className={cn(
+                "w-full px-4 py-3 rounded-xl bg-background border text-foreground placeholder:text-foreground/30 text-sm outline-none resize-none",
+                errors.comment
+                  ? "border-destructive focus:border-destructive"
+                  : "border-border focus:border-gold/60",
+              )}
+            />
+            {errors.comment && (
+              <p className="text-destructive text-xs">
+                {errors.comment.message}
+              </p>
+            )}
+          </div>
           <div className="flex gap-3">
             <Button
               type="submit"
@@ -783,6 +820,9 @@ export default function DashboardBookingDetail() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const [reviewFieldErrors, setReviewFieldErrors] =
+    useState<FieldErrors | null>(null);
+
   const { mutate: submitReview, isPending: isReviewing } = useMutation({
     mutationFn: (formData: ReviewForm) =>
       api.post<{ review: Review }>(
@@ -791,12 +831,19 @@ export default function DashboardBookingDetail() {
         accessToken,
         BOOKING_URL,
       ),
+    onMutate: () => setReviewFieldErrors(null),
     onSuccess: () => {
       refetchReviews();
       setShowReviewModal(false);
       toast.success("Review submitted. Thank you!");
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => {
+      if (err instanceof ApiError && err.errors) {
+        setReviewFieldErrors(err.errors);
+      } else {
+        toast.error(err.message);
+      }
+    },
   });
 
   const primaryImage =
@@ -836,8 +883,12 @@ export default function DashboardBookingDetail() {
         <ReviewModal
           isGuest={isGuest}
           onSubmit={(d) => submitReview(d)}
-          onSkip={() => setShowReviewModal(false)}
+          onSkip={() => {
+            setReviewFieldErrors(null);
+            setShowReviewModal(false);
+          }}
           isSubmitting={isReviewing}
+          serverErrors={reviewFieldErrors}
         />
       )}
 
