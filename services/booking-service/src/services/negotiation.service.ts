@@ -28,6 +28,7 @@ export async function submitCounter(
       hostCounterCount: true,
       guestCounterCount: true,
       negotiationExpiresAt: true,
+      lastActorId: true,
       listing: { select: { title: true } },
     },
   });
@@ -42,6 +43,12 @@ export async function submitCounter(
   const isHost = booking.hostId === userId;
   if (!isGuest && !isHost)
     throw new AppError(403, "You are not a party to this booking");
+
+  if (booking.lastActorId === userId)
+    throw new AppError(
+      400,
+      "It is the other party's turn. You can accept their offer, wait for their response, or cancel.",
+    );
 
   if (isExpired(booking.negotiationExpiresAt)) {
     await prisma.booking.update({
@@ -85,6 +92,7 @@ export async function submitCounter(
       hostCounterCount: isHost ? { increment: 1 } : undefined,
       guestCounterCount: isGuest ? { increment: 1 } : undefined,
       negotiationExpiresAt: newExpiry,
+      lastActorId: userId,
       history: {
         create: {
           fromStatus: BookingStatus.PENDING,

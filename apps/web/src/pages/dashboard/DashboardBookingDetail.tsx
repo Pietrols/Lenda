@@ -68,6 +68,7 @@ type Booking = {
   hostCounterCount: number;
   guestCounterCount: number;
   negotiationExpiresAt: string | null;
+  lastActorId: string | null;
   listing: {
     id: string;
     title: string;
@@ -200,18 +201,24 @@ function NegotiationCard({
   booking,
   isGuest,
   isHost,
+  isMyTurn,
   onCounter,
   onAccept,
+  onCancel,
   isCountering,
   isAccepting,
+  isCancelling,
 }: {
   booking: Booking;
   isGuest: boolean;
   isHost: boolean;
+  isMyTurn: boolean;
   onCounter: (amount: number) => void;
   onAccept: () => void;
+  onCancel: () => void;
   isCountering: boolean;
   isAccepting: boolean;
+  isCancelling: boolean;
 }) {
   const [counterInput, setCounterInput] = useState("");
   const { hours, minutes, seconds, expired } = useCountdown(
@@ -344,7 +351,7 @@ function NegotiationCard({
             </Button>
           </div>
 
-          {canCounter && (
+          {isMyTurn && canCounter && (
             <div className="border-t border-border pt-3 flex flex-col gap-2">
               <p className="text-xs text-foreground/50">
                 Counter with a different amount ({countersLeft} counter
@@ -390,12 +397,32 @@ function NegotiationCard({
             </div>
           )}
 
-          {!canCounter && !expired && (
+          {!isMyTurn && (
+            <p className="text-xs text-foreground/40 border-t border-border pt-3">
+              Waiting for the other party to respond to your offer of{" "}
+              {currentOffer !== null
+                ? `${booking.currency} ${currentOffer.toFixed(2)}`
+                : "your offer"}
+              .
+            </p>
+          )}
+
+          {isMyTurn && !canCounter && (
             <p className="text-xs text-foreground/40 border-t border-border pt-3">
               You have used all your counters. You can only accept or wait for
               the other party.
             </p>
           )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={isCancelling || isCountering || isAccepting}
+            onClick={onCancel}
+            className="text-destructive hover:text-destructive self-start"
+          >
+            {isCancelling ? "Cancelling..." : "Cancel Negotiation"}
+          </Button>
         </div>
       )}
     </div>
@@ -928,10 +955,13 @@ export default function DashboardBookingDetail() {
           booking={booking}
           isGuest={isGuest}
           isHost={isHost}
+          isMyTurn={booking.lastActorId !== user?.id}
           onCounter={(amount) => submitCounter(amount)}
           onAccept={() => acceptOffer()}
+          onCancel={() => transitionStatus("CANCELLED")}
           isCountering={isCountering}
           isAccepting={isAccepting}
+          isCancelling={isTransitioning}
         />
       )}
 

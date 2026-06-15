@@ -269,6 +269,7 @@ model Booking {
   hostCounterCount    Int       @default(0)
   guestCounterCount   Int       @default(0)
   negotiationExpiresAt DateTime?
+  lastActorId         String?
 
   @@map("bookings")
 }

@@ -164,6 +164,7 @@ export async function createBooking(
       negotiationExpiresAt: data.isNegotiable
         ? new Date(Date.now() + 2 * 60 * 60 * 1000)
         : undefined,
+      lastActorId: data.isNegotiable ? guestId : undefined,
       history: {
         create: {
           fromStatus: null,
