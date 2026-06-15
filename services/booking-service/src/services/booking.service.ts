@@ -15,6 +15,19 @@ type Role = "GUEST" | "HOST" | "ADMIN";
 
 const NEGOTIATION_FAILED_STATUS = "NEGOTIATION_FAILED" as unknown as BookingStatus;
 
+// The no_overlapping_bookings GiST exclusion constraint surfaces as Postgres
+// error 23P01. Depending on the driver path Prisma reports it as a known
+// request error with code P2010 (raw/engine failure) and/or carries the raw
+// 23P01 in meta or the message — so we check all of them.
+function isExclusionViolation(err: unknown): boolean {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === "P2010") return true;
+    const pgCode = (err.meta as { code?: string } | undefined)?.code;
+    if (pgCode === "23P01") return true;
+  }
+  return err instanceof Error && err.message.includes("23P01");
+}
+
 const HOST_TIPS = [
   "Complete your profile to improve your listing visibility.",
   "Add more photos to your listing to attract more guests.",
@@ -103,25 +116,6 @@ export async function createBooking(
     ? (data.budgetMax ?? 0)
     : priceSnapshot * totalDays;
 
-  const overlapping = await prisma.booking.findFirst({
-    where: {
-      listingId: data.listingId,
-      status: {
-        notIn: [
-          BookingStatus.CANCELLED,
-          BookingStatus.COMPLETED,
-          BookingStatus.DISPUTED,
-          NEGOTIATION_FAILED_STATUS,
-        ],
-      },
-      AND: [{ startDate: { lt: end } }, { endDate: { gt: start } }],
-    },
-  });
-
-  if (overlapping) {
-    throw new AppError(409, "Listing is already booked for these dates");
-  }
-
   const activeBooking = await prisma.booking.findFirst({
     where: {
       guestId,
@@ -140,42 +134,75 @@ export async function createBooking(
     throw new AppError(400, "You already have an active booking");
   }
 
-  const booking = await prisma.booking.create({
-    data: {
-      guestId,
-      hostId: listing.hostId,
-      listingId: data.listingId,
-      startDate: start,
-      endDate: end,
-      totalDays,
-      priceSnapshot,
-      currency: listing.currency,
-      totalAmount,
-      pickupType: data.pickupType,
-      pickupLocation: data.pickupLocation,
-      notes: data.notes,
-      isNegotiable: data.isNegotiable ?? false,
-      budgetMin:
-        data.isNegotiable && data.budgetMin ? data.budgetMin : undefined,
-      budgetMax:
-        data.isNegotiable && data.budgetMax ? data.budgetMax : undefined,
-      currentOffer:
-        data.isNegotiable && data.budgetMax ? data.budgetMax : undefined,
-      negotiationExpiresAt: data.isNegotiable
-        ? new Date(Date.now() + 2 * 60 * 60 * 1000)
-        : undefined,
-      lastActorId: data.isNegotiable ? guestId : undefined,
-      history: {
-        create: {
-          fromStatus: null,
-          toStatus: BookingStatus.PENDING,
-          changedById: guestId,
-          reason: "Booking created",
+  // The overlap check and the create run in one transaction so two concurrent
+  // requests can't both pass the check and double-book. The DB-level exclusion
+  // constraint (no_overlapping_bookings) is the ultimate guard; if it fires we
+  // translate it into the same friendly 409 the application check produces.
+  let booking: Prisma.BookingGetPayload<{ include: { history: true } }>;
+  try {
+    booking = await prisma.$transaction(async (tx) => {
+      const overlapping = await tx.booking.findFirst({
+        where: {
+          listingId: data.listingId,
+          status: {
+            notIn: [
+              BookingStatus.CANCELLED,
+              BookingStatus.COMPLETED,
+              BookingStatus.DISPUTED,
+              NEGOTIATION_FAILED_STATUS,
+            ],
+          },
+          AND: [{ startDate: { lt: end } }, { endDate: { gt: start } }],
         },
-      },
-    },
-    include: { history: true },
-  });
+      });
+
+      if (overlapping) {
+        throw new AppError(409, "Listing is already booked for these dates");
+      }
+
+      return tx.booking.create({
+        data: {
+          guestId,
+          hostId: listing.hostId,
+          listingId: data.listingId,
+          startDate: start,
+          endDate: end,
+          totalDays,
+          priceSnapshot,
+          currency: listing.currency,
+          totalAmount,
+          pickupType: data.pickupType,
+          pickupLocation: data.pickupLocation,
+          notes: data.notes,
+          isNegotiable: data.isNegotiable ?? false,
+          budgetMin:
+            data.isNegotiable && data.budgetMin ? data.budgetMin : undefined,
+          budgetMax:
+            data.isNegotiable && data.budgetMax ? data.budgetMax : undefined,
+          currentOffer:
+            data.isNegotiable && data.budgetMax ? data.budgetMax : undefined,
+          negotiationExpiresAt: data.isNegotiable
+            ? new Date(Date.now() + 2 * 60 * 60 * 1000)
+            : undefined,
+          lastActorId: data.isNegotiable ? guestId : undefined,
+          history: {
+            create: {
+              fromStatus: null,
+              toStatus: BookingStatus.PENDING,
+              changedById: guestId,
+              reason: "Booking created",
+            },
+          },
+        },
+        include: { history: true },
+      });
+    });
+  } catch (err) {
+    if (isExclusionViolation(err)) {
+      throw new AppError(409, "Listing is already booked for these dates");
+    }
+    throw err;
+  }
 
   await createNotification(
     listing.hostId,

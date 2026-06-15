@@ -208,6 +208,7 @@ model Listing {
   bookings Booking[]
   likes    Like[]
 
+  @@index([status, category])
   @@map("listings")
 }
 
@@ -271,6 +272,10 @@ model Booking {
   negotiationExpiresAt DateTime?
   lastActorId         String?
 
+  @@index([listingId, status])
+  @@index([guestId, status])
+  @@index([hostId, status])
+  @@index([isNegotiable, status, negotiationExpiresAt])
   @@map("bookings")
 }
 
@@ -367,6 +372,7 @@ model Notification {
   referenceId String?
   createdAt DateTime         @default(now())
 
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
