@@ -5,7 +5,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     globalSetup: ["./src/tests/global-setup.ts"],
-    setupFiles: ["./src/tests/setup.ts"],
+    setupFiles: ["./src/tests/load-env.ts", "./src/tests/setup.ts"],
     exclude: ["**/node_modules/**", "**/dist/**"],
   },
 });

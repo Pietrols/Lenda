@@ -4,18 +4,28 @@ import { AppError, Errors } from "../lib/AppError";
 import { getSignedDownloadUrl } from "../lib/r2";
 import { config } from "../config";
 
-export async function approveKyc(
-  userId: string,
-  adminId: string,
-): Promise<MessageResponse> {
+export async function approveKyc(userId: string, adminId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw Errors.notFound("User not found.");
+  if (user.kycStatus === ("APPROVED" as any))
+    throw Errors.badRequest("User KYC is already approved.");
 
-  await prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: {
       kycStatus: "APPROVED" as any,
       listingTier: { increment: 1 },
+    },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      roles: true,
+      kycStatus: true,
+      isActive: true,
+      subscriptionPlan: true,
+      listingTier: true,
+      createdAt: true,
     },
   });
 
@@ -28,7 +38,7 @@ export async function approveKyc(
     },
   });
 
-  return { message: "KYC approved successfully." };
+  return updated;
 }
 
 export async function rejectKyc(
