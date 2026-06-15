@@ -174,12 +174,22 @@ jobs:
       # new schema. `migrate deploy` only runs un-applied migrations and never
       # prompts; `generate` is codegen (writes the client into node_modules), not
       # a TypeScript compile, so it does not require a build toolchain on the server.
+      #
+      # DATABASE_URL is not exported in a plain SSH session (it lives in the
+      # service .env files that PM2 loads), so we pass it into the remote shell
+      # explicitly from the DEPLOY_DATABASE_URL secret.
       - name: Run database migrations
         run: |
-          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" 'cd ~/lenda && pnpm --filter @lenda/database exec prisma migrate deploy && pnpm --filter @lenda/database exec prisma generate'
+          ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "DATABASE_URL='${DEPLOY_DATABASE_URL}' bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd ~/lenda
+          pnpm --filter @lenda/database exec prisma migrate deploy
+          pnpm --filter @lenda/database exec prisma generate
+          REMOTE
         env:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_DATABASE_URL: ${{ secrets.DEPLOY_DATABASE_URL }}
 
       # Restart the two Node services under PM2. --update-env re-reads
       # environment variables so any config changes take effect.
