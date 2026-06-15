@@ -10,6 +10,10 @@ import { AppError } from "../middleware/errorHandler";
 import { recalculateDiscoveryScore } from "./discovery.service";
 import { createNotification } from "./notification.service";
 import { NotificationType } from "@lenda/database";
+import {
+  buildNextCursor,
+  type PaginationParams,
+} from "../lib/pagination";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
@@ -641,7 +645,11 @@ export async function confirmHandover(
   return updated;
 }
 
-export async function getBookings(userId: string, roles: Role[]) {
+export async function getBookings(
+  userId: string,
+  roles: Role[],
+  pagination: PaginationParams,
+) {
   const isHost = roles.includes("HOST");
   const isGuest = roles.includes("GUEST");
   const isAdmin = roles.includes("ADMIN");
@@ -654,7 +662,9 @@ export async function getBookings(userId: string, roles: Role[]) {
         ? { guestId: userId }
         : { OR: [{ guestId: userId }, { hostId: userId }] };
 
-  const bookings = await prisma.booking.findMany({
+  const { cursor, limit } = pagination;
+
+  const items = await prisma.booking.findMany({
     where,
     include: {
       listing: {
@@ -670,10 +680,12 @@ export async function getBookings(userId: string, roles: Role[]) {
       host: { select: { id: true, fullName: true, email: true } },
       history: { orderBy: { createdAt: "desc" }, take: 1 },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: limit,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
   });
 
-  return bookings;
+  return { items, nextCursor: buildNextCursor(items, limit) };
 }
 
 export async function getBookingById(

@@ -4,6 +4,7 @@ import {
   markNotificationsRead,
   getUnreadCount,
 } from "../services/notification.service";
+import { parsePagination } from "../lib/pagination";
 
 export async function getNotificationsHandler(
   req: Request,
@@ -12,8 +13,10 @@ export async function getNotificationsHandler(
 ) {
   try {
     const userId = req.user!.sub;
-    const notifications = await getNotifications(userId);
-    res.json({ notifications });
+    const pagination = parsePagination(req.query);
+    const { items, nextCursor } = await getNotifications(userId, pagination);
+    // Legacy key `notifications` kept for backward compatibility.
+    res.json({ notifications: items, nextCursor });
   } catch (err) {
     next(err);
   }

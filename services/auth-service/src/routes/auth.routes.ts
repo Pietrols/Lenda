@@ -52,6 +52,24 @@ router.post(
 router.post("/logout", authenticate, asyncHandler(ctrl.logout));
 router.get("/me", authenticate, asyncHandler(ctrl.getMe));
 
+// Push device tokens (storage only — no push-sending yet).
+router.post(
+  "/device-tokens",
+  authenticate,
+  validate(
+    z.object({
+      token: z.string().min(1),
+      platform: z.string().min(1),
+    }),
+  ),
+  asyncHandler(ctrl.addDeviceToken),
+);
+router.delete(
+  "/device-tokens/:token",
+  authenticate,
+  asyncHandler(ctrl.deleteDeviceToken),
+);
+
 router.post(
   "/forgot-password",
   validate(z.object({ email: z.string().email() })),

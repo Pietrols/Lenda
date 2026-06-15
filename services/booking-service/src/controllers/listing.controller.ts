@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import {
   createListing,
   getListings,
+  getListingsCursor,
   getListingById,
   getMyListings,
   getListingsByHost,
@@ -9,6 +10,7 @@ import {
   deleteListing,
 } from "../services/listing.service";
 import { GetListingsQuerySchema } from "@lenda/schemas";
+import { parsePagination } from "../lib/pagination";
 
 export async function createListingHandler(
   req: Request,
@@ -31,6 +33,15 @@ export async function getListingsHandler(
 ) {
   try {
     const query = GetListingsQuerySchema.parse(req.query);
+    // Cursor mode only when ?cursor= is supplied — otherwise the existing
+    // offset response ({ listings, pagination }) is returned unchanged so the
+    // web app is unaffected.
+    if (typeof req.query.cursor === "string" && req.query.cursor.length > 0) {
+      const pagination = parsePagination(req.query);
+      const result = await getListingsCursor(query, pagination);
+      res.json(result);
+      return;
+    }
     const result = await getListings(query);
     res.json(result);
   } catch (err) {

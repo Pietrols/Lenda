@@ -5,6 +5,7 @@ import { BookingStatus } from "@lenda/database";
 import { confirmHandover } from "../services/booking.service";
 import { HandoverType } from "@lenda/database";
 import { getBookings, getBookingById } from "../services/booking.service";
+import { parsePagination } from "../lib/pagination";
 
 type Role = "GUEST" | "HOST" | "ADMIN";
 
@@ -80,8 +81,11 @@ export async function getBookingsHandler(
   try {
     const userId = req.user!.sub;
     const roles = req.user!.roles as Role[];
-    const bookings = await getBookings(userId, roles);
-    res.json({ bookings });
+    const pagination = parsePagination(req.query);
+    const { items, nextCursor } = await getBookings(userId, roles, pagination);
+    // Legacy key `bookings` kept for backward compatibility; `nextCursor`
+    // added for cursor-paginating clients.
+    res.json({ bookings: items, nextCursor });
   } catch (err) {
     next(err);
   }

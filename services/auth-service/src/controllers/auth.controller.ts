@@ -1,5 +1,9 @@
 import { Request, Response } from "express";
 import * as AuthService from "../services/auth.service";
+import {
+  registerDeviceToken,
+  removeDeviceToken,
+} from "../services/device-token.service";
 
 export async function register(req: Request, res: Response): Promise<void> {
   const result = await AuthService.register(req.body);
@@ -72,4 +76,24 @@ export async function resetPassword(
     req.body.newPassword,
   );
   res.json(result);
+}
+
+export async function addDeviceToken(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const deviceToken = await registerDeviceToken(
+    req.user!.sub,
+    req.body.token,
+    req.body.platform,
+  );
+  res.status(201).json({ deviceToken });
+}
+
+export async function deleteDeviceToken(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  await removeDeviceToken(req.user!.sub, req.params.token);
+  res.json({ message: "Device token removed" });
 }

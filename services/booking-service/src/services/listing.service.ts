@@ -5,6 +5,7 @@ import type {
   UpdateListingInput,
 } from "@lenda/schemas";
 import { AppError } from "../middleware/errorHandler";
+import { buildNextCursor, type PaginationParams } from "../lib/pagination";
 
 const TIER_LIMITS: Record<number, number> = {
   0: 0,
@@ -71,21 +72,23 @@ export async function createListing(hostId: string, data: CreateListingInput) {
   return listing;
 }
 
-export async function getListings(query: GetListingsQueryInput) {
-  const {
-    pillar,
-    category,
-    location,
-    search,
-    minPrice,
-    maxPrice,
-    startDate,
-    endDate,
-    page,
-    limit,
-  } = query;
+const LISTING_LIST_INCLUDE = {
+  images: { where: { isPrimary: true } },
+  host: {
+    select: {
+      id: true,
+      fullName: true,
+      photoUrl: true,
+      kycStatus: true,
+    },
+  },
+} satisfies Prisma.ListingInclude;
 
-  const skip = (page - 1) * limit;
+async function buildListingWhere(
+  query: GetListingsQueryInput,
+): Promise<Prisma.ListingWhereInput> {
+  const { pillar, category, location, search, minPrice, maxPrice, startDate, endDate } =
+    query;
 
   let excludedListingIds: string[] = [];
   if (startDate && endDate) {
@@ -107,7 +110,7 @@ export async function getListings(query: GetListingsQueryInput) {
     excludedListingIds = conflictingBookings.map((b) => b.listingId);
   }
 
-  const where: Prisma.ListingWhereInput = {
+  return {
     status: ListingStatus.ACTIVE,
     deletedAt: null,
     ...(pillar && { pillar }),
@@ -135,21 +138,19 @@ export async function getListings(query: GetListingsQueryInput) {
       id: { notIn: excludedListingIds },
     }),
   };
+}
+
+// Offset/page pagination — preserves the existing { listings, pagination }
+// response the web app depends on.
+export async function getListings(query: GetListingsQueryInput) {
+  const { page, limit } = query;
+  const skip = (page - 1) * limit;
+  const where = await buildListingWhere(query);
 
   const [listings, total] = await Promise.all([
     prisma.listing.findMany({
       where,
-      include: {
-        images: { where: { isPrimary: true } },
-        host: {
-          select: {
-            id: true,
-            fullName: true,
-            photoUrl: true,
-            kycStatus: true,
-          },
-        },
-      },
+      include: LISTING_LIST_INCLUDE,
       orderBy: { discoveryScore: "desc" },
       skip,
       take: limit,
@@ -166,6 +167,27 @@ export async function getListings(query: GetListingsQueryInput) {
       pages: Math.ceil(total / limit),
     },
   };
+}
+
+// Cursor pagination — used when the caller passes ?cursor=. Returns
+// { listings, nextCursor }. id is the cursor field and a deterministic
+// tiebreak on top of discoveryScore so paging is stable.
+export async function getListingsCursor(
+  query: GetListingsQueryInput,
+  pagination: PaginationParams,
+) {
+  const { cursor, limit } = pagination;
+  const where = await buildListingWhere(query);
+
+  const items = await prisma.listing.findMany({
+    where,
+    include: LISTING_LIST_INCLUDE,
+    orderBy: [{ discoveryScore: "desc" }, { id: "desc" }],
+    take: limit,
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+
+  return { listings: items, nextCursor: buildNextCursor(items, limit) };
 }
 
 export async function getListingsByHost(hostId: string) {
