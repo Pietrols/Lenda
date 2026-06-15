@@ -45,6 +45,32 @@ env:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
+
+    # All steps in this job point at the throwaway Postgres service below.
+    # The tests' .env.test uses this same URL, so it stays consistent whether
+    # tests run locally or here.
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/lenda_test
+
+    # Spin up a real Postgres alongside the runner so the integration tests
+    # (and the Prisma migrations they need) run against an actual database.
+    # GitHub maps the container's port to localhost on the runner, and the
+    # health check holds the job until Postgres is ready to accept connections.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: lenda_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       # Pull the repository onto the runner.
       - name: Checkout
@@ -76,6 +102,12 @@ jobs:
       # types/schemas/database build before the services and the web app.
       - name: Build all packages
         run: pnpm -r build
+
+      # Bring the test database up to the current schema. We do this once here
+      # so every service's tests hit a migrated DB regardless of run order
+      # (auth-service has no per-suite migration step and shares this DB).
+      - name: Apply migrations to test database
+        run: pnpm --filter @lenda/database exec prisma migrate deploy
 
       # Run the test suites. `-- --run` forces Vitest into single-run (non-watch)
       # mode; a non-zero exit here fails the whole pipeline and blocks deploy.
