@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Lenda",
+    "slug": "lenda",
+    "version": "0.0.1",
+    "scheme": "lenda",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#14161a",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lenda.app"
+    },
+    "android": {
+      "package": "com.lenda.app"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}
