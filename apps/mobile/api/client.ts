@@ -11,6 +11,7 @@ export const BOOKING_URL =
 export type AuthTokens = {
   accessToken: string;
   refreshToken: string;
+  expiresIn: number;
 };
 
 type RequestOptions = {
