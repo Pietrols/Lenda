@@ -2,25 +2,37 @@
   "expo": {
     "name": "Lenda",
     "slug": "lenda",
-    "version": "0.0.1",
     "scheme": "lenda",
+    "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#14161a",
-      "resizeMode": "contain"
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A0A0A"
     },
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.lenda.app"
+      "supportsTablet": true
     },
     "android": {
-      "package": "com.lenda.app"
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A0A0A"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
     },
-    "plugins": ["expo-router"],
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
     "experiments": {
-      "typedRoutes": false
+      "typedRoutes": true
     }
   }
 }
