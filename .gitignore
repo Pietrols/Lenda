@@ -20,3 +20,5 @@ services/auth-service/node_modules/
 
 # Logs
 *.log
+
+.expo
