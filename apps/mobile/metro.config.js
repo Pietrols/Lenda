@@ -15,4 +15,12 @@ config.resolver.nodeModulesPaths = [
 
 config.resolver.disableHierarchicalLookup = true;
 
+// Force expo-router subpath imports to resolve from the root symlink.
+// Without this, Metro resolves entry.js from one .pnpm variant but then
+// can't find entry-classic from that same deep path under
+// disableHierarchicalLookup — producing "Cannot resolve expo-router/entry-classic".
+config.resolver.extraNodeModules = {
+  "expo-router": path.resolve(workspaceRoot, "node_modules/expo-router"),
+};
+
 module.exports = config;
