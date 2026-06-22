@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { theme } from "../theme";
+import { Link } from "expo-router";
 
 export default function HomeScreen() {
   return (
@@ -19,6 +20,18 @@ export default function HomeScreen() {
             <Text style={styles.pillText}>Step 2 complete</Text>
           </View>
         </View>
+        <Link href="/login" asChild>
+          <Pressable style={{ marginTop: theme.spacing.lg }}>
+            <Text
+              style={{
+                color: theme.colors.gold,
+                fontFamily: theme.typography.font.bodySemibold,
+              }}
+            >
+              Go to login →
+            </Text>
+          </Pressable>
+        </Link>
       </View>
     </SafeAreaView>
   );
