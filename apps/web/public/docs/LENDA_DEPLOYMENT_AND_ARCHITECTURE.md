@@ -32,7 +32,7 @@
 
 ## 1. What is Lenda?
 
-Lenda is a peer-to-peer rental and services marketplace built for Zambia. It is owned and operated by Pietrols Enterprise Ltd, trading as Lenda.
+Lenda is a peer-to-peer rental and services marketplace built for Zambia. It is owned and operated by Quantic Engineering Limited (Registration Number 120261048940), trading as Lenda.
 
 The platform has two pillars:
 
@@ -1124,4 +1124,4 @@ sudo apt clean
 
 -
 
-_Document last updated: May 2026. Maintained by Pietrols Enterprise Ltd._
+_Document last updated: May 2026. Maintained by Quantic Engineering Limited._
