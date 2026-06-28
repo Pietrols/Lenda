@@ -110,6 +110,11 @@ export function Footer() {
           </p>
           <p className="text-white/20 text-xs">Built in Zambia 🇿🇲</p>
         </div>
+
+        <p className="text-white/20 text-xs text-center mt-6">
+          Lenda is a product of Quantic Engineering Limited &middot; Reg No.
+          120261048940
+        </p>
       </div>
     </footer>
   );
