@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import App from "./App.tsx";
 import "./index.css";
 import { LendaChat } from "./components/LendaChat";
+import { CookieConsent } from "./components/CookieConsent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,7 @@ createRoot(document.getElementById("root")!).render(
         <BrowserRouter>
           <App />
           <LendaChat />
+          <CookieConsent />
           <Toaster richColors position="top-right" />
         </BrowserRouter>
       </ThemeProvider>
