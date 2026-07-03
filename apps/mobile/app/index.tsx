@@ -1,37 +1,36 @@
-import { StyleSheet, Text, View, Pressable } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { theme } from "../theme";
-import { Link } from "expo-router";
+import { useAuthStore } from "../store/auth.store";
 
 export default function HomeScreen() {
+  const user = useAuthStore((s) => s.user);
+
+  const displayName = user?.fullName?.split(" ")[0] ?? user?.email ?? "there";
+  const roles = (user?.roles ?? []).filter(
+    (role) => role === "GUEST" || role === "HOST",
+  );
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
         <Text style={styles.brand}>LENDA</Text>
-        <Text style={styles.tagline}>Rent anything. Hire anyone.</Text>
+        <Text style={styles.welcome}>Welcome, {displayName}</Text>
+
+        <View style={styles.badgeRow}>
+          {roles.map((role) => (
+            <View key={role} style={styles.badge}>
+              <Text style={styles.badgeText}>{role}</Text>
+            </View>
+          ))}
+        </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Theme is live</Text>
+          <Text style={styles.cardTitle}>Browse listings coming soon</Text>
           <Text style={styles.cardBody}>
-            Dark base, gold accent, shared tokens, and the Montserrat and Space
-            Grotesk fonts are now wired into the mobile app.
+            Rentals and services across Zambia will show up here.
           </Text>
-          <View style={styles.pill}>
-            <Text style={styles.pillText}>Step 2 complete</Text>
-          </View>
         </View>
-        <Link href="/login" asChild>
-          <Pressable style={{ marginTop: theme.spacing.lg }}>
-            <Text
-              style={{
-                color: theme.colors.gold,
-                fontFamily: theme.typography.font.bodySemibold,
-              }}
-            >
-              Go to login →
-            </Text>
-          </Pressable>
-        </Link>
       </View>
     </SafeAreaView>
   );
@@ -53,12 +52,28 @@ const styles = StyleSheet.create({
     color: theme.colors.gold,
     fontSize: theme.typography.size.display,
     fontFamily: theme.typography.font.displayBlack,
-    letterSpacing: 4,
+    letterSpacing: theme.spacing.xs,
   },
-  tagline: {
-    color: theme.colors.mutedForeground,
-    fontSize: theme.typography.size.base,
-    fontFamily: theme.typography.font.bodyRegular,
+  welcome: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.lg,
+    fontFamily: theme.typography.font.bodyMedium,
+  },
+  badgeRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  badge: {
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  badgeText: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
   },
   card: {
     width: "100%",
@@ -79,19 +94,5 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.size.sm,
     fontFamily: theme.typography.font.bodyRegular,
-    lineHeight: 20,
-  },
-  pill: {
-    alignSelf: "flex-start",
-    backgroundColor: theme.colors.primary,
-    borderRadius: theme.radius.pill,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
-    marginTop: theme.spacing.sm,
-  },
-  pillText: {
-    color: theme.colors.primaryForeground,
-    fontSize: theme.typography.size.xs,
-    fontFamily: theme.typography.font.bodySemibold,
   },
 });
