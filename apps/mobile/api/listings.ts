@@ -51,6 +51,20 @@ export type ListingsResponse = {
   pagination: ListingsPagination;
 };
 
+export type ListingDetailHost = ListingHost & {
+  location: string | null;
+  createdAt: string;
+};
+
+export type ListingDetail = Omit<Listing, "host"> & {
+  deletedAt: string | null;
+  host: ListingDetailHost;
+};
+
+export type ListingDetailResponse = {
+  listing: ListingDetail;
+};
+
 export type GetListingsParams = {
   pillar?: ListingPillar;
   category?: string;
@@ -73,4 +87,7 @@ export const listingsApi = {
       BOOKING_URL,
     );
   },
+
+  getById: (id: string) =>
+    api.get<ListingDetailResponse>(`/listings/${id}`, undefined, BOOKING_URL),
 };
