@@ -1,19 +1,60 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
   useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, BadgeCheck, ImageOff, MapPin } from "lucide-react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import {
+  ArrowLeft,
+  BadgeCheck,
+  Calendar,
+  ImageOff,
+  MapPin,
+  Navigation,
+  Truck,
+  X,
+} from "lucide-react-native";
+import { CreateBookingSchema } from "@lenda/schemas";
 import { theme } from "../../theme";
 import { listingsApi, type ListingDetail } from "../../api/listings";
-import { ApiError } from "../../api/client";
+import { bookingsApi, type Booking } from "../../api/bookings";
+import { ApiError, SessionExpiredError } from "../../api/client";
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+type PickupType = "CLIENT_TO_HOST" | "HOST_TO_CLIENT";
+
+const pickupOptions: {
+  value: PickupType;
+  label: string;
+  description: string;
+  icon: typeof Navigation;
+}[] = [
+  {
+    value: "CLIENT_TO_HOST",
+    label: "I'll pick up",
+    description: "Collect from the host",
+    icon: Navigation,
+  },
+  {
+    value: "HOST_TO_CLIENT",
+    label: "Host delivers",
+    description: "Delivered to you",
+    icon: Truck,
+  },
+];
 
 function hostInitials(name: string | null): string {
   return (name ?? "H")
@@ -24,6 +65,81 @@ function hostInitials(name: string | null): string {
     .slice(0, 2);
 }
 
+function atUtcMorning(date: Date): string {
+  return new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 8, 0, 0),
+  ).toISOString();
+}
+
+function daysAfterToday(days: number): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function daysBetween(start: Date, end: Date): number {
+  return Math.round(
+    (Date.parse(atUtcMorning(end)) - Date.parse(atUtcMorning(start))) /
+      MS_PER_DAY,
+  );
+}
+
+function DateField({
+  label,
+  value,
+  minimumDate,
+  onChange,
+}: {
+  label: string;
+  value: Date;
+  minimumDate: Date;
+  onChange: (date: Date) => void;
+}) {
+  const [show, setShow] = useState(false);
+
+  if (Platform.OS === "ios") {
+    return (
+      <View style={styles.dateField}>
+        <Text style={styles.formLabel}>{label}</Text>
+        <DateTimePicker
+          value={value}
+          mode="date"
+          display="compact"
+          minimumDate={minimumDate}
+          themeVariant="dark"
+          accentColor={theme.colors.gold}
+          onChange={(_, date) => date && onChange(date)}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.dateField}>
+      <Text style={styles.formLabel}>{label}</Text>
+      <Pressable style={styles.dateButton} onPress={() => setShow(true)}>
+        <Calendar
+          size={theme.typography.size.sm}
+          color={theme.colors.mutedForeground}
+        />
+        <Text style={styles.dateButtonText}>{value.toDateString()}</Text>
+      </Pressable>
+      {show && (
+        <DateTimePicker
+          value={value}
+          mode="date"
+          display="default"
+          minimumDate={minimumDate}
+          onChange={(_, date) => {
+            setShow(false);
+            if (date) onChange(date);
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
 export default function ListingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,6 +148,15 @@ export default function ListingDetailScreen() {
   const [listing, setListing] = useState<ListingDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [bookingOpen, setBookingOpen] = useState(false);
+  const [startDate, setStartDate] = useState<Date>(() => daysAfterToday(1));
+  const [endDate, setEndDate] = useState<Date>(() => daysAfterToday(2));
+  const [pickupType, setPickupType] = useState<PickupType>("CLIENT_TO_HOST");
+  const [notes, setNotes] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
 
   const fetchListing = useCallback(async () => {
     if (!id) return;
@@ -57,9 +182,78 @@ export default function ListingDetailScreen() {
 
   const sortedImages = listing
     ? [...listing.images].sort(
-        (a, b) => Number(b.isPrimary) - Number(a.isPrimary) || a.order - b.order,
+        (a, b) =>
+          Number(b.isPrimary) - Number(a.isPrimary) || a.order - b.order,
       )
     : [];
+
+  const totalDays = daysBetween(startDate, endDate);
+  const dateOrderValid = totalDays > 0;
+  const totalAmount = listing
+    ? Math.max(totalDays, 0) * Number(listing.pricePerDay)
+    : 0;
+
+  const openBooking = () => {
+    setStartDate(daysAfterToday(1));
+    setEndDate(daysAfterToday(2));
+    setPickupType("CLIENT_TO_HOST");
+    setNotes("");
+    setFormError(null);
+    setCreatedBooking(null);
+    setBookingOpen(true);
+  };
+
+  const submitBooking = async () => {
+    if (!listing || !dateOrderValid) return;
+    setFormError(null);
+
+    const parsed = CreateBookingSchema.safeParse({
+      listingId: listing.id,
+      startDate: atUtcMorning(startDate),
+      endDate: atUtcMorning(endDate),
+      pickupType,
+      notes: notes.trim() || undefined,
+    });
+
+    if (!parsed.success) {
+      setFormError(
+        parsed.error.issues[0]?.message ?? "Please check the booking details.",
+      );
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const res = await bookingsApi.create(parsed.data);
+      setCreatedBooking(res.booking);
+    } catch (err) {
+      if (err instanceof SessionExpiredError) {
+        setFormError("Your session expired. Please sign in again.");
+      } else if (err instanceof ApiError) {
+        if (err.status === 409) {
+          setFormError(
+            "This listing is already booked for those dates. Please choose different dates.",
+          );
+        } else if (
+          err.status === 400 &&
+          /own listing/i.test(err.message)
+        ) {
+          setFormError("You cannot book your own listing.");
+        } else if (
+          err.status === 400 &&
+          /(end ?date|start ?date|after)/i.test(err.message)
+        ) {
+          setFormError("End date must be after start date.");
+        } else {
+          setFormError(err.message);
+        }
+      } else {
+        setFormError("Something went wrong. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -79,9 +273,7 @@ export default function ListingDetailScreen() {
         </View>
       ) : error || !listing ? (
         <View style={styles.center}>
-          <Text style={styles.stateText}>
-            {error ?? "Listing not found."}
-          </Text>
+          <Text style={styles.stateText}>{error ?? "Listing not found."}</Text>
         </View>
       ) : (
         <>
@@ -173,10 +365,182 @@ export default function ListingDetailScreen() {
               </Text>
               <Text style={styles.bottomPriceUnit}>per day</Text>
             </View>
-            <Pressable style={styles.bookButton}>
+            <Pressable style={styles.bookButton} onPress={openBooking}>
               <Text style={styles.bookButtonText}>Book Now</Text>
             </Pressable>
           </View>
+
+          <Modal
+            visible={bookingOpen}
+            animationType="slide"
+            transparent
+            onRequestClose={() => setBookingOpen(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <KeyboardAvoidingView
+                style={styles.modalAvoider}
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+              >
+                <View style={styles.modalSheet}>
+                  <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>
+                      {createdBooking ? "Booking requested" : "Book this listing"}
+                    </Text>
+                    <Pressable
+                      onPress={() => setBookingOpen(false)}
+                      hitSlop={8}
+                    >
+                      <X
+                        size={theme.typography.size.xl}
+                        color={theme.colors.mutedForeground}
+                      />
+                    </Pressable>
+                  </View>
+
+                  {createdBooking ? (
+                    <View style={styles.confirmation}>
+                      <BadgeCheck
+                        size={theme.typography.size.display}
+                        color={theme.colors.success}
+                      />
+                      <View style={styles.statusPill}>
+                        <Text style={styles.statusPillText}>
+                          {createdBooking.status}
+                        </Text>
+                      </View>
+                      <Text style={styles.confirmationText}>
+                        Your request for {createdBooking.totalDays}{" "}
+                        {createdBooking.totalDays === 1 ? "day" : "days"} has
+                        been sent to the host.
+                      </Text>
+                      <Text style={styles.confirmationTotal}>
+                        Total: {createdBooking.currency}{" "}
+                        {Number(createdBooking.totalAmount).toLocaleString()}
+                      </Text>
+                      <Pressable
+                        style={[styles.submitButton, styles.submitFullWidth]}
+                        onPress={() => {
+                          setBookingOpen(false);
+                          router.replace("/(tabs)/browse");
+                        }}
+                      >
+                        <Text style={styles.submitText}>Back to Browse</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <ScrollView
+                      contentContainerStyle={styles.formContent}
+                      keyboardShouldPersistTaps="handled"
+                    >
+                      <View style={styles.dateRow}>
+                        <DateField
+                          label="Start date"
+                          value={startDate}
+                          minimumDate={new Date()}
+                          onChange={setStartDate}
+                        />
+                        <DateField
+                          label="End date"
+                          value={endDate}
+                          minimumDate={startDate}
+                          onChange={setEndDate}
+                        />
+                      </View>
+                      {!dateOrderValid && (
+                        <Text style={styles.errorText}>
+                          End date must be after start date.
+                        </Text>
+                      )}
+
+                      <View style={styles.field}>
+                        <Text style={styles.formLabel}>Pickup</Text>
+                        <View style={styles.pickupGrid}>
+                          {pickupOptions.map((option) => {
+                            const Icon = option.icon;
+                            const selected = pickupType === option.value;
+                            return (
+                              <Pressable
+                                key={option.value}
+                                onPress={() => setPickupType(option.value)}
+                                style={[
+                                  styles.pickupCard,
+                                  selected && styles.pickupCardSelected,
+                                ]}
+                              >
+                                <Icon
+                                  size={theme.typography.size.xl}
+                                  color={theme.colors.gold}
+                                />
+                                <Text style={styles.pickupLabel}>
+                                  {option.label}
+                                </Text>
+                                <Text style={styles.pickupDescription}>
+                                  {option.description}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
+
+                      <View style={styles.field}>
+                        <Text style={styles.formLabel}>Notes (optional)</Text>
+                        <TextInput
+                          value={notes}
+                          onChangeText={setNotes}
+                          placeholder="Anything the host should know?"
+                          placeholderTextColor={theme.colors.mutedForeground}
+                          multiline
+                          numberOfLines={3}
+                          style={styles.notesInput}
+                        />
+                      </View>
+
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>
+                          {dateOrderValid
+                            ? `${totalDays} ${totalDays === 1 ? "day" : "days"} x ${
+                                listing.currency
+                              } ${Number(listing.pricePerDay).toLocaleString()}`
+                            : "Total"}
+                        </Text>
+                        <Text style={styles.totalValue}>
+                          {listing.currency}{" "}
+                          {dateOrderValid ? totalAmount.toLocaleString() : "--"}
+                        </Text>
+                      </View>
+
+                      {formError && (
+                        <View style={styles.formErrorBox}>
+                          <Text style={styles.formErrorText}>{formError}</Text>
+                        </View>
+                      )}
+
+                      <Pressable
+                        style={[
+                          styles.submitButton,
+                          (isSubmitting || !dateOrderValid) &&
+                            styles.submitButtonDisabled,
+                        ]}
+                        onPress={submitBooking}
+                        disabled={isSubmitting || !dateOrderValid}
+                      >
+                        {isSubmitting ? (
+                          <ActivityIndicator
+                            color={theme.colors.primaryForeground}
+                          />
+                        ) : (
+                          <Text style={styles.submitText}>
+                            Request booking
+                          </Text>
+                        )}
+                      </Pressable>
+                    </ScrollView>
+                  )}
+                </View>
+              </KeyboardAvoidingView>
+            </View>
+          </Modal>
         </>
       )}
     </SafeAreaView>
@@ -345,5 +709,196 @@ const styles = StyleSheet.create({
     color: theme.colors.primaryForeground,
     fontSize: theme.typography.size.base,
     fontFamily: theme.typography.font.bodySemibold,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "hsla(220, 13%, 4%, 0.7)",
+  },
+  modalAvoider: {
+    justifyContent: "flex-end",
+  },
+  modalSheet: {
+    backgroundColor: theme.colors.card,
+    borderTopLeftRadius: theme.radius.lg,
+    borderTopRightRadius: theme.radius.lg,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    paddingBottom: theme.spacing.xl,
+    maxHeight: "90%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: theme.spacing.lg,
+    borderBottomColor: theme.colors.border,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.lg,
+    fontFamily: theme.typography.font.displayBold,
+    textTransform: "uppercase",
+  },
+  formContent: {
+    padding: theme.spacing.lg,
+    gap: theme.spacing.md,
+  },
+  field: {
+    gap: theme.spacing.xs,
+  },
+  dateRow: {
+    flexDirection: "row",
+    gap: theme.spacing.md,
+  },
+  dateField: {
+    flex: 1,
+    gap: theme.spacing.xs,
+  },
+  formLabel: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyMedium,
+  },
+  dateButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    height: theme.spacing.xxl,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+  },
+  dateButtonText: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  pickupGrid: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  pickupCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.md,
+    gap: theme.spacing.xs,
+  },
+  pickupCardSelected: {
+    borderColor: theme.colors.gold,
+    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+  },
+  pickupLabel: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.displayBold,
+    textTransform: "uppercase",
+    marginTop: theme.spacing.xs,
+  },
+  pickupDescription: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  notesInput: {
+    minHeight: theme.spacing.xxl + theme.spacing.lg,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlignVertical: "top",
+  },
+  totalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: theme.spacing.sm,
+    borderTopColor: theme.colors.border,
+    borderTopWidth: 1,
+  },
+  totalLabel: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  totalValue: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.lg,
+    fontFamily: theme.typography.font.displayBold,
+  },
+  errorText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  formErrorBox: {
+    backgroundColor: "hsl(0, 62%, 14%)",
+    borderColor: theme.colors.error,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.sm,
+  },
+  formErrorText: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  submitButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    height: theme.spacing.xxl,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary,
+    marginTop: theme.spacing.xs,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
+  },
+  submitText: {
+    color: theme.colors.primaryForeground,
+    fontSize: theme.typography.size.base,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  confirmation: {
+    alignItems: "center",
+    gap: theme.spacing.md,
+    padding: theme.spacing.lg,
+  },
+  statusPill: {
+    borderColor: theme.colors.warning,
+    borderWidth: 1,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  statusPillText: {
+    color: theme.colors.warning,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  confirmationText: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlign: "center",
+  },
+  confirmationTotal: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xl,
+    fontFamily: theme.typography.font.displayBold,
+  },
+  submitFullWidth: {
+    alignSelf: "stretch",
   },
 });
