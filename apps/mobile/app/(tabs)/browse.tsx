@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Image,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -10,8 +11,18 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ImageOff, MapPin } from "lucide-react-native";
 import { theme } from "../../theme";
-import { listingsApi, type Listing } from "../../api/listings";
+import {
+  listingsApi,
+  type Listing,
+  type ListingPillar,
+} from "../../api/listings";
 import { ApiError } from "../../api/client";
+
+const pillarFilters: { label: string; value: ListingPillar | undefined }[] = [
+  { label: "All", value: undefined },
+  { label: "Rentals", value: "RENTAL" },
+  { label: "Services", value: "SERVICE" },
+];
 
 function primaryImageUrl(listing: Listing): string | null {
   return (
@@ -69,28 +80,32 @@ export default function BrowseScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pillar, setPillar] = useState<ListingPillar | undefined>(undefined);
 
-  const fetchListings = useCallback(async (refreshing = false) => {
-    if (refreshing) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-    setError(null);
-    try {
-      const res = await listingsApi.getAll();
-      setListings(res.listings);
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : "Could not load listings. Please try again.",
-      );
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
+  const fetchListings = useCallback(
+    async (refreshing = false) => {
+      if (refreshing) {
+        setIsRefreshing(true);
+      } else {
+        setIsLoading(true);
+      }
+      setError(null);
+      try {
+        const res = await listingsApi.getAll({ pillar });
+        setListings(res.listings);
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Could not load listings. Please try again.",
+        );
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [pillar],
+  );
 
   useEffect(() => {
     fetchListings();
@@ -100,6 +115,28 @@ export default function BrowseScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>Browse</Text>
+      </View>
+
+      <View style={styles.filterRow}>
+        {pillarFilters.map((filter) => {
+          const isActive = pillar === filter.value;
+          return (
+            <Pressable
+              key={filter.label}
+              onPress={() => setPillar(filter.value)}
+              style={[styles.filterPill, isActive && styles.filterPillActive]}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  isActive && styles.filterTextActive,
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       {isLoading ? (
@@ -150,6 +187,31 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.xl,
     fontFamily: theme.typography.font.displayBold,
     textTransform: "uppercase",
+  },
+  filterRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+  },
+  filterPill: {
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  filterPillActive: {
+    backgroundColor: theme.colors.gold,
+    borderColor: theme.colors.gold,
+  },
+  filterText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  filterTextActive: {
+    color: theme.colors.primaryForeground,
   },
   center: {
     flex: 1,
