@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { ImageOff, MapPin } from "lucide-react-native";
 import { theme } from "../../theme";
 import {
@@ -36,11 +37,17 @@ function formatPrice(listing: Listing): string {
   return `${listing.currency} ${Number(listing.pricePerDay).toLocaleString()}/day`;
 }
 
-function ListingCard({ listing }: { listing: Listing }) {
+function ListingCard({
+  listing,
+  onPress,
+}: {
+  listing: Listing;
+  onPress: () => void;
+}) {
   const imageUrl = primaryImageUrl(listing);
 
   return (
-    <View style={styles.card}>
+    <Pressable style={styles.card} onPress={onPress}>
       {imageUrl ? (
         <Image
           source={{ uri: imageUrl }}
@@ -71,11 +78,12 @@ function ListingCard({ listing }: { listing: Listing }) {
         <Text style={styles.category}>{listing.category}</Text>
         <Text style={styles.price}>{formatPrice(listing)}</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
 export default function BrowseScreen() {
+  const router = useRouter();
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -151,7 +159,12 @@ export default function BrowseScreen() {
         <FlatList
           data={listings}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ListingCard listing={item} />}
+          renderItem={({ item }) => (
+            <ListingCard
+              listing={item}
+              onPress={() => router.push(`/listing/${item.id}`)}
+            />
+          )}
           contentContainerStyle={
             listings.length === 0 ? styles.centerContent : styles.listContent
           }
