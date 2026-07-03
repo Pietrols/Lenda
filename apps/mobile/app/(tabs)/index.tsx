@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { theme } from "../theme";
-import { useAuthStore } from "../store/auth.store";
+import { theme } from "../../theme";
+import { useAuthStore } from "../../store/auth.store";
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
