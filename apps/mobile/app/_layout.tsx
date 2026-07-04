@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -17,6 +17,7 @@ import {
 } from "@expo-google-fonts/space-grotesk";
 import { theme } from "../theme";
 import { useAuthStore } from "../store/auth.store";
+import { syncPushToken } from "../lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -46,6 +47,18 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // On app launch, once hydration settles, register the push token if the user
+  // is already authenticated. Latches on the first post-hydration run so a
+  // later in-session login does not double-register (login.tsx handles that).
+  const didSyncPush = useRef(false);
+  useEffect(() => {
+    if (!hasHydrated || didSyncPush.current) return;
+    didSyncPush.current = true;
+    if (isAuthenticated) {
+      void syncPushToken();
+    }
+  }, [hasHydrated, isAuthenticated]);
 
   if (!fontsLoaded && !fontError) {
     return null;

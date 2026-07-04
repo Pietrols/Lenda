@@ -20,6 +20,7 @@ import { theme } from "../theme";
 import { authApi } from "../api/auth";
 import { useAuthStore } from "../store/auth.store";
 import { ApiError } from "../api/client";
+import { syncPushToken } from "../lib/notifications";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -43,6 +44,7 @@ export default function LoginScreen() {
     try {
       const res = await authApi.login(data);
       setAuth(res.user, res.tokens);
+      void syncPushToken();
       router.replace("/");
     } catch (err) {
       if (err instanceof ApiError) {
