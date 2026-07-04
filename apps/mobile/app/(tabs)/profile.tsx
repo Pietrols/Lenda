@@ -1,7 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ChevronRight, LogOut, ListChecks, ShieldCheck } from "lucide-react-native";
+import {
+  ChevronRight,
+  FileText,
+  LogOut,
+  ListChecks,
+  Shield,
+  ShieldCheck,
+} from "lucide-react-native";
 import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
 
@@ -62,22 +69,54 @@ export default function ProfileScreen() {
           </Text>
         </View>
 
-        {isHost && (
+        <View style={styles.navGroup}>
+          {isHost && (
+            <Pressable
+              style={styles.navRow}
+              onPress={() => router.push("/my-listings")}
+            >
+              <ListChecks
+                size={theme.typography.size.base}
+                color={theme.colors.gold}
+              />
+              <Text style={styles.navRowText}>My Listings</Text>
+              <ChevronRight
+                size={theme.typography.size.base}
+                color={theme.colors.mutedForeground}
+              />
+            </Pressable>
+          )}
+
           <Pressable
             style={styles.navRow}
-            onPress={() => router.push("/my-listings")}
+            onPress={() => router.push("/terms")}
           >
-            <ListChecks
+            <FileText
               size={theme.typography.size.base}
               color={theme.colors.gold}
             />
-            <Text style={styles.navRowText}>My Listings</Text>
+            <Text style={styles.navRowText}>Terms of Service</Text>
             <ChevronRight
               size={theme.typography.size.base}
               color={theme.colors.mutedForeground}
             />
           </Pressable>
-        )}
+
+          <Pressable
+            style={styles.navRow}
+            onPress={() => router.push("/privacy")}
+          >
+            <Shield
+              size={theme.typography.size.base}
+              color={theme.colors.gold}
+            />
+            <Text style={styles.navRowText}>Privacy Policy</Text>
+            <ChevronRight
+              size={theme.typography.size.base}
+              color={theme.colors.mutedForeground}
+            />
+          </Pressable>
+        </View>
 
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <LogOut
@@ -157,6 +196,11 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.font.bodyMedium,
     textTransform: "uppercase",
   },
+  navGroup: {
+    alignSelf: "stretch",
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xl,
+  },
   navRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -166,7 +210,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    marginTop: theme.spacing.xl,
     alignSelf: "stretch",
   },
   navRowText: {
