@@ -96,16 +96,39 @@ export default function ProfileScreen() {
           ))}
         </View>
 
-        <View style={styles.kycRow}>
-          <ShieldCheck size={theme.typography.size.base} color={kycColor} />
-          <Text style={[styles.kycText, { color: kycColor }]}>
-            KYC {kycStatus.replaceAll("_", " ")}
-          </Text>
-        </View>
+        {kycStatus === "APPROVED" ? (
+          <View style={styles.kycRow}>
+            <ShieldCheck size={theme.typography.size.base} color={kycColor} />
+            <Text style={[styles.kycText, { color: kycColor }]}>
+              KYC {kycStatus.replaceAll("_", " ")}
+            </Text>
+          </View>
+        ) : (
+          <Pressable
+            style={styles.kycRow}
+            onPress={() => router.push("/kyc-upload")}
+            hitSlop={6}
+          >
+            <ShieldCheck size={theme.typography.size.base} color={kycColor} />
+            <Text style={[styles.kycText, { color: kycColor }]}>
+              KYC {kycStatus.replaceAll("_", " ")}
+            </Text>
+            <ChevronRight
+              size={theme.typography.size.sm}
+              color={theme.colors.mutedForeground}
+            />
+          </Pressable>
+        )}
 
         {justUpgraded && (
           <View style={styles.upgradedBox}>
             <Text style={styles.upgradedText}>You&apos;re now a host!</Text>
+            {kycStatus !== "APPROVED" && (
+              <Text style={styles.upgradedHint}>
+                Next step: verify your identity to start listing. Tap the KYC
+                status above to upload your documents.
+              </Text>
+            )}
           </View>
         )}
 
@@ -282,6 +305,13 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.sm,
     fontFamily: theme.typography.font.bodySemibold,
     textAlign: "center",
+  },
+  upgradedHint: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlign: "center",
+    marginTop: theme.spacing.xs,
   },
   hostCard: {
     alignSelf: "stretch",
