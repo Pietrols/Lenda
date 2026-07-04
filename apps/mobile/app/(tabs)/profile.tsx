@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { LogOut, ShieldCheck } from "lucide-react-native";
+import { ChevronRight, LogOut, ListChecks, ShieldCheck } from "lucide-react-native";
 import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
 
@@ -26,6 +26,8 @@ export default function ProfileScreen() {
   const roles = (user?.roles ?? []).filter(
     (role) => role === "GUEST" || role === "HOST",
   );
+
+  const isHost = roles.includes("HOST");
 
   const kycStatus = user?.kycStatus ?? "NOT_SUBMITTED";
   const kycColor = kycColors[kycStatus] ?? theme.colors.mutedForeground;
@@ -59,6 +61,23 @@ export default function ProfileScreen() {
             KYC {kycStatus.replaceAll("_", " ")}
           </Text>
         </View>
+
+        {isHost && (
+          <Pressable
+            style={styles.navRow}
+            onPress={() => router.push("/my-listings")}
+          >
+            <ListChecks
+              size={theme.typography.size.base}
+              color={theme.colors.gold}
+            />
+            <Text style={styles.navRowText}>My Listings</Text>
+            <ChevronRight
+              size={theme.typography.size.base}
+              color={theme.colors.mutedForeground}
+            />
+          </Pressable>
+        )}
 
         <Pressable style={styles.logoutButton} onPress={handleLogout}>
           <LogOut
@@ -138,6 +157,24 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.font.bodyMedium,
     textTransform: "uppercase",
   },
+  navRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    marginTop: theme.spacing.xl,
+    alignSelf: "stretch",
+  },
+  navRowText: {
+    flex: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -147,7 +184,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
-    marginTop: theme.spacing.xl,
+    marginTop: theme.spacing.sm,
   },
   logoutText: {
     color: theme.colors.error,

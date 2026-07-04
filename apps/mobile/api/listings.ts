@@ -1,4 +1,5 @@
 import { api, BOOKING_URL } from "./client";
+import { useAuthStore } from "../store/auth.store";
 
 export type ListingPillar = "RENTAL" | "SERVICE";
 
@@ -65,6 +66,17 @@ export type ListingDetailResponse = {
   listing: ListingDetail;
 };
 
+// GET /listings/mine returns the host's own listings across all non-archived
+// statuses (DRAFT, PENDING_VERIFICATION, ACTIVE, SUSPENDED). Unlike the public
+// list and detail responses, the server does not include a host object here.
+export type MyListing = Omit<Listing, "host"> & {
+  deletedAt: string | null;
+};
+
+export type MyListingsResponse = {
+  listings: MyListing[];
+};
+
 export type GetListingsParams = {
   pillar?: ListingPillar;
   category?: string;
@@ -90,4 +102,9 @@ export const listingsApi = {
 
   getById: (id: string) =>
     api.get<ListingDetailResponse>(`/listings/${id}`, undefined, BOOKING_URL),
+
+  getMine: () => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.get<MyListingsResponse>("/listings/mine", token, BOOKING_URL);
+  },
 };
