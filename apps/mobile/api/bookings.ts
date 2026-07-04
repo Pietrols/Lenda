@@ -79,10 +79,12 @@ export type BookingParty = {
   email: string;
 };
 
+export type HandoverType = "PICKUP" | "RETURN";
+
 export type BookingHandover = {
   id: string;
   bookingId: string;
-  type: "PICKUP" | "RETURN";
+  type: HandoverType;
   guestConfirmed: boolean;
   hostConfirmed: boolean;
   guestConfirmedAt: string | null;
@@ -160,6 +162,21 @@ export const bookingsApi = {
     return api.patch<CreateBookingResponse>(
       `/bookings/${id}/status`,
       { status, ...(reason ? { reason } : {}) },
+      token,
+      BOOKING_URL,
+    );
+  },
+
+  // POST /bookings/:id/handover/confirm records the caller's side of the
+  // dual-confirm. Handover records are created server-side when the booking
+  // reaches HANDED_OVER (PICKUP) or RETURN_PENDING (RETURN). Once both parties
+  // have confirmed, the server auto-transitions the booking (PICKUP -> ACTIVE,
+  // RETURN -> COMPLETED), so callers should refetch the detail afterwards.
+  confirmHandover: (id: string, type: HandoverType) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.post<{ handover: BookingHandover }>(
+      `/bookings/${id}/handover/confirm`,
+      { type },
       token,
       BOOKING_URL,
     );
