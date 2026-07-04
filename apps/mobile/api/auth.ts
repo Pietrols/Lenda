@@ -1,4 +1,5 @@
 import { api, AUTH_URL } from "./client";
+import { useAuthStore } from "../store/auth.store";
 import type { AuthUser, AuthTokens } from "../store/auth.store";
 
 export type { AuthUser, AuthTokens };
@@ -41,13 +42,15 @@ export const authApi = {
 
   me: (token: string) => api.get<AuthUser>("/auth/me", token, AUTH_URL),
 
-  addRole: (role: string, token: string) =>
-    api.patch<{ user: AuthUser }>(
+  addRole: (role: string) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.patch<{ user: AuthUser }>(
       "/profiles/me/role",
       { role },
       token,
       AUTH_URL,
-    ),
+    );
+  },
 
   refresh: (refreshToken: string) =>
     api.post<AuthResponse>(
