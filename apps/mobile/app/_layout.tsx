@@ -82,6 +82,12 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
+        {/* Public legal screens: ungated so they are reachable both before
+            login (during registration) and while authenticated (from Profile).
+            Placing them inside a guard group would make them unavailable in the
+            other auth state. */}
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="privacy" />
         <Stack.Protected guard={isAuthenticated}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="listing/[id]" />
