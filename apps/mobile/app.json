@@ -31,7 +31,14 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Lenda uses your camera to let you upload identity verification documents.",
+          "photosPermission": "Lenda accesses your photo library so you can upload identity verification documents."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
