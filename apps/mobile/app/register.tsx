@@ -16,7 +16,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Role } from "@lenda/types";
 import { useRouter, Link } from "expo-router";
-import { Eye, EyeOff, ArrowRight, Home, Briefcase } from "lucide-react-native";
+import {
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Home,
+  Briefcase,
+  Check,
+} from "lucide-react-native";
 import { theme } from "../theme";
 import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
@@ -45,6 +52,8 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [agreed, setAgreed] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const {
     control,
@@ -64,7 +73,20 @@ export default function RegisterScreen() {
 
   const selectedRole = watch("role");
 
+  // Real blocking validation: consent is required before the register request
+  // can fire. Tapping without consent surfaces a message instead of submitting.
+  const handlePressSubmit = () => {
+    if (!agreed) {
+      setConsentError(
+        "Please agree to the Terms of Service and Privacy Policy to continue.",
+      );
+      return;
+    }
+    handleSubmit(onSubmit)();
+  };
+
   const onSubmit = async (data: RegisterForm) => {
+    if (!agreed) return;
     setFormError(null);
     setIsSubmitting(true);
     try {
@@ -263,12 +285,46 @@ export default function RegisterScreen() {
               </View>
             )}
 
+            <View style={styles.consentRow}>
+              <Pressable
+                onPress={() => {
+                  setAgreed((v) => !v);
+                  setConsentError(null);
+                }}
+                hitSlop={6}
+                style={[styles.checkbox, agreed && styles.checkboxChecked]}
+              >
+                {agreed && (
+                  <Check size={14} color={theme.colors.primaryForeground} />
+                )}
+              </Pressable>
+              <Text style={styles.consentText}>
+                I agree to the{" "}
+                <Text
+                  style={styles.consentLink}
+                  onPress={() => router.push("/terms")}
+                >
+                  Terms of Service
+                </Text>{" "}
+                and{" "}
+                <Text
+                  style={styles.consentLink}
+                  onPress={() => router.push("/privacy")}
+                >
+                  Privacy Policy
+                </Text>
+              </Text>
+            </View>
+            {consentError && (
+              <Text style={styles.errorText}>{consentError}</Text>
+            )}
+
             <Pressable
               style={[
                 styles.submitButton,
-                isSubmitting && styles.submitButtonDisabled,
+                (isSubmitting || !agreed) && styles.submitButtonDisabled,
               ]}
-              onPress={handleSubmit(onSubmit)}
+              onPress={handlePressSubmit}
               disabled={isSubmitting}
             >
               {isSubmitting ? (
@@ -410,6 +466,36 @@ const styles = StyleSheet.create({
     color: theme.colors.foreground,
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyRegular,
+  },
+  consentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  checkbox: {
+    width: theme.spacing.lg,
+    height: theme.spacing.lg,
+    borderRadius: theme.radius.sm,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: theme.colors.primary,
+    borderColor: theme.colors.primary,
+  },
+  consentText: {
+    flex: 1,
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+    lineHeight: theme.typography.size.lg,
+  },
+  consentLink: {
+    color: theme.colors.gold,
+    fontFamily: theme.typography.font.bodySemibold,
   },
   submitButton: {
     flexDirection: "row",
