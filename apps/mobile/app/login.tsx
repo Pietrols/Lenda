@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoginSchema, type LoginInput } from "@lenda/schemas";
-import { useRouter, Link } from "expo-router";
+import { useRouter, Link, useLocalSearchParams } from "expo-router";
 import { Eye, EyeOff, ArrowRight } from "lucide-react-native";
 import { theme } from "../theme";
 import { authApi } from "../api/auth";
@@ -24,6 +24,7 @@ import { syncPushToken } from "../lib/notifications";
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const setAuth = useAuthStore((s) => s.setAuth);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,6 +77,11 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.card}>
+            {notice && (
+              <View style={styles.noticeBox}>
+                <Text style={styles.noticeText}>{notice}</Text>
+              </View>
+            )}
             <View style={styles.field}>
               <Text style={styles.label}>Email address</Text>
               <Controller
@@ -272,6 +278,18 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyRegular,
+  },
+  noticeBox: {
+    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.sm,
+  },
+  noticeText: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyMedium,
   },
   formErrorBox: {
     backgroundColor: "hsl(0, 62%, 14%)",
