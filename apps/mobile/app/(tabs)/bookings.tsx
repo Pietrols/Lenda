@@ -15,6 +15,7 @@ import { theme } from "../../theme";
 import { bookingsApi, type BookingListItem } from "../../api/bookings";
 import { ApiError } from "../../api/client";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
+import { formatDateRange } from "../../lib/dates";
 
 function primaryImageUrl(booking: BookingListItem): string | null {
   return (
@@ -22,10 +23,6 @@ function primaryImageUrl(booking: BookingListItem): string | null {
     booking.listing.images[0]?.url ??
     null
   );
-}
-
-function formatRange(start: string, end: string): string {
-  return `${new Date(start).toDateString()} - ${new Date(end).toDateString()}`;
 }
 
 function BookingCard({
@@ -59,7 +56,7 @@ function BookingCard({
         </Text>
         <BookingStatusBadge status={booking.status} />
         <Text style={styles.dates}>
-          {formatRange(booking.startDate, booking.endDate)}
+          {formatDateRange(booking.startDate, booking.endDate)}
         </Text>
         <Text style={styles.amount}>
           {booking.currency} {Number(booking.totalAmount).toLocaleString()}

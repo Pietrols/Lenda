@@ -18,19 +18,12 @@ import {
 } from "../../api/bookings";
 import { ApiError } from "../../api/client";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
+import { formatDate, formatDateRange } from "../../lib/dates";
 
 const pickupLabels: Record<BookingDetail["pickupType"], string> = {
   CLIENT_TO_HOST: "Pick up from host",
   HOST_TO_CLIENT: "Host delivers",
 };
-
-function formatTimestamp(iso: string): string {
-  return new Date(iso).toLocaleString();
-}
-
-function formatRange(start: string, end: string): string {
-  return `${new Date(start).toDateString()} - ${new Date(end).toDateString()}`;
-}
 
 function TimelineEntry({
   entry,
@@ -52,9 +45,7 @@ function TimelineEntry({
         {entry.reason && (
           <Text style={styles.timelineReason}>{entry.reason}</Text>
         )}
-        <Text style={styles.timelineTime}>
-          {formatTimestamp(entry.createdAt)}
-        </Text>
+        <Text style={styles.timelineTime}>{formatDate(entry.createdAt)}</Text>
       </View>
     </View>
   );
@@ -165,7 +156,7 @@ export default function BookingDetailScreen() {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Dates</Text>
               <Text style={styles.summaryValue}>
-                {formatRange(booking.startDate, booking.endDate)}
+                {formatDateRange(booking.startDate, booking.endDate)}
               </Text>
             </View>
             <View style={styles.summaryRow}>
