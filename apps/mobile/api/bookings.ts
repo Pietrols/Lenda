@@ -151,4 +151,17 @@ export const bookingsApi = {
       BOOKING_URL,
     );
   },
+
+  // PATCH /bookings/:id/status transitions the booking. The response is the
+  // updated record with history but without the listing/guest/host relations,
+  // so callers should refetch via getById() to refresh the full detail view.
+  updateStatus: (id: string, status: BookingStatus, reason?: string) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.patch<CreateBookingResponse>(
+      `/bookings/${id}/status`,
+      { status, ...(reason ? { reason } : {}) },
+      token,
+      BOOKING_URL,
+    );
+  },
 };

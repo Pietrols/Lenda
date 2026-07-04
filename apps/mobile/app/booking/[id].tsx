@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -17,6 +19,7 @@ import {
   type BookingHistoryEntry,
 } from "../../api/bookings";
 import { ApiError } from "../../api/client";
+import { useAuthStore } from "../../store/auth.store";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
 import { formatDate, formatDateRange } from "../../lib/dates";
 
@@ -54,10 +57,18 @@ function TimelineEntry({
 export default function BookingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const currentUserId = useAuthStore((s) => s.user?.id);
 
   const [booking, setBooking] = useState<BookingDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [declineMode, setDeclineMode] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [actionLoading, setActionLoading] = useState<
+    "CONFIRM" | "DECLINE" | null
+  >(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchBooking = useCallback(async () => {
     if (!id) return;
@@ -80,6 +91,29 @@ export default function BookingDetailScreen() {
   useEffect(() => {
     fetchBooking();
   }, [fetchBooking]);
+
+  const runTransition = async (
+    status: "CONFIRMED" | "CANCELLED",
+    reason?: string,
+  ) => {
+    if (!id) return;
+    setActionError(null);
+    setActionLoading(status === "CONFIRMED" ? "CONFIRM" : "DECLINE");
+    try {
+      await bookingsApi.updateStatus(id, status, reason);
+      setDeclineMode(false);
+      setDeclineReason("");
+      await fetchBooking();
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not update the booking. Please try again.",
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const imageUrl = booking
     ? (booking.listing.images.find((image) => image.isPrimary)?.url ??
@@ -193,6 +227,101 @@ export default function BookingDetailScreen() {
               </View>
             )}
           </View>
+
+          {booking.status === "PENDING" &&
+            currentUserId === booking.hostId && (
+              <View style={styles.actionsCard}>
+                {declineMode ? (
+                  <>
+                    <Text style={styles.actionsLabel}>
+                      Reason for declining
+                    </Text>
+                    <TextInput
+                      value={declineReason}
+                      onChangeText={setDeclineReason}
+                      placeholder="Let the guest know why"
+                      placeholderTextColor={theme.colors.mutedForeground}
+                      multiline
+                      numberOfLines={3}
+                      style={styles.reasonInput}
+                    />
+                    <View style={styles.actionRow}>
+                      <Pressable
+                        style={styles.secondaryButton}
+                        onPress={() => {
+                          setDeclineMode(false);
+                          setDeclineReason("");
+                          setActionError(null);
+                        }}
+                        disabled={actionLoading !== null}
+                      >
+                        <Text style={styles.secondaryButtonText}>Back</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[
+                          styles.declineButton,
+                          (actionLoading !== null ||
+                            declineReason.trim().length === 0) &&
+                            styles.buttonDisabled,
+                        ]}
+                        onPress={() =>
+                          runTransition("CANCELLED", declineReason.trim())
+                        }
+                        disabled={
+                          actionLoading !== null ||
+                          declineReason.trim().length === 0
+                        }
+                      >
+                        {actionLoading === "DECLINE" ? (
+                          <ActivityIndicator color={theme.colors.error} />
+                        ) : (
+                          <Text style={styles.declineButtonText}>
+                            Confirm decline
+                          </Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.actionRow}>
+                    <Pressable
+                      style={[
+                        styles.declineButton,
+                        actionLoading !== null && styles.buttonDisabled,
+                      ]}
+                      onPress={() => {
+                        setDeclineMode(true);
+                        setActionError(null);
+                      }}
+                      disabled={actionLoading !== null}
+                    >
+                      <Text style={styles.declineButtonText}>Decline</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.confirmButton,
+                        actionLoading !== null && styles.buttonDisabled,
+                      ]}
+                      onPress={() => runTransition("CONFIRMED")}
+                      disabled={actionLoading !== null}
+                    >
+                      {actionLoading === "CONFIRM" ? (
+                        <ActivityIndicator
+                          color={theme.colors.primaryForeground}
+                        />
+                      ) : (
+                        <Text style={styles.confirmButtonText}>
+                          Confirm booking
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
+                )}
+                {actionError && (
+                  <Text style={styles.actionErrorText}>{actionError}</Text>
+                )}
+              </View>
+            )}
 
           <Text style={styles.sectionTitle}>Status history</Text>
           <View style={styles.timeline}>
@@ -333,6 +462,85 @@ const styles = StyleSheet.create({
   notesText: {
     color: theme.colors.foreground,
     fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  actionsCard: {
+    backgroundColor: theme.colors.card,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+  },
+  actionsLabel: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyMedium,
+    textTransform: "uppercase",
+  },
+  reasonInput: {
+    minHeight: theme.spacing.xxl + theme.spacing.md,
+    padding: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlignVertical: "top",
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  confirmButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: theme.spacing.xxl,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary,
+  },
+  confirmButtonText: {
+    color: theme.colors.primaryForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  declineButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: theme.spacing.xxl,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.error,
+  },
+  declineButtonText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  secondaryButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    height: theme.spacing.xxl,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+  },
+  secondaryButtonText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  actionErrorText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyRegular,
   },
   sectionTitle: {
