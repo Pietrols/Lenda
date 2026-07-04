@@ -1,5 +1,8 @@
+import type { CreateListingInput } from "@lenda/schemas";
 import { api, BOOKING_URL } from "./client";
 import { useAuthStore } from "../store/auth.store";
+
+export type { CreateListingInput };
 
 export type ListingPillar = "RENTAL" | "SERVICE";
 
@@ -77,6 +80,15 @@ export type MyListingsResponse = {
   listings: MyListing[];
 };
 
+// POST /listings returns the freshly created record with scalar fields only —
+// no images or host relations are included in the create response. The server
+// creates it with status ACTIVE (immediately public), not DRAFT.
+export type CreatedListing = Omit<MyListing, "images">;
+
+export type CreateListingResponse = {
+  listing: CreatedListing;
+};
+
 export type GetListingsParams = {
   pillar?: ListingPillar;
   category?: string;
@@ -106,5 +118,15 @@ export const listingsApi = {
   getMine: () => {
     const token = useAuthStore.getState().tokens?.accessToken;
     return api.get<MyListingsResponse>("/listings/mine", token, BOOKING_URL);
+  },
+
+  create: (input: CreateListingInput) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.post<CreateListingResponse>(
+      "/listings",
+      input,
+      token,
+      BOOKING_URL,
+    );
   },
 };

@@ -74,6 +74,7 @@ export default function RootLayout() {
           <Stack.Screen name="listing/[id]" />
           <Stack.Screen name="booking/[id]" />
           <Stack.Screen name="my-listings" />
+          <Stack.Screen name="create-listing" />
         </Stack.Protected>
         <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="login" />

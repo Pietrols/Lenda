@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ImageOff } from "lucide-react-native";
+import { ArrowLeft, ImageOff, Plus } from "lucide-react-native";
 import { theme } from "../theme";
 import { listingsApi, type MyListing } from "../api/listings";
 import { ApiError } from "../api/client";
@@ -107,13 +107,27 @@ export default function MyListingsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft
-            size={theme.typography.size.xxl}
-            color={theme.colors.foreground}
-          />
-        </Pressable>
-        <Text style={styles.headerTitle}>My Listings</Text>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <ArrowLeft
+              size={theme.typography.size.xxl}
+              color={theme.colors.foreground}
+            />
+          </Pressable>
+          <Text style={styles.headerTitle}>My Listings</Text>
+        </View>
+        {isHost && (
+          <Pressable
+            style={styles.newButton}
+            onPress={() => router.push("/create-listing")}
+          >
+            <Plus
+              size={theme.typography.size.base}
+              color={theme.colors.primaryForeground}
+            />
+            <Text style={styles.newButtonText}>New</Text>
+          </Pressable>
+        )}
       </View>
 
       {!isHost ? (
@@ -145,9 +159,19 @@ export default function MyListingsScreen() {
             listings.length === 0 ? styles.centerContent : styles.listContent
           }
           ListEmptyComponent={
-            <Text style={styles.stateText}>
-              You have no listings yet.
-            </Text>
+            <View style={styles.emptyState}>
+              <Text style={styles.stateText}>You have no listings yet.</Text>
+              <Pressable
+                style={styles.emptyCta}
+                onPress={() => router.push("/create-listing")}
+              >
+                <Plus
+                  size={theme.typography.size.base}
+                  color={theme.colors.primaryForeground}
+                />
+                <Text style={styles.newButtonText}>New Listing</Text>
+              </Pressable>
+            </View>
           }
           refreshControl={
             <RefreshControl
@@ -171,9 +195,43 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
+    flexShrink: 1,
+  },
+  newButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  newButtonText: {
+    color: theme.colors.primaryForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  emptyState: {
+    alignItems: "center",
+    gap: theme.spacing.md,
+  },
+  emptyCta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    backgroundColor: theme.colors.primary,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
   },
   headerTitle: {
     color: theme.colors.foreground,
