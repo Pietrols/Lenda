@@ -119,6 +119,14 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
     content: `We may update this policy from time to time. When we make significant changes, we will notify you via email or an in-app notification. Continued use of Lenda after changes take effect constitutes your acceptance of the updated policy.`,
   },
   {
+    title: "Mobile App Data and Permissions",
+    content: `When you use the Lenda mobile app, the app may ask for permission to send you push notifications so we can alert you about booking updates such as confirmations, handovers, and status changes. Granting this permission is optional: you may decline, and the core features of the app continue to work without it. If you decline, no device push token is collected. Your login session — the access and refresh tokens that keep you signed in — is stored using your device's secure, hardware-backed storage (the iOS Keychain or the Android Keystore, accessed through Expo SecureStore) and is not accessible to other apps on your device. If you enable notifications, a device push token is generated and associated with your account for the sole purpose of delivering booking-related alerts; it is never used for advertising. When you sign out, your stored session is cleared from the device and the app stops using the token, and uninstalling the app removes it from your device. You may also request deletion of any device token held against your account at any time using the contact details below.`,
+  },
+  {
+    title: "Camera and Photo Access",
+    content: `Identity verification (KYC) document upload and profile photo upload are not yet available in the Lenda mobile app, and the app does not currently request camera or photo library access. When these features are introduced, Lenda will request access to your camera or photo library only at the moment you choose to upload an identity verification document or a profile photo — never in the background — and solely to let you capture or select the specific image you are uploading. Declining camera or photo library access will mean you cannot complete those specific actions, but you can continue to use the rest of the app normally.`,
+  },
+  {
     title: "Contact and Data Requests",
     content: `For privacy questions or to make a data access, correction, or deletion request, contact our data protection contact at privacy@lenda.work, or write to Quantic Engineering Limited (Reg No. 120261048940), Lusaka, Zambia. You also have the right to lodge a complaint with the Office of the Data Protection Commissioner of Zambia.`,
   },
