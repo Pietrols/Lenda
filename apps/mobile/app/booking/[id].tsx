@@ -11,12 +11,20 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, ImageOff, MapPin } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Circle,
+  CircleCheck,
+  ImageOff,
+  MapPin,
+} from "lucide-react-native";
 import { theme } from "../../theme";
 import {
   bookingsApi,
   type BookingDetail,
   type BookingHistoryEntry,
+  type BookingStatus,
+  type HandoverType,
 } from "../../api/bookings";
 import { ApiError } from "../../api/client";
 import { useAuthStore } from "../../store/auth.store";
@@ -26,6 +34,32 @@ import { formatDate, formatDateRange } from "../../lib/dates";
 const pickupLabels: Record<BookingDetail["pickupType"], string> = {
   CLIENT_TO_HOST: "Pick up from host",
   HOST_TO_CLIENT: "Host delivers",
+};
+
+// Next progression step available to either party, mirroring the server's
+// transition maps in booking-service (RENTAL goes through the handover states;
+// SERVICE skips handover entirely). HANDED_OVER -> ACTIVE and RETURN_PENDING ->
+// COMPLETED are NOT listed here: those advance automatically once both parties
+// confirm the handover, never via a direct status button.
+const progressionSteps: Record<
+  "RENTAL" | "SERVICE",
+  Partial<Record<BookingStatus, { to: BookingStatus; label: string }>>
+> = {
+  RENTAL: {
+    CONFIRMED: { to: "EN_ROUTE", label: "Mark as en route" },
+    EN_ROUTE: { to: "HANDED_OVER", label: "Mark as handed over" },
+    ACTIVE: { to: "RETURN_PENDING", label: "Start return" },
+  },
+  SERVICE: {
+    CONFIRMED: { to: "ACTIVE", label: "Start service" },
+    ACTIVE: { to: "COMPLETED", label: "Mark as completed" },
+  },
+};
+
+// Which handover the current status is waiting on (RENTAL only).
+const handoverForStatus: Partial<Record<BookingStatus, HandoverType>> = {
+  HANDED_OVER: "PICKUP",
+  RETURN_PENDING: "RETURN",
 };
 
 function TimelineEntry({
@@ -66,7 +100,7 @@ export default function BookingDetailScreen() {
   const [declineMode, setDeclineMode] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [actionLoading, setActionLoading] = useState<
-    "CONFIRM" | "DECLINE" | null
+    "CONFIRM" | "DECLINE" | "PROGRESS" | "HANDOVER" | null
   >(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -93,12 +127,13 @@ export default function BookingDetailScreen() {
   }, [fetchBooking]);
 
   const runTransition = async (
-    status: "CONFIRMED" | "CANCELLED",
+    status: BookingStatus,
+    loadingKey: "CONFIRM" | "DECLINE" | "PROGRESS",
     reason?: string,
   ) => {
     if (!id) return;
     setActionError(null);
-    setActionLoading(status === "CONFIRMED" ? "CONFIRM" : "DECLINE");
+    setActionLoading(loadingKey);
     try {
       await bookingsApi.updateStatus(id, status, reason);
       setDeclineMode(false);
@@ -115,11 +150,52 @@ export default function BookingDetailScreen() {
     }
   };
 
+  const runHandoverConfirm = async (type: HandoverType) => {
+    if (!id) return;
+    setActionError(null);
+    setActionLoading("HANDOVER");
+    try {
+      await bookingsApi.confirmHandover(id, type);
+      await fetchBooking();
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not confirm the handover. Please try again.",
+      );
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const imageUrl = booking
     ? (booking.listing.images.find((image) => image.isPrimary)?.url ??
       booking.listing.images[0]?.url ??
       null)
     : null;
+
+  const isHost = !!booking && currentUserId === booking.hostId;
+  const isGuest = !!booking && currentUserId === booking.guestId;
+  const isParty = isHost || isGuest;
+
+  const nextStep = booking
+    ? progressionSteps[booking.listing.pillar][booking.status]
+    : undefined;
+
+  const pendingHandoverType =
+    booking && booking.listing.pillar === "RENTAL"
+      ? handoverForStatus[booking.status]
+      : undefined;
+  const pendingHandover = pendingHandoverType
+    ? booking?.handovers.find(
+        (handover) => handover.type === pendingHandoverType,
+      )
+    : undefined;
+  const myHandoverConfirmed = pendingHandover
+    ? isGuest
+      ? pendingHandover.guestConfirmed
+      : pendingHandover.hostConfirmed
+    : false;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -265,7 +341,11 @@ export default function BookingDetailScreen() {
                             styles.buttonDisabled,
                         ]}
                         onPress={() =>
-                          runTransition("CANCELLED", declineReason.trim())
+                          runTransition(
+                            "CANCELLED",
+                            "DECLINE",
+                            declineReason.trim(),
+                          )
                         }
                         disabled={
                           actionLoading !== null ||
@@ -302,7 +382,7 @@ export default function BookingDetailScreen() {
                         styles.confirmButton,
                         actionLoading !== null && styles.buttonDisabled,
                       ]}
-                      onPress={() => runTransition("CONFIRMED")}
+                      onPress={() => runTransition("CONFIRMED", "CONFIRM")}
                       disabled={actionLoading !== null}
                     >
                       {actionLoading === "CONFIRM" ? (
@@ -322,6 +402,107 @@ export default function BookingDetailScreen() {
                 )}
               </View>
             )}
+
+          {isParty && nextStep && (
+            <View style={styles.actionsCard}>
+              <Text style={styles.actionsLabel}>Next step</Text>
+              <Pressable
+                style={[
+                  styles.progressButton,
+                  actionLoading !== null && styles.buttonDisabled,
+                ]}
+                onPress={() => runTransition(nextStep.to, "PROGRESS")}
+                disabled={actionLoading !== null}
+              >
+                {actionLoading === "PROGRESS" ? (
+                  <ActivityIndicator color={theme.colors.primaryForeground} />
+                ) : (
+                  <Text style={styles.confirmButtonText}>
+                    {nextStep.label}
+                  </Text>
+                )}
+              </Pressable>
+              {actionError && (
+                <Text style={styles.actionErrorText}>{actionError}</Text>
+              )}
+            </View>
+          )}
+
+          {isParty && pendingHandover && (
+            <View style={styles.actionsCard}>
+              <Text style={styles.actionsLabel}>
+                {pendingHandover.type === "PICKUP"
+                  ? "Pickup handover"
+                  : "Return handover"}
+              </Text>
+              <Text style={styles.handoverHint}>
+                Both of you must confirm before the booking{" "}
+                {pendingHandover.type === "PICKUP"
+                  ? "becomes active."
+                  : "is completed."}
+              </Text>
+
+              {(
+                [
+                  ["Guest", pendingHandover.guestConfirmed],
+                  ["Host", pendingHandover.hostConfirmed],
+                ] as const
+              ).map(([label, confirmed]) => (
+                <View key={label} style={styles.handoverRow}>
+                  {confirmed ? (
+                    <CircleCheck
+                      size={theme.typography.size.base}
+                      color={theme.colors.success}
+                    />
+                  ) : (
+                    <Circle
+                      size={theme.typography.size.base}
+                      color={theme.colors.mutedForeground}
+                    />
+                  )}
+                  <Text style={styles.handoverPartyText}>{label}</Text>
+                  <Text
+                    style={[
+                      styles.handoverStateText,
+                      confirmed && styles.handoverStateConfirmed,
+                    ]}
+                  >
+                    {confirmed ? "Confirmed" : "Waiting"}
+                  </Text>
+                </View>
+              ))}
+
+              {myHandoverConfirmed ? (
+                <Text style={styles.handoverHint}>
+                  You have confirmed. Waiting for the other party.
+                </Text>
+              ) : (
+                <Pressable
+                  style={[
+                    styles.progressButton,
+                    actionLoading !== null && styles.buttonDisabled,
+                  ]}
+                  onPress={() => runHandoverConfirm(pendingHandover.type)}
+                  disabled={actionLoading !== null}
+                >
+                  {actionLoading === "HANDOVER" ? (
+                    <ActivityIndicator
+                      color={theme.colors.primaryForeground}
+                    />
+                  ) : (
+                    <Text style={styles.confirmButtonText}>
+                      {pendingHandover.type === "PICKUP"
+                        ? "Confirm pickup"
+                        : "Confirm return"}
+                    </Text>
+                  )}
+                </Pressable>
+              )}
+              {actionError && (
+                <Text style={styles.actionErrorText}>{actionError}</Text>
+              )}
+            </View>
+          )}
 
           <Text style={styles.sectionTitle}>Status history</Text>
           <View style={styles.timeline}>
@@ -501,6 +682,38 @@ const styles = StyleSheet.create({
     height: theme.spacing.xxl,
     borderRadius: theme.radius.md,
     backgroundColor: theme.colors.primary,
+  },
+  progressButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: theme.spacing.xxl,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary,
+  },
+  handoverHint: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  handoverRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  handoverPartyText: {
+    flex: 1,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyMedium,
+  },
+  handoverStateText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
+    textTransform: "uppercase",
+  },
+  handoverStateConfirmed: {
+    color: theme.colors.success,
   },
   confirmButtonText: {
     color: theme.colors.primaryForeground,
