@@ -1,7 +1,15 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
+  Briefcase,
   ChevronRight,
   FileText,
   LogOut,
@@ -11,6 +19,7 @@ import {
 } from "lucide-react-native";
 import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
+import { upgradeToHost } from "../../lib/role-upgrade";
 
 const kycColors: Record<string, string> = {
   APPROVED: theme.colors.success,
@@ -38,6 +47,31 @@ export default function ProfileScreen() {
 
   const kycStatus = user?.kycStatus ?? "NOT_SUBMITTED";
   const kycColor = kycColors[kycStatus] ?? theme.colors.mutedForeground;
+
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [justUpgraded, setJustUpgraded] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, []);
+
+  const handleBecomeHost = async () => {
+    setUpgradeError(null);
+    setIsUpgrading(true);
+    const result = await upgradeToHost();
+    setIsUpgrading(false);
+
+    if (result.status === "success" || result.status === "already-host") {
+      setJustUpgraded(true);
+      hideTimer.current = setTimeout(() => setJustUpgraded(false), 4000);
+    } else if (result.status === "error") {
+      setUpgradeError(result.message);
+    }
+  };
 
   const handleLogout = () => {
     clearAuth();
@@ -68,6 +102,44 @@ export default function ProfileScreen() {
             KYC {kycStatus.replaceAll("_", " ")}
           </Text>
         </View>
+
+        {justUpgraded && (
+          <View style={styles.upgradedBox}>
+            <Text style={styles.upgradedText}>You&apos;re now a host!</Text>
+          </View>
+        )}
+
+        {!isHost && (
+          <View style={styles.hostCard}>
+            <View style={styles.hostCardHeader}>
+              <Briefcase
+                size={theme.typography.size.xl}
+                color={theme.colors.gold}
+              />
+              <Text style={styles.hostCardTitle}>Become a Host</Text>
+            </View>
+            <Text style={styles.hostCardBody}>
+              List your rentals and services on Lenda and start earning.
+            </Text>
+            {upgradeError && (
+              <Text style={styles.hostCardError}>{upgradeError}</Text>
+            )}
+            <Pressable
+              style={[
+                styles.hostCardButton,
+                isUpgrading && styles.hostCardButtonDisabled,
+              ]}
+              onPress={handleBecomeHost}
+              disabled={isUpgrading}
+            >
+              {isUpgrading ? (
+                <ActivityIndicator color={theme.colors.primaryForeground} />
+              ) : (
+                <Text style={styles.hostCardButtonText}>Get Started</Text>
+              )}
+            </Pressable>
+          </View>
+        )}
 
         <View style={styles.navGroup}>
           {isHost && (
@@ -195,6 +267,68 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyMedium,
     textTransform: "uppercase",
+  },
+  upgradedBox: {
+    alignSelf: "stretch",
+    backgroundColor: "hsla(142, 71%, 45%, 0.08)",
+    borderColor: theme.colors.success,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    padding: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+  },
+  upgradedText: {
+    color: theme.colors.success,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+    textAlign: "center",
+  },
+  hostCard: {
+    alignSelf: "stretch",
+    backgroundColor: theme.colors.card,
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.lg,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.md,
+  },
+  hostCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  hostCardTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.lg,
+    fontFamily: theme.typography.font.displayBold,
+    textTransform: "uppercase",
+  },
+  hostCardBody: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  hostCardError: {
+    color: theme.colors.error,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  hostCardButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: theme.spacing.xxl,
+    borderRadius: theme.radius.md,
+    backgroundColor: theme.colors.primary,
+    marginTop: theme.spacing.xs,
+  },
+  hostCardButtonDisabled: {
+    opacity: 0.6,
+  },
+  hostCardButtonText: {
+    color: theme.colors.primaryForeground,
+    fontSize: theme.typography.size.base,
+    fontFamily: theme.typography.font.bodySemibold,
   },
   navGroup: {
     alignSelf: "stretch",
