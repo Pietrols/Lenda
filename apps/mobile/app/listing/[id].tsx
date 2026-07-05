@@ -385,7 +385,10 @@ export default function ListingDetailScreen() {
 
               <Text style={styles.description}>{listing.description}</Text>
 
-              <View style={styles.hostCard}>
+              <Pressable
+                style={styles.hostCard}
+                onPress={() => router.push(`/user/${listing.host.id}`)}
+              >
                 {listing.host.photoUrl ? (
                   <Image
                     source={{ uri: listing.host.photoUrl }}
@@ -412,7 +415,7 @@ export default function ListingDetailScreen() {
                     </View>
                   )}
                 </View>
-              </View>
+              </Pressable>
 
               {reviews.length > 0 && (
                 <>

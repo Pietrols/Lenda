@@ -12,6 +12,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   Briefcase,
   ChevronRight,
+  Eye,
   FileText,
   LogOut,
   ListChecks,
@@ -183,6 +184,23 @@ export default function ProfileScreen() {
         )}
 
         <View style={styles.navGroup}>
+          {user && (
+            <Pressable
+              style={styles.navRow}
+              onPress={() => router.push(`/user/${user.id}`)}
+            >
+              <Eye
+                size={theme.typography.size.base}
+                color={theme.colors.gold}
+              />
+              <Text style={styles.navRowText}>View Public Profile</Text>
+              <ChevronRight
+                size={theme.typography.size.base}
+                color={theme.colors.mutedForeground}
+              />
+            </Pressable>
+          )}
+
           <Pressable
             style={styles.navRow}
             onPress={() => router.push("/edit-profile")}

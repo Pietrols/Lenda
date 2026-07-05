@@ -97,6 +97,7 @@ export default function RootLayout() {
           <Stack.Screen name="kyc-upload" />
           <Stack.Screen name="edit-profile" />
           <Stack.Screen name="manage-listing/[id]" />
+          <Stack.Screen name="user/[id]" />
         </Stack.Protected>
         <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="login" />

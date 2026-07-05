@@ -28,6 +28,30 @@ export type VerifyEmailInput = {
   otp: string;
 };
 
+// GET /profiles/:id (public). Email/phone are present in the response but the
+// app deliberately does not display them outside booking contexts.
+export type PublicProfile = {
+  id: string;
+  email: string;
+  phone: string | null;
+  fullName: string | null;
+  photoUrl: string | null;
+  bio: string | null;
+  location: string | null;
+  roles: string[];
+  kycStatus: string;
+  listingTier: number;
+  subscriptionPlan: string;
+  badges: { id: string; label: string; awardedAt: string }[];
+  createdAt: string;
+  portfolioImages: {
+    id: string;
+    url: string;
+    caption: string | null;
+    order: number;
+  }[];
+};
+
 export const authApi = {
   register: (data: RegisterInput) =>
     api.post<{ message: string }>("/auth/register", data, undefined, AUTH_URL),
@@ -44,6 +68,13 @@ export const authApi = {
     api.post<AuthResponse>("/auth/login", data, undefined, AUTH_URL),
 
   me: (token: string) => api.get<AuthUser>("/auth/me", token, AUTH_URL),
+
+  getProfile: (userId: string) =>
+    api.get<{ user: PublicProfile }>(
+      `/profiles/${userId}`,
+      undefined,
+      AUTH_URL,
+    ),
 
   updateProfile: (input: UpdateProfileInput) => {
     const token = useAuthStore.getState().tokens?.accessToken;
