@@ -16,6 +16,7 @@ import {
   Crown,
   Eye,
   FileText,
+  History,
   LogOut,
   ListChecks,
   Shield,
@@ -235,6 +236,21 @@ export default function ProfileScreen() {
               />
             </Pressable>
           )}
+
+          <Pressable
+            style={styles.navRow}
+            onPress={() => router.push("/history")}
+          >
+            <History
+              size={theme.typography.size.base}
+              color={theme.colors.gold}
+            />
+            <Text style={styles.navRowText}>History</Text>
+            <ChevronRight
+              size={theme.typography.size.base}
+              color={theme.colors.mutedForeground}
+            />
+          </Pressable>
 
           {isHost && (
             <Pressable
