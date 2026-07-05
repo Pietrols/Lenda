@@ -33,6 +33,7 @@ import { bookingsApi, type Booking } from "../../api/bookings";
 import { reviewsApi, type ListingReview } from "../../api/reviews";
 import { ApiError, SessionExpiredError } from "../../api/client";
 import { StarRating } from "../../components/StarRating";
+import { ErrorState } from "../../components/ErrorState";
 import { formatDate } from "../../lib/dates";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -318,9 +319,10 @@ export default function ListingDetailScreen() {
           <Text style={styles.stateText}>Loading listing...</Text>
         </View>
       ) : error || !listing ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error ?? "Listing not found."}</Text>
-        </View>
+        <ErrorState
+          message={error ?? "Listing not found."}
+          onRetry={fetchListing}
+        />
       ) : (
         <>
           <ScrollView contentContainerStyle={styles.scrollContent}>

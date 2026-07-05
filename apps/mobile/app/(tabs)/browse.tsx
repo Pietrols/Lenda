@@ -24,6 +24,7 @@ import {
   type ListingPillar,
 } from "../../api/listings";
 import { ApiError } from "../../api/client";
+import { ErrorState } from "../../components/ErrorState";
 
 const pillarFilters: { label: string; value: ListingPillar | undefined }[] = [
   { label: "All", value: undefined },
@@ -284,9 +285,7 @@ export default function BrowseScreen() {
           <Text style={styles.stateText}>Loading listings...</Text>
         </View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error}</Text>
-        </View>
+        <ErrorState message={error} onRetry={() => fetchListings()} />
       ) : (
         <FlatList
           data={listings}

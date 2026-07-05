@@ -32,6 +32,7 @@ import { ApiError } from "../../api/client";
 import { useAuthStore } from "../../store/auth.store";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
 import { StarRating } from "../../components/StarRating";
+import { ErrorState } from "../../components/ErrorState";
 import { formatDate, formatDateRange } from "../../lib/dates";
 
 const pickupLabels: Record<BookingDetail["pickupType"], string> = {
@@ -393,9 +394,10 @@ export default function BookingDetailScreen() {
           <Text style={styles.stateText}>Loading booking...</Text>
         </View>
       ) : error || !booking ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error ?? "Booking not found."}</Text>
-        </View>
+        <ErrorState
+          message={error ?? "Booking not found."}
+          onRetry={fetchBooking}
+        />
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <Pressable

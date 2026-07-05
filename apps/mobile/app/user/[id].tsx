@@ -15,6 +15,7 @@ import { authApi, type PublicProfile } from "../../api/auth";
 import { reviewsApi, type UserReview } from "../../api/reviews";
 import { ApiError } from "../../api/client";
 import { StarRating } from "../../components/StarRating";
+import { ErrorState } from "../../components/ErrorState";
 import { formatDate } from "../../lib/dates";
 
 function initialsOf(name: string | null): string {
@@ -91,9 +92,10 @@ export default function PublicProfileScreen() {
           <Text style={styles.stateText}>Loading profile...</Text>
         </View>
       ) : error || !profile ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error ?? "Profile not found."}</Text>
-        </View>
+        <ErrorState
+          message={error ?? "Profile not found."}
+          onRetry={fetchProfile}
+        />
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.identity}>

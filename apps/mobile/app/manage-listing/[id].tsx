@@ -21,6 +21,7 @@ import { listingsApi, type ListingDetail } from "../../api/listings";
 import { ApiError } from "../../api/client";
 import { useAuthStore } from "../../store/auth.store";
 import { ListingStatusBadge } from "../../components/ListingStatusBadge";
+import { ErrorState } from "../../components/ErrorState";
 
 export default function ManageListingScreen() {
   const router = useRouter();
@@ -222,9 +223,10 @@ export default function ManageListingScreen() {
           <Text style={styles.stateText}>Loading listing...</Text>
         </View>
       ) : error || !listing ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error ?? "Listing not found."}</Text>
-        </View>
+        <ErrorState
+          message={error ?? "Listing not found."}
+          onRetry={fetchListing}
+        />
       ) : !isOwner ? (
         <View style={styles.center}>
           <Text style={styles.stateText}>

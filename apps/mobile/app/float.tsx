@@ -23,6 +23,7 @@ import {
 import { ApiError } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import { formatDate } from "../lib/dates";
+import { ErrorState } from "../components/ErrorState";
 
 const providers: MobileMoneyProvider[] = ["AIRTEL", "MTN", "ZAMTEL"];
 
@@ -149,9 +150,7 @@ export default function FloatScreen() {
           <Text style={styles.stateText}>Loading float account...</Text>
         </View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error}</Text>
-        </View>
+        <ErrorState message={error} onRetry={() => fetchFloat()} />
       ) : !float ? (
         <KeyboardAvoidingView
           style={styles.flex}

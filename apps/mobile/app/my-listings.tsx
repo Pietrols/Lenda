@@ -16,6 +16,7 @@ import { listingsApi, type MyListing } from "../api/listings";
 import { ApiError } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import { ListingStatusBadge } from "../components/ListingStatusBadge";
+import { ErrorState } from "../components/ErrorState";
 
 function primaryImageUrl(listing: MyListing): string | null {
   return (
@@ -142,9 +143,7 @@ export default function MyListingsScreen() {
           <Text style={styles.stateText}>Loading listings...</Text>
         </View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error}</Text>
-        </View>
+        <ErrorState message={error} onRetry={() => fetchListings()} />
       ) : (
         <FlatList
           data={listings}

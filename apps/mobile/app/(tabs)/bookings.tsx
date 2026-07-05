@@ -15,6 +15,7 @@ import { theme } from "../../theme";
 import { bookingsApi, type BookingListItem } from "../../api/bookings";
 import { ApiError } from "../../api/client";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
+import { ErrorState } from "../../components/ErrorState";
 import { formatDateRange } from "../../lib/dates";
 
 function primaryImageUrl(booking: BookingListItem): string | null {
@@ -110,9 +111,7 @@ export default function BookingsScreen() {
           <Text style={styles.stateText}>Loading bookings...</Text>
         </View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error}</Text>
-        </View>
+        <ErrorState message={error} onRetry={() => fetchBookings()} />
       ) : (
         <FlatList
           data={bookings}

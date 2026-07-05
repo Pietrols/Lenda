@@ -18,6 +18,7 @@ import {
 import { ApiError } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 import { formatDate } from "../lib/dates";
+import { ErrorState } from "../components/ErrorState";
 
 const planLabels: Record<string, string> = {
   FREE: "Free",
@@ -119,11 +120,10 @@ export default function SubscriptionScreen() {
           <Text style={styles.stateText}>Loading subscription...</Text>
         </View>
       ) : error || !subscription ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>
-            {error ?? "Subscription unavailable."}
-          </Text>
-        </View>
+        <ErrorState
+          message={error ?? "Subscription unavailable."}
+          onRetry={fetchStatus}
+        />
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={[styles.planCard, isPro && styles.planCardPro]}>

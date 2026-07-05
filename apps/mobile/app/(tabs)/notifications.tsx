@@ -17,6 +17,7 @@ import {
 } from "../../api/notifications";
 import { ApiError } from "../../api/client";
 import { useNotificationsStore } from "../../store/notifications.store";
+import { ErrorState } from "../../components/ErrorState";
 import { formatDate } from "../../lib/dates";
 
 function targetFor(notification: Notification): string | null {
@@ -97,9 +98,7 @@ export default function NotificationsScreen() {
           <Text style={styles.stateText}>Loading notifications...</Text>
         </View>
       ) : error ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>{error}</Text>
-        </View>
+        <ErrorState message={error} onRetry={() => fetchNotifications()} />
       ) : (
         <FlatList
           data={notifications}
