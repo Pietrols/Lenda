@@ -12,6 +12,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import {
   Briefcase,
   ChevronRight,
+  Crown,
   Eye,
   FileText,
   LogOut,
@@ -227,6 +228,23 @@ export default function ProfileScreen() {
                 color={theme.colors.gold}
               />
               <Text style={styles.navRowText}>My Listings</Text>
+              <ChevronRight
+                size={theme.typography.size.base}
+                color={theme.colors.mutedForeground}
+              />
+            </Pressable>
+          )}
+
+          {isHost && (
+            <Pressable
+              style={styles.navRow}
+              onPress={() => router.push("/subscription")}
+            >
+              <Crown
+                size={theme.typography.size.base}
+                color={theme.colors.gold}
+              />
+              <Text style={styles.navRowText}>Subscription</Text>
               <ChevronRight
                 size={theme.typography.size.base}
                 color={theme.colors.mutedForeground}
