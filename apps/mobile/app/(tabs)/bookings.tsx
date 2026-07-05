@@ -85,8 +85,10 @@ export default function BookingsScreen() {
   );
   const [segment, setSegment] = useState<RoleSegment>("ALL");
   const [bookings, setBookings] = useState<BookingListItem[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchBookings = useCallback(async (refreshing = false) => {
@@ -99,6 +101,7 @@ export default function BookingsScreen() {
     try {
       const res = await bookingsApi.getAll();
       setBookings(res.bookings);
+      setNextCursor(res.nextCursor);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -114,6 +117,20 @@ export default function BookingsScreen() {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  const loadMore = async () => {
+    if (!nextCursor || isLoadingMore || isLoading) return;
+    setIsLoadingMore(true);
+    try {
+      const res = await bookingsApi.getAll(nextCursor);
+      setBookings((prev) => [...prev, ...res.bookings]);
+      setNextCursor(res.nextCursor);
+    } catch {
+      // Pagination failures are silent; pull-to-refresh recovers.
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -177,6 +194,13 @@ export default function BookingsScreen() {
             <Text style={styles.stateText}>
               No bookings yet. Book something from Browse to get started.
             </Text>
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <Text style={styles.stateText}>Loading more...</Text>
+            ) : null
           }
           refreshControl={
             <RefreshControl

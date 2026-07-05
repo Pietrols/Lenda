@@ -141,9 +141,14 @@ export const bookingsApi = {
     );
   },
 
-  getAll: () => {
+  getAll: (cursor?: string) => {
     const token = useAuthStore.getState().tokens?.accessToken;
-    return api.get<BookingsListResponse>("/bookings", token, BOOKING_URL);
+    const qs = cursor ? `?cursor=${encodeURIComponent(cursor)}` : "";
+    return api.get<BookingsListResponse>(
+      `/bookings${qs}`,
+      token,
+      BOOKING_URL,
+    );
   },
 
   getById: (id: string) => {
