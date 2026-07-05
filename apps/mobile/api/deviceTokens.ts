@@ -25,4 +25,14 @@ export const deviceTokensApi = {
       AUTH_URL,
     );
   },
+
+  // Idempotent server-side: deleting an unknown token is a no-op.
+  remove: (token: string) => {
+    const accessToken = useAuthStore.getState().tokens?.accessToken;
+    return api.delete<{ message: string }>(
+      `/auth/device-tokens/${encodeURIComponent(token)}`,
+      accessToken,
+      AUTH_URL,
+    );
+  },
 };

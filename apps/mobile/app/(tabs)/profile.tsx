@@ -20,6 +20,7 @@ import {
 import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
 import { upgradeToHost } from "../../lib/role-upgrade";
+import { unregisterPushToken } from "../../lib/notifications";
 
 const kycColors: Record<string, string> = {
   APPROVED: theme.colors.success,
@@ -73,7 +74,11 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleLogout = () => {
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    await unregisterPushToken();
     clearAuth();
     router.replace("/login");
   };
@@ -213,12 +218,22 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <LogOut
-            size={theme.typography.size.base}
-            color={theme.colors.error}
-          />
-          <Text style={styles.logoutText}>Sign out</Text>
+        <Pressable
+          style={[styles.logoutButton, isLoggingOut && styles.logoutDisabled]}
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+        >
+          {isLoggingOut ? (
+            <ActivityIndicator color={theme.colors.error} />
+          ) : (
+            <>
+              <LogOut
+                size={theme.typography.size.base}
+                color={theme.colors.error}
+              />
+              <Text style={styles.logoutText}>Sign out</Text>
+            </>
+          )}
         </Pressable>
       </View>
     </SafeAreaView>
@@ -392,6 +407,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
     marginTop: theme.spacing.sm,
+  },
+  logoutDisabled: {
+    opacity: 0.6,
   },
   logoutText: {
     color: theme.colors.error,

@@ -62,3 +62,31 @@ export async function syncPushToken(): Promise<void> {
     );
   }
 }
+
+// Remove this device's push token from the backend. Must run BEFORE clearAuth
+// (the DELETE needs a valid access token). Unlike registration, this never
+// prompts for permission — if it was not granted, no token was registered and
+// there is nothing to remove. Never throws: a failed cleanup must not block
+// logout, and the server-side delete is idempotent anyway.
+export async function unregisterPushToken(): Promise<void> {
+  try {
+    if (!Device.isDevice) return;
+    const permission = await Notifications.getPermissionsAsync();
+    if (!permission.granted) return;
+
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId ??
+      Constants.easConfig?.projectId;
+    const tokenResponse = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : undefined,
+    );
+
+    await deviceTokensApi.remove(tokenResponse.data);
+    console.log("[push] Device token removed from backend.");
+  } catch (err) {
+    console.log(
+      "[push] Failed to remove device token:",
+      err instanceof Error ? err.message : String(err),
+    );
+  }
+}
