@@ -17,7 +17,6 @@ import {
   CircleCheck,
   ImageOff,
   MapPin,
-  Star,
 } from "lucide-react-native";
 import { CreateReviewSchema } from "@lenda/schemas";
 import { theme } from "../../theme";
@@ -32,6 +31,7 @@ import { reviewsApi, type Review } from "../../api/reviews";
 import { ApiError } from "../../api/client";
 import { useAuthStore } from "../../store/auth.store";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
+import { StarRating } from "../../components/StarRating";
 import { formatDate, formatDateRange } from "../../lib/dates";
 
 const pickupLabels: Record<BookingDetail["pickupType"], string> = {
@@ -72,39 +72,6 @@ const reviewableStatuses: Record<"RENTAL" | "SERVICE", BookingStatus[]> = {
   RENTAL: ["HANDED_OVER", "ACTIVE", "RETURN_PENDING", "RETURNED", "COMPLETED"],
   SERVICE: ["ACTIVE", "COMPLETED"],
 };
-
-function StarRow({
-  rating,
-  size,
-  onSelect,
-}: {
-  rating: number;
-  size: number;
-  onSelect?: (value: number) => void;
-}) {
-  return (
-    <View style={styles.starRow}>
-      {[1, 2, 3, 4, 5].map((value) => {
-        const filled = value <= rating;
-        const star = (
-          <Star
-            size={size}
-            color={filled ? theme.colors.gold : theme.colors.mutedForeground}
-            fill={filled ? theme.colors.gold : "transparent"}
-          />
-        );
-        if (!onSelect) {
-          return <View key={value}>{star}</View>;
-        }
-        return (
-          <Pressable key={value} onPress={() => onSelect(value)} hitSlop={4}>
-            {star}
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
 
 function TimelineEntry({
   entry,
@@ -636,7 +603,7 @@ export default function BookingDetailScreen() {
               </Text>
               {myReview ? (
                 <>
-                  <StarRow
+                  <StarRating
                     rating={myReview.rating}
                     size={theme.typography.size.xl}
                   />
@@ -648,7 +615,7 @@ export default function BookingDetailScreen() {
                 </>
               ) : (
                 <>
-                  <StarRow
+                  <StarRating
                     rating={reviewRating}
                     size={theme.typography.size.xxl}
                     onSelect={setReviewRating}
@@ -898,11 +865,6 @@ const styles = StyleSheet.create({
   },
   handoverStateConfirmed: {
     color: theme.colors.success,
-  },
-  starRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
   },
   reviewCommentText: {
     color: theme.colors.mutedForeground,

@@ -30,7 +30,10 @@ import { CreateBookingSchema } from "@lenda/schemas";
 import { theme } from "../../theme";
 import { listingsApi, type ListingDetail } from "../../api/listings";
 import { bookingsApi, type Booking } from "../../api/bookings";
+import { reviewsApi, type ListingReview } from "../../api/reviews";
 import { ApiError, SessionExpiredError } from "../../api/client";
+import { StarRating } from "../../components/StarRating";
+import { formatDate } from "../../lib/dates";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -146,6 +149,7 @@ export default function ListingDetailScreen() {
   const { width } = useWindowDimensions();
 
   const [listing, setListing] = useState<ListingDetail | null>(null);
+  const [reviews, setReviews] = useState<ListingReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,8 +167,17 @@ export default function ListingDetailScreen() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await listingsApi.getById(id);
-      setListing(res.listing);
+      // Reviews load alongside the listing but are non-critical: if they fail
+      // the listing still renders, just without a reviews section.
+      const [listingRes, reviewsRes] = await Promise.allSettled([
+        listingsApi.getById(id),
+        reviewsApi.getForListing(id),
+      ]);
+      if (listingRes.status === "rejected") throw listingRes.reason;
+      setListing(listingRes.value.listing);
+      setReviews(
+        reviewsRes.status === "fulfilled" ? reviewsRes.value.reviews : [],
+      );
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -186,6 +199,12 @@ export default function ListingDetailScreen() {
           Number(b.isPrimary) - Number(a.isPrimary) || a.order - b.order,
       )
     : [];
+
+  const avgRating =
+    reviews.length > 0
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) /
+        reviews.length
+      : null;
 
   const totalDays = daysBetween(startDate, endDate);
   const dateOrderValid = totalDays > 0;
@@ -318,6 +337,19 @@ export default function ListingDetailScreen() {
                 {listing.subcategory ? ` / ${listing.subcategory}` : ""}
               </Text>
 
+              {avgRating !== null && (
+                <View style={styles.ratingSummary}>
+                  <StarRating
+                    rating={Math.round(avgRating)}
+                    size={theme.typography.size.sm}
+                  />
+                  <Text style={styles.ratingSummaryText}>
+                    {avgRating.toFixed(1)} ({reviews.length}{" "}
+                    {reviews.length === 1 ? "review" : "reviews"})
+                  </Text>
+                </View>
+              )}
+
               <Text style={styles.price}>
                 {listing.currency}{" "}
                 {Number(listing.pricePerDay).toLocaleString()}
@@ -354,6 +386,52 @@ export default function ListingDetailScreen() {
                   )}
                 </View>
               </View>
+
+              {reviews.length > 0 && (
+                <>
+                  <Text style={styles.reviewsTitle}>Reviews</Text>
+                  {reviews.map((review) => (
+                    <View key={review.id} style={styles.reviewCard}>
+                      <View style={styles.reviewHeader}>
+                        {review.reviewer.photoUrl ? (
+                          <Image
+                            source={{ uri: review.reviewer.photoUrl }}
+                            style={styles.reviewAvatar}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.reviewAvatar,
+                              styles.reviewAvatarFallback,
+                            ]}
+                          >
+                            <Text style={styles.reviewInitials}>
+                              {hostInitials(review.reviewer.fullName)}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={styles.reviewHeaderInfo}>
+                          <Text style={styles.reviewName} numberOfLines={1}>
+                            {review.reviewer.fullName ?? "Lenda guest"}
+                          </Text>
+                          <StarRating
+                            rating={review.rating}
+                            size={theme.typography.size.xs}
+                          />
+                        </View>
+                      </View>
+                      {review.comment && (
+                        <Text style={styles.reviewComment}>
+                          {review.comment}
+                        </Text>
+                      )}
+                      <Text style={styles.reviewDate}>
+                        {formatDate(review.createdAt)}
+                      </Text>
+                    </View>
+                  ))}
+                </>
+              )}
             </View>
           </ScrollView>
 
@@ -676,6 +754,74 @@ const styles = StyleSheet.create({
     color: theme.colors.success,
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyMedium,
+  },
+  ratingSummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  ratingSummaryText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyMedium,
+  },
+  reviewsTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.base,
+    fontFamily: theme.typography.font.displayBold,
+    textTransform: "uppercase",
+    marginTop: theme.spacing.md,
+  },
+  reviewCard: {
+    backgroundColor: theme.colors.card,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.lg,
+    padding: theme.spacing.md,
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  reviewAvatar: {
+    width: theme.spacing.xl,
+    height: theme.spacing.xl,
+    borderRadius: theme.radius.pill,
+  },
+  reviewAvatarFallback: {
+    backgroundColor: theme.colors.secondary,
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewInitials: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.displayBold,
+  },
+  reviewHeaderInfo: {
+    flex: 1,
+    gap: theme.spacing.xs / 2,
+  },
+  reviewName: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  reviewComment: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+    lineHeight: theme.typography.size.lg,
+  },
+  reviewDate: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
   },
   bottomBar: {
     flexDirection: "row",
