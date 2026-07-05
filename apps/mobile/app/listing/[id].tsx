@@ -7,6 +7,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -23,6 +24,7 @@ import {
   ImageOff,
   MapPin,
   Navigation,
+  Share2,
   Truck,
   X,
 } from "lucide-react-native";
@@ -305,13 +307,30 @@ export default function ListingDetailScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
-          <ArrowLeft
-            size={theme.typography.size.xxl}
-            color={theme.colors.foreground}
-          />
-        </Pressable>
-        <Text style={styles.headerTitle}>Listing</Text>
+        <View style={styles.headerLeft}>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <ArrowLeft
+              size={theme.typography.size.xxl}
+              color={theme.colors.foreground}
+            />
+          </Pressable>
+          <Text style={styles.headerTitle}>Listing</Text>
+        </View>
+        {listing && (
+          <Pressable
+            onPress={() =>
+              Share.share({
+                message: `${listing.title} on Lenda - https://lenda.work/listings/${listing.id}`,
+              }).catch(() => {})
+            }
+            hitSlop={8}
+          >
+            <Share2
+              size={theme.typography.size.xl}
+              color={theme.colors.gold}
+            />
+          </Pressable>
+        )}
       </View>
 
       {isLoading ? (
@@ -705,9 +724,15 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.md,
   },
   headerTitle: {
     color: theme.colors.foreground,
