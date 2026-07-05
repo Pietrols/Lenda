@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -24,6 +24,14 @@ export default function VerifyEmailScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [resendNote, setResendNote] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown]);
 
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -65,8 +73,12 @@ export default function VerifyEmailScreen() {
 
   const handleResend = async () => {
     setIsResending(true);
+    setFormError(null);
+    setResendNote(null);
     try {
       await authApi.resendOtp(email);
+      setResendNote("A new code has been sent to your email.");
+      setCooldown(60);
     } catch {
       setFormError("Failed to resend code. Please try again.");
     } finally {
@@ -114,6 +126,7 @@ export default function VerifyEmailScreen() {
               <Text style={styles.formErrorText}>{formError}</Text>
             </View>
           )}
+          {resendNote && <Text style={styles.resendNote}>{resendNote}</Text>}
 
           <Pressable
             style={[
@@ -137,12 +150,28 @@ export default function VerifyEmailScreen() {
             <Text style={styles.footerText}>Didn&apos;t receive a code? </Text>
             <Pressable
               onPress={handleResend}
-              disabled={isResending}
-              style={styles.resendButton}
+              disabled={isResending || cooldown > 0}
+              style={[
+                styles.resendButton,
+                cooldown > 0 && styles.resendDisabled,
+              ]}
             >
-              <RotateCcw size={13} color={theme.colors.gold} />
-              <Text style={styles.linkGold}>
-                {isResending ? "Sending..." : "Resend"}
+              <RotateCcw
+                size={13}
+                color={
+                  cooldown > 0
+                    ? theme.colors.mutedForeground
+                    : theme.colors.gold
+                }
+              />
+              <Text
+                style={cooldown > 0 ? styles.footerText : styles.linkGold}
+              >
+                {isResending
+                  ? "Sending..."
+                  : cooldown > 0
+                    ? `Resend in ${cooldown}s`
+                    : "Resend"}
               </Text>
             </Pressable>
           </View>
@@ -250,6 +279,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   resendButton: { flexDirection: "row", alignItems: "center", gap: 4 },
+  resendDisabled: { opacity: 0.7 },
+  resendNote: {
+    color: theme.colors.success,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlign: "center",
+  },
   footerText: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.size.sm,
