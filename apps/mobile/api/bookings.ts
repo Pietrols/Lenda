@@ -14,7 +14,8 @@ export type BookingStatus =
   | "RETURNED"
   | "COMPLETED"
   | "CANCELLED"
-  | "DISPUTED";
+  | "DISPUTED"
+  | "NEGOTIATION_FAILED";
 
 export type BookingHistoryEntry = {
   id: string;
@@ -177,6 +178,30 @@ export const bookingsApi = {
     return api.post<{ handover: BookingHandover }>(
       `/bookings/${id}/handover/confirm`,
       { type },
+      token,
+      BOOKING_URL,
+    );
+  },
+
+  // Negotiation is turn-based on PENDING negotiable bookings: each party gets
+  // max 2 counters and every move restarts a 2-hour response window. Accepting
+  // sets the booking CONFIRMED with totalAmount rewritten to the agreed offer.
+  // Both endpoints return the updated booking without relations — refetch.
+  submitCounter: (id: string, amount: number) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.post<CreateBookingResponse>(
+      `/bookings/${id}/counter`,
+      { amount },
+      token,
+      BOOKING_URL,
+    );
+  },
+
+  acceptOffer: (id: string) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.post<CreateBookingResponse>(
+      `/bookings/${id}/accept-offer`,
+      {},
       token,
       BOOKING_URL,
     );

@@ -13,6 +13,7 @@ export const bookingStatusColors: Record<BookingStatus, string> = {
   COMPLETED: theme.colors.success,
   CANCELLED: theme.colors.error,
   DISPUTED: theme.colors.error,
+  NEGOTIATION_FAILED: theme.colors.error,
 };
 
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {
