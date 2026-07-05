@@ -1,8 +1,8 @@
-import type { CreateListingInput } from "@lenda/schemas";
+import type { CreateListingInput, UpdateListingInput } from "@lenda/schemas";
 import { api, BOOKING_URL } from "./client";
 import { useAuthStore } from "../store/auth.store";
 
-export type { CreateListingInput };
+export type { CreateListingInput, UpdateListingInput };
 
 export type ListingPillar = "RENTAL" | "SERVICE";
 
@@ -125,6 +125,28 @@ export const listingsApi = {
     return api.post<CreateListingResponse>(
       "/listings",
       input,
+      token,
+      BOOKING_URL,
+    );
+  },
+
+  // PATCH returns the bare updated record (scalars only, like create).
+  update: (id: string, input: UpdateListingInput) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.patch<CreateListingResponse>(
+      `/listings/${id}`,
+      input,
+      token,
+      BOOKING_URL,
+    );
+  },
+
+  // Soft delete (archived server-side); rejected with 400 if the listing has
+  // active bookings.
+  remove: (id: string) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.delete<{ message: string }>(
+      `/listings/${id}`,
       token,
       BOOKING_URL,
     );

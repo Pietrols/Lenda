@@ -152,7 +152,7 @@ export default function MyListingsScreen() {
           renderItem={({ item }) => (
             <ListingCard
               listing={item}
-              onPress={() => router.push(`/listing/${item.id}`)}
+              onPress={() => router.push(`/manage-listing/${item.id}`)}
             />
           )}
           contentContainerStyle={
