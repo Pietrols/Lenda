@@ -16,6 +16,7 @@ import { CreateListingSchema } from "@lenda/schemas";
 import { ArrowLeft, CircleCheck, Package, Wrench } from "lucide-react-native";
 import { theme } from "../theme";
 import { listingsApi } from "../api/listings";
+import { categoriesApi } from "../api/categories";
 import { ApiError } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 
@@ -66,6 +67,28 @@ export default function CreateListingScreen() {
   const [formError, setFormError] = useState<string | null>(null);
   const [kycBlocked, setKycBlocked] = useState(false);
   const [createdStatus, setCreatedStatus] = useState<string | null>(null);
+  const [isSuggesting, setIsSuggesting] = useState(false);
+  const [suggestNote, setSuggestNote] = useState<string | null>(null);
+
+  const suggestCategory = async () => {
+    if (!category.trim()) return;
+    setIsSuggesting(true);
+    setSuggestNote(null);
+    try {
+      await categoriesApi.suggest(category.trim(), [pillar]);
+      setSuggestNote(
+        `"${category.trim()}" was suggested as a new category and will be reviewed.`,
+      );
+    } catch (err) {
+      setSuggestNote(
+        err instanceof ApiError
+          ? err.message
+          : "Could not send the suggestion. Please try again.",
+      );
+    } finally {
+      setIsSuggesting(false);
+    }
+  };
 
   // Never let the user submit against an endpoint that will reject them until
   // KYC is approved: block up front on the known status and latch on a live
@@ -241,6 +264,22 @@ export default function CreateListingScreen() {
               autoCapitalize="none"
               style={styles.input}
             />
+            {category.trim().length >= 2 && !blocked && (
+              <Pressable
+                onPress={suggestCategory}
+                disabled={isSuggesting}
+                hitSlop={6}
+              >
+                <Text style={styles.suggestLink}>
+                  {isSuggesting
+                    ? "Sending suggestion..."
+                    : `Suggest "${category.trim()}" as a new category`}
+                </Text>
+              </Pressable>
+            )}
+            {suggestNote && (
+              <Text style={styles.suggestNote}>{suggestNote}</Text>
+            )}
           </View>
 
           <View style={styles.rowFields}>
@@ -426,6 +465,16 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   pillarDescription: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  suggestLink: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  suggestNote: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyRegular,
