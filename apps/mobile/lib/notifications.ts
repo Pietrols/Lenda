@@ -1,26 +1,47 @@
 import { Platform } from "react-native";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { deviceTokensApi } from "../api/deviceTokens";
 import { notificationsApi } from "../api/notifications";
 import { useNotificationsStore } from "../store/notifications.store";
 
-// Show pushes as banners even while the app is foregrounded; without a
-// handler, foreground notifications are silently dropped on iOS.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+// Remote push was removed from Expo Go on Android in SDK 53, and merely
+// importing expo-notifications there logs a hard ERROR. The module is
+// therefore loaded lazily and the entire push layer no-ops in that
+// environment; development builds and iOS keep full behaviour.
+const pushUnsupported =
+  Platform.OS === "android" &&
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+type NotificationsModule = typeof import("expo-notifications");
+
+let notificationsModule: NotificationsModule | null = null;
+
+function getNotifications(): NotificationsModule | null {
+  if (pushUnsupported) return null;
+  if (!notificationsModule) {
+    notificationsModule =
+      require("expo-notifications") as NotificationsModule;
+    // Show pushes as banners even while the app is foregrounded; without a
+    // handler, foreground notifications are silently dropped on iOS.
+    notificationsModule.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+  }
+  return notificationsModule;
+}
 
 // Keep the app icon badge in sync with the in-app unread count (set by the
 // tab bar poll and zeroed when the notifications list is opened).
 useNotificationsStore.subscribe((state) => {
+  const Notifications = getNotifications();
+  if (!Notifications) return;
   Notifications.setBadgeCountAsync(state.unreadCount).catch(() => {});
 });
 
@@ -29,6 +50,11 @@ useNotificationsStore.subscribe((state) => {
 // defensive about the payload: a bookingId in data deep-links to that booking,
 // anything else lands on the notifications tab.
 export function setupNotificationListeners(): () => void {
+  const Notifications = getNotifications();
+  if (!Notifications) {
+    return () => {};
+  }
+
   const received = Notifications.addNotificationReceivedListener(async () => {
     try {
       const res = await notificationsApi.getUnreadCount();
@@ -58,10 +84,18 @@ export function setupNotificationListeners(): () => void {
 }
 
 // Acquire an Expo push token for this device. Returns the token string, or null
-// when it cannot be obtained (simulator, denied permission, or no EAS project
-// configured). Each null path logs a clear reason so the caller does not have
-// to guess why registration was skipped.
+// when it cannot be obtained (simulator, Expo Go on Android, denied permission,
+// or no EAS project configured). Each null path logs a clear reason so the
+// caller does not have to guess why registration was skipped.
 export async function registerForPushNotifications(): Promise<string | null> {
+  const Notifications = getNotifications();
+  if (!Notifications) {
+    console.log(
+      "[push] Skipped: remote push is not supported in Expo Go on Android.",
+    );
+    return null;
+  }
+
   if (!Device.isDevice) {
     console.log(
       "[push] Skipped: push tokens require a physical device (simulator detected).",
@@ -123,7 +157,10 @@ export async function syncPushToken(): Promise<void> {
 // logout, and the server-side delete is idempotent anyway.
 export async function unregisterPushToken(): Promise<void> {
   try {
+    const Notifications = getNotifications();
+    if (!Notifications) return;
     if (!Device.isDevice) return;
+
     const permission = await Notifications.getPermissionsAsync();
     if (!permission.granted) return;
 

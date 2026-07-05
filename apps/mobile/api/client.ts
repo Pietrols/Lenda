@@ -3,10 +3,20 @@
 // own (which would race and invalidate each other's rotating refresh token).
 // Resolves to the new tokens on success, or null if refresh isn't possible.
 
+import Constants from "expo-constants";
+
+// In development, default the API host to wherever Metro is serving from —
+// the device already reaches that host to load the JS bundle, so it works
+// across network/IP changes without editing .env. Explicit
+// EXPO_PUBLIC_*_URL values still take precedence (e.g. pointing at staging).
+const devHost = Constants.expoConfig?.hostUri?.split(":")[0];
+
 export const AUTH_URL =
-  process.env.EXPO_PUBLIC_AUTH_URL ?? "http://localhost:3001";
+  process.env.EXPO_PUBLIC_AUTH_URL ??
+  (devHost ? `http://${devHost}:3001` : "http://localhost:3001");
 export const BOOKING_URL =
-  process.env.EXPO_PUBLIC_BOOKING_URL ?? "http://localhost:3002";
+  process.env.EXPO_PUBLIC_BOOKING_URL ??
+  (devHost ? `http://${devHost}:3002` : "http://localhost:3002");
 
 export type AuthTokens = {
   accessToken: string;
