@@ -11,9 +11,11 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Image } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { UpdateListingSchema } from "@lenda/schemas";
-import { ArrowLeft, Eye } from "lucide-react-native";
+import { ArrowLeft, Eye, ImagePlus, X } from "lucide-react-native";
 import { theme } from "../../theme";
 import { listingsApi, type ListingDetail } from "../../api/listings";
 import { ApiError } from "../../api/client";
@@ -42,6 +44,8 @@ export default function ManageListingScreen() {
   const [deleteMode, setDeleteMode] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const fetchListing = useCallback(async () => {
     if (!id) return;
@@ -107,6 +111,68 @@ export default function ManageListingScreen() {
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const addImage = async () => {
+    if (!id || !listing) return;
+    setImageError(null);
+
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setImageError(
+        "Photo library access is needed to pick an image. You can enable it in your device settings.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+
+    setImageBusy("ADD");
+    try {
+      // The first image becomes the primary so the listing shows up with a
+      // photo in Browse immediately.
+      await listingsApi.uploadImage(
+        id,
+        {
+          uri: asset.uri,
+          name: asset.fileName ?? "listing.jpg",
+          mimeType: asset.mimeType ?? "image/jpeg",
+        },
+        listing.images.length === 0,
+      );
+      await fetchListing();
+    } catch (err) {
+      setImageError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not upload the image. Please try again.",
+      );
+    } finally {
+      setImageBusy(null);
+    }
+  };
+
+  const removeImage = async (imageId: string) => {
+    if (!id) return;
+    setImageError(null);
+    setImageBusy(imageId);
+    try {
+      await listingsApi.deleteImage(id, imageId);
+      await fetchListing();
+    } catch (err) {
+      setImageError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not delete the image. Please try again.",
+      );
+    } finally {
+      setImageBusy(null);
     }
   };
 
@@ -177,6 +243,65 @@ export default function ManageListingScreen() {
             <View style={styles.statusRow}>
               <Text style={styles.label}>Status</Text>
               <ListingStatusBadge status={listing.status} />
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Photos</Text>
+              <View style={styles.imageGrid}>
+                {listing.images.map((image) => (
+                  <View key={image.id} style={styles.imageCell}>
+                    <Image
+                      source={{ uri: image.url }}
+                      style={styles.imageThumb}
+                      resizeMode="cover"
+                    />
+                    {image.isPrimary && (
+                      <View style={styles.primaryTag}>
+                        <Text style={styles.primaryTagText}>PRIMARY</Text>
+                      </View>
+                    )}
+                    <Pressable
+                      style={styles.imageDelete}
+                      onPress={() => removeImage(image.id)}
+                      disabled={imageBusy !== null}
+                      hitSlop={6}
+                    >
+                      {imageBusy === image.id ? (
+                        <ActivityIndicator
+                          size="small"
+                          color={theme.colors.error}
+                        />
+                      ) : (
+                        <X
+                          size={theme.typography.size.sm}
+                          color={theme.colors.error}
+                        />
+                      )}
+                    </Pressable>
+                  </View>
+                ))}
+                <Pressable
+                  style={[
+                    styles.imageCell,
+                    styles.addImageCell,
+                    imageBusy !== null && styles.buttonDisabled,
+                  ]}
+                  onPress={addImage}
+                  disabled={imageBusy !== null}
+                >
+                  {imageBusy === "ADD" ? (
+                    <ActivityIndicator color={theme.colors.gold} />
+                  ) : (
+                    <ImagePlus
+                      size={theme.typography.size.xl}
+                      color={theme.colors.gold}
+                    />
+                  )}
+                </Pressable>
+              </View>
+              {imageError && (
+                <Text style={styles.deleteErrorText}>{imageError}</Text>
+              )}
             </View>
 
             <View style={styles.field}>
@@ -383,6 +508,53 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: theme.spacing.xs,
+  },
+  imageGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: theme.spacing.sm,
+  },
+  imageCell: {
+    width: theme.spacing.xxl * 2,
+    height: theme.spacing.xxl * 2,
+    borderRadius: theme.radius.md,
+    overflow: "hidden",
+  },
+  imageThumb: {
+    width: "100%",
+    height: "100%",
+  },
+  addImageCell: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: theme.colors.gold,
+    backgroundColor: theme.colors.card,
+  },
+  primaryTag: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "hsla(220, 13%, 9%, 0.75)",
+    paddingVertical: theme.spacing.xs / 2,
+  },
+  primaryTagText: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
+    textAlign: "center",
+  },
+  imageDelete: {
+    position: "absolute",
+    top: theme.spacing.xs,
+    right: theme.spacing.xs,
+    width: theme.spacing.lg,
+    height: theme.spacing.lg,
+    borderRadius: theme.radius.pill,
+    backgroundColor: theme.colors.background,
+    alignItems: "center",
+    justifyContent: "center",
   },
   label: {
     color: theme.colors.mutedForeground,

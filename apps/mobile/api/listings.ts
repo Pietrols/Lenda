@@ -1,5 +1,5 @@
 import type { CreateListingInput, UpdateListingInput } from "@lenda/schemas";
-import { api, BOOKING_URL } from "./client";
+import { api, ApiError, BOOKING_URL } from "./client";
 import { useAuthStore } from "../store/auth.store";
 
 export type { CreateListingInput, UpdateListingInput };
@@ -147,6 +147,57 @@ export const listingsApi = {
     const token = useAuthStore.getState().tokens?.accessToken;
     return api.delete<{ message: string }>(
       `/listings/${id}`,
+      token,
+      BOOKING_URL,
+    );
+  },
+
+  // Multipart upload (field name "image" per the multer route config); the
+  // JSON api client cannot send FormData, so this uses fetch directly.
+  uploadImage: async (
+    listingId: string,
+    file: { uri: string; name: string; mimeType: string },
+    isPrimary = false,
+  ): Promise<{ image: ListingImage }> => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+
+    const formData = new FormData();
+    formData.append("image", {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType,
+    } as unknown as Blob);
+    if (isPrimary) formData.append("isPrimary", "true");
+
+    const res = await fetch(`${BOOKING_URL}/listings/${listingId}/images`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    let data: unknown = null;
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      const errBody = data as { message?: string } | null;
+      throw new ApiError(
+        errBody?.message ?? `Upload failed (${res.status})`,
+        res.status,
+      );
+    }
+
+    return data as { image: ListingImage };
+  },
+
+  deleteImage: (listingId: string, imageId: string) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.delete<{ message: string }>(
+      `/listings/${listingId}/images/${imageId}`,
       token,
       BOOKING_URL,
     );
