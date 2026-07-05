@@ -1,8 +1,34 @@
+import { useEffect } from "react";
 import { Tabs } from "expo-router";
-import { Calendar, House, Search, User } from "lucide-react-native";
+import { Bell, Calendar, House, Search, User } from "lucide-react-native";
 import { theme } from "../../theme";
+import { notificationsApi } from "../../api/notifications";
+import { useNotificationsStore } from "../../store/notifications.store";
+
+const UNREAD_POLL_MS = 30000;
 
 export default function TabsLayout() {
+  const unreadCount = useNotificationsStore((s) => s.unreadCount);
+  const setUnreadCount = useNotificationsStore((s) => s.setUnreadCount);
+
+  useEffect(() => {
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const res = await notificationsApi.getUnreadCount();
+        if (!cancelled) setUnreadCount(res.count);
+      } catch {
+        // Badge is best-effort; the next poll retries.
+      }
+    };
+    poll();
+    const interval = setInterval(poll, UNREAD_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [setUnreadCount]);
+
   return (
     <Tabs
       screenOptions={{
@@ -35,6 +61,24 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <Calendar color={color} size={size} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          tabBarIcon: ({ color, size }) => <Bell color={color} size={size} />,
+          tabBarBadge:
+            unreadCount > 0
+              ? unreadCount > 99
+                ? "99+"
+                : unreadCount
+              : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: theme.colors.gold,
+            color: theme.colors.primaryForeground,
+            fontSize: theme.typography.size.xs,
+            fontFamily: theme.typography.font.bodySemibold,
+          },
         }}
       />
       <Tabs.Screen
