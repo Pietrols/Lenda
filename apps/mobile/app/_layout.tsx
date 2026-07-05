@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { Stack } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Stack, type ErrorBoundaryProps } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
@@ -23,6 +23,21 @@ import {
 } from "../lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
+
+// Catches render-time crashes anywhere in the app and shows a themed fallback
+// instead of a white screen. expo-router picks this up by the export name.
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return (
+    <View style={styles.errorRoot}>
+      <Text style={styles.wordmark}>LENDA</Text>
+      <Text style={styles.errorTitle}>Something went wrong</Text>
+      <Text style={styles.errorMessage}>{error.message}</Text>
+      <Pressable style={styles.retryButton} onPress={retry}>
+        <Text style={styles.retryText}>Try again</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 function HydrationScreen() {
   return (
@@ -132,5 +147,37 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.display,
     fontFamily: theme.typography.font.displayBlack,
     letterSpacing: theme.spacing.xs,
+  },
+  errorRoot: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    backgroundColor: theme.colors.background,
+  },
+  errorTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.xl,
+    fontFamily: theme.typography.font.displayBold,
+    textTransform: "uppercase",
+  },
+  errorMessage: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlign: "center",
+  },
+  retryButton: {
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.sm,
+  },
+  retryText: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.base,
+    fontFamily: theme.typography.font.bodySemibold,
   },
 });
