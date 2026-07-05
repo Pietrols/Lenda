@@ -19,6 +19,7 @@ import {
   Shield,
   ShieldCheck,
   UserPen,
+  Wallet,
 } from "lucide-react-native";
 import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
@@ -226,6 +227,23 @@ export default function ProfileScreen() {
                 color={theme.colors.gold}
               />
               <Text style={styles.navRowText}>My Listings</Text>
+              <ChevronRight
+                size={theme.typography.size.base}
+                color={theme.colors.mutedForeground}
+              />
+            </Pressable>
+          )}
+
+          {isHost && (
+            <Pressable
+              style={styles.navRow}
+              onPress={() => router.push("/float")}
+            >
+              <Wallet
+                size={theme.typography.size.base}
+                color={theme.colors.gold}
+              />
+              <Text style={styles.navRowText}>Float &amp; Earnings</Text>
               <ChevronRight
                 size={theme.typography.size.base}
                 color={theme.colors.mutedForeground}
