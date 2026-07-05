@@ -2,7 +2,54 @@ import { Platform } from "react-native";
 import Constants from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
+import { router } from "expo-router";
 import { deviceTokensApi } from "../api/deviceTokens";
+import { notificationsApi } from "../api/notifications";
+import { useNotificationsStore } from "../store/notifications.store";
+
+// Show pushes as banners even while the app is foregrounded; without a
+// handler, foreground notifications are silently dropped on iOS.
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: false,
+    shouldSetBadge: false,
+  }),
+});
+
+// Wire receipt + tap listeners. Returns a cleanup function; call once from
+// the root layout. The server does not send pushes yet, so the tap routing is
+// defensive about the payload: a bookingId in data deep-links to that booking,
+// anything else lands on the notifications tab.
+export function setupNotificationListeners(): () => void {
+  const received = Notifications.addNotificationReceivedListener(async () => {
+    try {
+      const res = await notificationsApi.getUnreadCount();
+      useNotificationsStore.getState().setUnreadCount(res.count);
+    } catch {
+      // Badge refresh is best-effort.
+    }
+  });
+
+  const responded = Notifications.addNotificationResponseReceivedListener(
+    (response) => {
+      const data = response.notification.request.content.data as
+        | { bookingId?: string }
+        | undefined;
+      if (data?.bookingId) {
+        router.push(`/booking/${data.bookingId}`);
+      } else {
+        router.push("/notifications");
+      }
+    },
+  );
+
+  return () => {
+    received.remove();
+    responded.remove();
+  };
+}
 
 // Acquire an Expo push token for this device. Returns the token string, or null
 // when it cannot be obtained (simulator, denied permission, or no EAS project
