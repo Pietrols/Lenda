@@ -110,6 +110,13 @@ export default function BookingDetailScreen() {
 
   const [declineMode, setDeclineMode] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
+  const [counterAmount, setCounterAmount] = useState("");
+  const [negotiationLoading, setNegotiationLoading] = useState<
+    "ACCEPT" | "COUNTER" | null
+  >(null);
+  const [negotiationError, setNegotiationError] = useState<string | null>(
+    null,
+  );
   const [myReview, setMyReview] = useState<Review | null>(null);
   const [reviewChecked, setReviewChecked] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
@@ -167,6 +174,48 @@ export default function BookingDetailScreen() {
     }
   };
 
+  const runAcceptOffer = async () => {
+    if (!id) return;
+    setNegotiationError(null);
+    setNegotiationLoading("ACCEPT");
+    try {
+      await bookingsApi.acceptOffer(id);
+      await fetchBooking();
+    } catch (err) {
+      setNegotiationError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not accept the offer. Please try again.",
+      );
+    } finally {
+      setNegotiationLoading(null);
+    }
+  };
+
+  const runCounter = async () => {
+    if (!id) return;
+    const amount = Number(counterAmount);
+    if (!counterAmount.trim() || Number.isNaN(amount) || amount <= 0) {
+      setNegotiationError("Please enter a valid counter amount.");
+      return;
+    }
+    setNegotiationError(null);
+    setNegotiationLoading("COUNTER");
+    try {
+      await bookingsApi.submitCounter(id, amount);
+      setCounterAmount("");
+      await fetchBooking();
+    } catch (err) {
+      setNegotiationError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not send your counter. Please try again.",
+      );
+    } finally {
+      setNegotiationLoading(null);
+    }
+  };
+
   const runHandoverConfirm = async (type: HandoverType) => {
     if (!id) return;
     setActionError(null);
@@ -198,6 +247,16 @@ export default function BookingDetailScreen() {
   const nextStep = booking
     ? progressionSteps[booking.listing.pillar][booking.status]
     : undefined;
+
+  const negotiationOpen =
+    !!booking && booking.isNegotiable && booking.status === "PENDING" && isParty;
+  const myNegotiationTurn =
+    !!booking && booking.lastActorId !== currentUserId;
+  const myCounters = booking
+    ? isHost
+      ? booking.hostCounterCount
+      : booking.guestCounterCount
+    : 0;
 
   const canReview =
     !!booking &&
@@ -393,6 +452,7 @@ export default function BookingDetailScreen() {
           </View>
 
           {booking.status === "PENDING" &&
+            !booking.isNegotiable &&
             currentUserId === booking.hostId && (
               <View style={styles.actionsCard}>
                 {declineMode ? (
@@ -490,6 +550,103 @@ export default function BookingDetailScreen() {
                 )}
               </View>
             )}
+
+          {negotiationOpen && (
+            <View style={styles.actionsCard}>
+              <Text style={styles.actionsLabel}>Negotiation</Text>
+              <View style={styles.offerRow}>
+                <Text style={styles.offerLabel}>Current offer</Text>
+                <Text style={styles.offerValue}>
+                  {booking.currency}{" "}
+                  {booking.currentOffer
+                    ? Number(booking.currentOffer).toLocaleString()
+                    : "--"}
+                </Text>
+              </View>
+              {booking.budgetMin && (
+                <Text style={styles.negotiationMeta}>
+                  Guest budget: {booking.currency}{" "}
+                  {Number(booking.budgetMin).toLocaleString()} -{" "}
+                  {Number(booking.budgetMax ?? 0).toLocaleString()}
+                </Text>
+              )}
+              <Text style={styles.negotiationMeta}>
+                Counters used: you {myCounters}/2, other party{" "}
+                {isHost
+                  ? booking.guestCounterCount
+                  : booking.hostCounterCount}
+                /2
+              </Text>
+              {booking.negotiationExpiresAt && (
+                <Text style={styles.negotiationMeta}>
+                  Respond by {formatDate(booking.negotiationExpiresAt)}
+                </Text>
+              )}
+
+              {myNegotiationTurn ? (
+                <>
+                  <Pressable
+                    style={[
+                      styles.progressButton,
+                      negotiationLoading !== null && styles.buttonDisabled,
+                    ]}
+                    onPress={runAcceptOffer}
+                    disabled={negotiationLoading !== null}
+                  >
+                    {negotiationLoading === "ACCEPT" ? (
+                      <ActivityIndicator
+                        color={theme.colors.primaryForeground}
+                      />
+                    ) : (
+                      <Text style={styles.confirmButtonText}>
+                        Accept offer
+                      </Text>
+                    )}
+                  </Pressable>
+
+                  {myCounters < 2 ? (
+                    <View style={styles.counterRow}>
+                      <TextInput
+                        value={counterAmount}
+                        onChangeText={setCounterAmount}
+                        placeholder="Counter amount"
+                        placeholderTextColor={theme.colors.mutedForeground}
+                        keyboardType="numeric"
+                        style={styles.counterInput}
+                      />
+                      <Pressable
+                        style={[
+                          styles.counterButton,
+                          negotiationLoading !== null && styles.buttonDisabled,
+                        ]}
+                        onPress={runCounter}
+                        disabled={negotiationLoading !== null}
+                      >
+                        {negotiationLoading === "COUNTER" ? (
+                          <ActivityIndicator color={theme.colors.gold} />
+                        ) : (
+                          <Text style={styles.counterButtonText}>Counter</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Text style={styles.negotiationMeta}>
+                      You have used all your counters - accept the offer or
+                      let the negotiation expire.
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <Text style={styles.negotiationMeta}>
+                  Waiting for the other party to accept or counter your
+                  offer.
+                </Text>
+              )}
+              {negotiationError && (
+                <Text style={styles.actionErrorText}>{negotiationError}</Text>
+              )}
+            </View>
+          )}
 
           {isParty && nextStep && (
             <View style={styles.actionsCard}>
@@ -865,6 +1022,56 @@ const styles = StyleSheet.create({
   },
   handoverStateConfirmed: {
     color: theme.colors.success,
+  },
+  offerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  offerLabel: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  offerValue: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xl,
+    fontFamily: theme.typography.font.displayBold,
+  },
+  negotiationMeta: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  counterRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  counterInput: {
+    flex: 1,
+    height: theme.spacing.xxl,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  counterButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    height: theme.spacing.xxl,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.gold,
+  },
+  counterButtonText: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
   },
   reviewCommentText: {
     color: theme.colors.mutedForeground,
