@@ -4,12 +4,17 @@ import { Bell, Calendar, House, Search, User } from "lucide-react-native";
 import { theme } from "../../theme";
 import { notificationsApi } from "../../api/notifications";
 import { useNotificationsStore } from "../../store/notifications.store";
+import { refreshUserProfile } from "../../lib/user-refresh";
 
 const UNREAD_POLL_MS = 30000;
 
 export default function TabsLayout() {
   const unreadCount = useNotificationsStore((s) => s.unreadCount);
   const setUnreadCount = useNotificationsStore((s) => s.setUnreadCount);
+
+  useEffect(() => {
+    refreshUserProfile();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

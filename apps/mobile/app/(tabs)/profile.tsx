@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -7,7 +7,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import {
   Briefcase,
   ChevronRight,
@@ -21,6 +21,7 @@ import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
 import { upgradeToHost } from "../../lib/role-upgrade";
 import { unregisterPushToken } from "../../lib/notifications";
+import { refreshUserProfile } from "../../lib/user-refresh";
 
 const kycColors: Record<string, string> = {
   APPROVED: theme.colors.success,
@@ -59,6 +60,12 @@ export default function ProfileScreen() {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshUserProfile();
+    }, []),
+  );
 
   const handleBecomeHost = async () => {
     setUpgradeError(null);
