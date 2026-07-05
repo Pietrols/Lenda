@@ -18,6 +18,12 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Keep the app icon badge in sync with the in-app unread count (set by the
+// tab bar poll and zeroed when the notifications list is opened).
+useNotificationsStore.subscribe((state) => {
+  Notifications.setBadgeCountAsync(state.unreadCount).catch(() => {});
+});
+
 // Wire receipt + tap listeners. Returns a cleanup function; call once from
 // the root layout. The server does not send pushes yet, so the tap routing is
 // defensive about the payload: a bookingId in data deep-links to that booking,
@@ -129,6 +135,7 @@ export async function unregisterPushToken(): Promise<void> {
     );
 
     await deviceTokensApi.remove(tokenResponse.data);
+    await Notifications.setBadgeCountAsync(0).catch(() => {});
     console.log("[push] Device token removed from backend.");
   } catch (err) {
     console.log(
