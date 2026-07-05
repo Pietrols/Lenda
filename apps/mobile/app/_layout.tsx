@@ -118,6 +118,7 @@ export default function RootLayout() {
           <Stack.Screen name="subscription" />
           <Stack.Screen name="history" />
           <Stack.Screen name="saved" />
+          <Stack.Screen name="chat/[bookingId]" />
         </Stack.Protected>
         <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="login" />

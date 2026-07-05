@@ -17,6 +17,7 @@ import {
   CircleCheck,
   ImageOff,
   MapPin,
+  MessageCircle,
 } from "lucide-react-native";
 import { CreateReviewSchema } from "@lenda/schemas";
 import { theme } from "../../theme";
@@ -439,6 +440,29 @@ export default function BookingDetailScreen() {
 
           <View style={styles.statusRow}>
             <BookingStatusBadge status={booking.status} />
+            {isParty && (
+              <Pressable
+                style={styles.chatButton}
+                onPress={() =>
+                  router.push({
+                    pathname: "/chat/[bookingId]",
+                    params: {
+                      bookingId: booking.id,
+                      title: isHost ? "Message guest" : "Message host",
+                    },
+                  })
+                }
+                hitSlop={6}
+              >
+                <MessageCircle
+                  size={theme.typography.size.base}
+                  color={theme.colors.gold}
+                />
+                <Text style={styles.chatButtonText}>
+                  {isHost ? "Message guest" : "Message host"}
+                </Text>
+              </Pressable>
+            )}
           </View>
 
           <View style={styles.summaryCard}>
@@ -1098,6 +1122,23 @@ const styles = StyleSheet.create({
   },
   statusRow: {
     flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  chatButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  chatButtonText: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
   },
   summaryCard: {
     backgroundColor: theme.colors.card,
