@@ -88,6 +88,9 @@ export default function BrowseScreen() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [pillar, setPillar] = useState<ListingPillar | undefined>(undefined);
   const [search, setSearch] = useState("");
@@ -112,6 +115,8 @@ export default function BrowseScreen() {
           search: debouncedSearch || undefined,
         });
         setListings(res.listings);
+        setPage(res.pagination.page);
+        setTotalPages(res.pagination.pages);
       } catch (err) {
         setError(
           err instanceof ApiError
@@ -129,6 +134,25 @@ export default function BrowseScreen() {
   useEffect(() => {
     fetchListings();
   }, [fetchListings]);
+
+  const loadMore = async () => {
+    if (page >= totalPages || isLoadingMore || isLoading) return;
+    setIsLoadingMore(true);
+    try {
+      const res = await listingsApi.getAll({
+        pillar,
+        search: debouncedSearch || undefined,
+        page: page + 1,
+      });
+      setListings((prev) => [...prev, ...res.listings]);
+      setPage(res.pagination.page);
+      setTotalPages(res.pagination.pages);
+    } catch {
+      // Pagination failures are silent; pull-to-refresh recovers.
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -197,6 +221,13 @@ export default function BrowseScreen() {
           }
           ListEmptyComponent={
             <Text style={styles.stateText}>No listings yet.</Text>
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <Text style={styles.stateText}>Loading more...</Text>
+            ) : null
           }
           refreshControl={
             <RefreshControl
