@@ -21,6 +21,7 @@ import {
   ArrowLeft,
   BadgeCheck,
   Calendar,
+  Heart,
   ImageOff,
   MapPin,
   Navigation,
@@ -33,6 +34,7 @@ import { theme } from "../../theme";
 import { listingsApi, type ListingDetail } from "../../api/listings";
 import { bookingsApi, type Booking } from "../../api/bookings";
 import { reviewsApi, type ListingReview } from "../../api/reviews";
+import { likesApi } from "../../api/likes";
 import { ApiError, SessionExpiredError } from "../../api/client";
 import { StarRating } from "../../components/StarRating";
 import { ErrorState } from "../../components/ErrorState";
@@ -155,6 +157,45 @@ export default function ListingDetailScreen() {
   const [reviews, setReviews] = useState<ListingReview[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    likesApi
+      .getCount(id)
+      .then((res) => {
+        if (!cancelled) setLikeCount(res.count);
+      })
+      .catch(() => {});
+    likesApi
+      .getMyListings()
+      .then((res) => {
+        if (!cancelled) {
+          setLiked(res.likes.some((like) => like.targetId === id));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const toggleLike = async () => {
+    if (!id) return;
+    // Optimistic flip; revert on failure.
+    const next = !liked;
+    setLiked(next);
+    setLikeCount((count) => Math.max(0, count + (next ? 1 : -1)));
+    try {
+      const res = await likesApi.toggle(id);
+      setLiked(res.liked);
+    } catch {
+      setLiked(!next);
+      setLikeCount((count) => Math.max(0, count + (next ? -1 : 1)));
+    }
+  };
 
   const [bookingOpen, setBookingOpen] = useState(false);
   const [startDate, setStartDate] = useState<Date>(() => daysAfterToday(1));
@@ -317,19 +358,33 @@ export default function ListingDetailScreen() {
           <Text style={styles.headerTitle}>Listing</Text>
         </View>
         {listing && (
-          <Pressable
-            onPress={() =>
-              Share.share({
-                message: `${listing.title} on Lenda - https://lenda.work/listings/${listing.id}`,
-              }).catch(() => {})
-            }
-            hitSlop={8}
-          >
-            <Share2
-              size={theme.typography.size.xl}
-              color={theme.colors.gold}
-            />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <Pressable onPress={toggleLike} hitSlop={8}>
+              <View style={styles.likeWrap}>
+                <Heart
+                  size={theme.typography.size.xl}
+                  color={liked ? theme.colors.gold : theme.colors.mutedForeground}
+                  fill={liked ? theme.colors.gold : "transparent"}
+                />
+                {likeCount > 0 && (
+                  <Text style={styles.likeCount}>{likeCount}</Text>
+                )}
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={() =>
+                Share.share({
+                  message: `${listing.title} on Lenda - https://lenda.work/listings/${listing.id}`,
+                }).catch(() => {})
+              }
+              hitSlop={8}
+            >
+              <Share2
+                size={theme.typography.size.xl}
+                color={theme.colors.gold}
+              />
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -733,6 +788,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: theme.spacing.md,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.lg,
+  },
+  likeWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+  },
+  likeCount: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
   },
   headerTitle: {
     color: theme.colors.foreground,

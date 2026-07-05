@@ -16,6 +16,7 @@ import {
   Crown,
   Eye,
   FileText,
+  Heart,
   History,
   LogOut,
   ListChecks,
@@ -236,6 +237,21 @@ export default function ProfileScreen() {
               />
             </Pressable>
           )}
+
+          <Pressable
+            style={styles.navRow}
+            onPress={() => router.push("/saved")}
+          >
+            <Heart
+              size={theme.typography.size.base}
+              color={theme.colors.gold}
+            />
+            <Text style={styles.navRowText}>Saved Listings</Text>
+            <ChevronRight
+              size={theme.typography.size.base}
+              color={theme.colors.mutedForeground}
+            />
+          </Pressable>
 
           <Pressable
             style={styles.navRow}

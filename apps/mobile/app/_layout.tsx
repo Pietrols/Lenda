@@ -117,6 +117,7 @@ export default function RootLayout() {
           <Stack.Screen name="float" />
           <Stack.Screen name="subscription" />
           <Stack.Screen name="history" />
+          <Stack.Screen name="saved" />
         </Stack.Protected>
         <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="login" />
