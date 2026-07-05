@@ -90,6 +90,10 @@ function refreshAccessToken(): Promise<AuthTokens | null> {
   return refreshPromise;
 }
 
+// Abort requests that hang (unreachable LAN dev server, dead network) instead
+// of letting fetch wait indefinitely.
+const REQUEST_TIMEOUT_MS = 15000;
+
 async function request<T>(
   path: string,
   options: RequestOptions = {},
@@ -103,11 +107,28 @@ async function request<T>(
 
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${baseURL}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(`${baseURL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    const aborted = err instanceof Error && err.name === "AbortError";
+    throw new ApiError(
+      aborted
+        ? "The request timed out. Please check your connection and try again."
+        : "Could not reach the server. Please check your connection and try again.",
+      0,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
 
   // Token expired - try to refresh once. Concurrent 401s share a single
   // refresh via refreshAccessToken().
