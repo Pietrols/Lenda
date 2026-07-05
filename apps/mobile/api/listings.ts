@@ -93,6 +93,9 @@ export type GetListingsParams = {
   pillar?: ListingPillar;
   category?: string;
   search?: string;
+  location?: string;
+  minPrice?: number;
+  maxPrice?: number;
   page?: number;
 };
 
@@ -102,6 +105,11 @@ export const listingsApi = {
     if (params.pillar) query.set("pillar", params.pillar);
     if (params.category) query.set("category", params.category);
     if (params.search) query.set("search", params.search);
+    if (params.location) query.set("location", params.location);
+    if (params.minPrice !== undefined)
+      query.set("minPrice", String(params.minPrice));
+    if (params.maxPrice !== undefined)
+      query.set("maxPrice", String(params.maxPrice));
     if (params.page) query.set("page", String(params.page));
 
     const qs = query.toString();

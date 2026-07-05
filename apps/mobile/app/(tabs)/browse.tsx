@@ -11,7 +11,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ImageOff, MapPin, Search } from "lucide-react-native";
+import {
+  ImageOff,
+  MapPin,
+  Search,
+  SlidersHorizontal,
+} from "lucide-react-native";
 import { theme } from "../../theme";
 import {
   listingsApi,
@@ -95,11 +100,45 @@ export default function BrowseScreen() {
   const [pillar, setPillar] = useState<ListingPillar | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [filtersVisible, setFiltersVisible] = useState(false);
+  const [locationFilter, setLocationFilter] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    location: "",
+    min: "",
+    max: "",
+  });
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search.trim()), 400);
     return () => clearTimeout(timer);
   }, [search]);
+
+  useEffect(() => {
+    const timer = setTimeout(
+      () =>
+        setDebouncedFilters({
+          location: locationFilter.trim(),
+          min: minPrice.trim(),
+          max: maxPrice.trim(),
+        }),
+      500,
+    );
+    return () => clearTimeout(timer);
+  }, [locationFilter, minPrice, maxPrice]);
+
+  const filterParams = {
+    location: debouncedFilters.location || undefined,
+    minPrice:
+      debouncedFilters.min && Number(debouncedFilters.min) > 0
+        ? Number(debouncedFilters.min)
+        : undefined,
+    maxPrice:
+      debouncedFilters.max && Number(debouncedFilters.max) > 0
+        ? Number(debouncedFilters.max)
+        : undefined,
+  };
 
   const fetchListings = useCallback(
     async (refreshing = false) => {
@@ -113,6 +152,7 @@ export default function BrowseScreen() {
         const res = await listingsApi.getAll({
           pillar,
           search: debouncedSearch || undefined,
+          ...filterParams,
         });
         setListings(res.listings);
         setPage(res.pagination.page);
@@ -128,7 +168,9 @@ export default function BrowseScreen() {
         setIsRefreshing(false);
       }
     },
-    [pillar, debouncedSearch],
+    // filterParams derives from debouncedFilters, so that is the real dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pillar, debouncedSearch, debouncedFilters],
   );
 
   useEffect(() => {
@@ -142,6 +184,7 @@ export default function BrowseScreen() {
       const res = await listingsApi.getAll({
         pillar,
         search: debouncedSearch || undefined,
+        ...filterParams,
         page: page + 1,
       });
       setListings((prev) => [...prev, ...res.listings]);
@@ -174,7 +217,45 @@ export default function BrowseScreen() {
           returnKeyType="search"
           style={styles.searchInput}
         />
+        <Pressable onPress={() => setFiltersVisible((v) => !v)} hitSlop={6}>
+          <SlidersHorizontal
+            size={theme.typography.size.base}
+            color={
+              filtersVisible || filterParams.location || filterParams.minPrice
+                ? theme.colors.gold
+                : theme.colors.mutedForeground
+            }
+          />
+        </Pressable>
       </View>
+
+      {filtersVisible && (
+        <View style={styles.advancedFilters}>
+          <TextInput
+            value={locationFilter}
+            onChangeText={setLocationFilter}
+            placeholder="Location"
+            placeholderTextColor={theme.colors.mutedForeground}
+            style={[styles.filterInput, styles.filterInputWide]}
+          />
+          <TextInput
+            value={minPrice}
+            onChangeText={setMinPrice}
+            placeholder="Min"
+            placeholderTextColor={theme.colors.mutedForeground}
+            keyboardType="numeric"
+            style={styles.filterInput}
+          />
+          <TextInput
+            value={maxPrice}
+            onChangeText={setMaxPrice}
+            placeholder="Max"
+            placeholderTextColor={theme.colors.mutedForeground}
+            keyboardType="numeric"
+            style={styles.filterInput}
+          />
+        </View>
+      )}
 
       <View style={styles.filterRow}>
         {pillarFilters.map((filter) => {
@@ -277,6 +358,27 @@ const styles = StyleSheet.create({
     color: theme.colors.foreground,
     fontSize: theme.typography.size.sm,
     fontFamily: theme.typography.font.bodyRegular,
+  },
+  advancedFilters: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+  },
+  filterInput: {
+    flex: 1,
+    height: theme.spacing.xxl,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  filterInputWide: {
+    flex: 2,
   },
   filterRow: {
     flexDirection: "row",
