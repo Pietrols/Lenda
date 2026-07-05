@@ -96,6 +96,10 @@ export type GetListingsParams = {
   location?: string;
   minPrice?: number;
   maxPrice?: number;
+  // ISO datetimes; when both are set the server excludes listings that have
+  // a conflicting booking in that range.
+  startDate?: string;
+  endDate?: string;
   page?: number;
 };
 
@@ -110,6 +114,8 @@ export const listingsApi = {
       query.set("minPrice", String(params.minPrice));
     if (params.maxPrice !== undefined)
       query.set("maxPrice", String(params.maxPrice));
+    if (params.startDate) query.set("startDate", params.startDate);
+    if (params.endDate) query.set("endDate", params.endDate);
     if (params.page) query.set("page", String(params.page));
 
     const qs = query.toString();

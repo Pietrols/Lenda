@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Image,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import {
@@ -16,6 +18,7 @@ import {
   MapPin,
   Search,
   SlidersHorizontal,
+  X,
 } from "lucide-react-native";
 import { theme } from "../../theme";
 import {
@@ -43,6 +46,68 @@ function primaryImageUrl(listing: Listing): string | null {
 
 function formatPrice(listing: Listing): string {
   return `${listing.currency} ${Number(listing.pricePerDay).toLocaleString()}/day`;
+}
+
+function atUtcMorning(date: Date): string {
+  return new Date(
+    Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), 8, 0, 0),
+  ).toISOString();
+}
+
+// Compact availability date field: inline compact picker on iOS, pressable
+// opening the dialog picker on Android (same split as the booking modal).
+function DateFilterField({
+  label,
+  value,
+  minimumDate,
+  onChange,
+}: {
+  label: string;
+  value: Date | null;
+  minimumDate: Date;
+  onChange: (date: Date) => void;
+}) {
+  const [show, setShow] = useState(false);
+
+  if (Platform.OS === "ios") {
+    return (
+      <View style={styles.dateFilterField}>
+        <Text style={styles.dateFilterLabel}>{label}</Text>
+        <DateTimePicker
+          value={value ?? minimumDate}
+          mode="date"
+          display="compact"
+          minimumDate={minimumDate}
+          themeVariant="dark"
+          accentColor={theme.colors.gold}
+          onChange={(_, date) => date && onChange(date)}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.dateFilterField}>
+      <Text style={styles.dateFilterLabel}>{label}</Text>
+      <Pressable style={styles.dateFilterButton} onPress={() => setShow(true)}>
+        <Text style={styles.dateFilterText}>
+          {value ? value.toDateString() : "Any"}
+        </Text>
+      </Pressable>
+      {show && (
+        <DateTimePicker
+          value={value ?? minimumDate}
+          mode="date"
+          display="default"
+          minimumDate={minimumDate}
+          onChange={(_, date) => {
+            setShow(false);
+            if (date) onChange(date);
+          }}
+        />
+      )}
+    </View>
+  );
 }
 
 function ListingCard({
@@ -130,7 +195,16 @@ export default function BrowseScreen() {
     return () => clearTimeout(timer);
   }, [locationFilter, minPrice, maxPrice]);
 
+  const [availFrom, setAvailFrom] = useState<Date | null>(null);
+  const [availTo, setAvailTo] = useState<Date | null>(null);
+
   const filterParams = {
+    ...(availFrom && availTo
+      ? {
+          startDate: atUtcMorning(availFrom),
+          endDate: atUtcMorning(availTo),
+        }
+      : {}),
     location: debouncedFilters.location || undefined,
     minPrice:
       debouncedFilters.min && Number(debouncedFilters.min) > 0
@@ -170,9 +244,10 @@ export default function BrowseScreen() {
         setIsRefreshing(false);
       }
     },
-    // filterParams derives from debouncedFilters, so that is the real dep.
+    // filterParams derives from debouncedFilters and the availability dates,
+    // so those are the real deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pillar, debouncedSearch, debouncedFilters],
+    [pillar, debouncedSearch, debouncedFilters, availFrom, availTo],
   );
 
   useEffect(() => {
@@ -256,6 +331,38 @@ export default function BrowseScreen() {
             keyboardType="numeric"
             style={styles.filterInput}
           />
+        </View>
+      )}
+
+      {filtersVisible && (
+        <View style={styles.advancedFilters}>
+          <DateFilterField
+            label="From"
+            value={availFrom}
+            minimumDate={new Date()}
+            onChange={setAvailFrom}
+          />
+          <DateFilterField
+            label="To"
+            value={availTo}
+            minimumDate={availFrom ?? new Date()}
+            onChange={setAvailTo}
+          />
+          {(availFrom || availTo) && (
+            <Pressable
+              onPress={() => {
+                setAvailFrom(null);
+                setAvailTo(null);
+              }}
+              hitSlop={6}
+              style={styles.dateClear}
+            >
+              <X
+                size={theme.typography.size.base}
+                color={theme.colors.mutedForeground}
+              />
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -381,6 +488,35 @@ const styles = StyleSheet.create({
   },
   filterInputWide: {
     flex: 2,
+  },
+  dateFilterField: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  dateFilterLabel: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyMedium,
+  },
+  dateFilterButton: {
+    flex: 1,
+    height: theme.spacing.xl + theme.spacing.sm,
+    justifyContent: "center",
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  dateFilterText: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  dateClear: {
+    alignSelf: "center",
   },
   filterRow: {
     flexDirection: "row",
