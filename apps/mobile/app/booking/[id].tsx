@@ -124,8 +124,10 @@ export default function BookingDetailScreen() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<
-    "CONFIRM" | "DECLINE" | "PROGRESS" | "HANDOVER" | null
+    "CONFIRM" | "DECLINE" | "PROGRESS" | "HANDOVER" | "CANCEL" | null
   >(null);
+  const [cancelMode, setCancelMode] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchBooking = useCallback(async () => {
@@ -152,7 +154,7 @@ export default function BookingDetailScreen() {
 
   const runTransition = async (
     status: BookingStatus,
-    loadingKey: "CONFIRM" | "DECLINE" | "PROGRESS",
+    loadingKey: "CONFIRM" | "DECLINE" | "PROGRESS" | "CANCEL",
     reason?: string,
   ) => {
     if (!id) return;
@@ -162,6 +164,8 @@ export default function BookingDetailScreen() {
       await bookingsApi.updateStatus(id, status, reason);
       setDeclineMode(false);
       setDeclineReason("");
+      setCancelMode(false);
+      setCancelReason("");
       await fetchBooking();
     } catch (err) {
       setActionError(
@@ -257,6 +261,16 @@ export default function BookingDetailScreen() {
       ? booking.hostCounterCount
       : booking.guestCounterCount
     : 0;
+
+  // Cancellation is penalty-free before ACTIVE per the platform terms; the
+  // non-negotiable PENDING host already has the Decline action, so this block
+  // covers everyone else the server permits.
+  const canCancel =
+    !!booking &&
+    isParty &&
+    (booking.status === "CONFIRMED" ||
+      (booking.status === "PENDING" &&
+        !(isHost && !booking.isNegotiable)));
 
   const canReview =
     !!booking &&
@@ -741,6 +755,84 @@ export default function BookingDetailScreen() {
                         : "Confirm return"}
                     </Text>
                   )}
+                </Pressable>
+              )}
+              {actionError && (
+                <Text style={styles.actionErrorText}>{actionError}</Text>
+              )}
+            </View>
+          )}
+
+          {canCancel && (
+            <View style={styles.actionsCard}>
+              {cancelMode ? (
+                <>
+                  <Text style={styles.actionsLabel}>
+                    Reason for cancelling
+                  </Text>
+                  <TextInput
+                    value={cancelReason}
+                    onChangeText={setCancelReason}
+                    placeholder="Let the other party know why"
+                    placeholderTextColor={theme.colors.mutedForeground}
+                    multiline
+                    numberOfLines={3}
+                    style={styles.reasonInput}
+                  />
+                  <View style={styles.actionRow}>
+                    <Pressable
+                      style={styles.secondaryButton}
+                      onPress={() => {
+                        setCancelMode(false);
+                        setCancelReason("");
+                        setActionError(null);
+                      }}
+                      disabled={actionLoading !== null}
+                    >
+                      <Text style={styles.secondaryButtonText}>Back</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.declineButton,
+                        (actionLoading !== null ||
+                          cancelReason.trim().length === 0) &&
+                          styles.buttonDisabled,
+                      ]}
+                      onPress={() =>
+                        runTransition(
+                          "CANCELLED",
+                          "CANCEL",
+                          cancelReason.trim(),
+                        )
+                      }
+                      disabled={
+                        actionLoading !== null ||
+                        cancelReason.trim().length === 0
+                      }
+                    >
+                      {actionLoading === "CANCEL" ? (
+                        <ActivityIndicator color={theme.colors.error} />
+                      ) : (
+                        <Text style={styles.declineButtonText}>
+                          Confirm cancellation
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <Pressable
+                  style={[
+                    styles.declineButton,
+                    actionLoading !== null && styles.buttonDisabled,
+                  ]}
+                  onPress={() => {
+                    setCancelMode(true);
+                    setActionError(null);
+                  }}
+                  disabled={actionLoading !== null}
+                >
+                  <Text style={styles.declineButtonText}>Cancel booking</Text>
                 </Pressable>
               )}
               {actionError && (
