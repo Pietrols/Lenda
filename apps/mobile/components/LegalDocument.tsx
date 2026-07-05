@@ -22,7 +22,19 @@ export function LegalDocument({
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={8}>
+        <Pressable
+          onPress={() => {
+            // These screens can be the entry point (deep link or cold start
+            // with no session), in which case there is no history to pop —
+            // fall back to the root so the auth guards route appropriately.
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/");
+            }
+          }}
+          hitSlop={8}
+        >
           <ArrowLeft
             size={theme.typography.size.xxl}
             color={theme.colors.foreground}

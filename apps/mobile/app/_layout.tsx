@@ -104,12 +104,6 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: theme.colors.background },
         }}
       >
-        {/* Public legal screens: ungated so they are reachable both before
-            login (during registration) and while authenticated (from Profile).
-            Placing them inside a guard group would make them unavailable in the
-            other auth state. */}
-        <Stack.Screen name="terms" />
-        <Stack.Screen name="privacy" />
         <Stack.Protected guard={isAuthenticated}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="listing/[id]" />
@@ -130,6 +124,14 @@ export default function RootLayout() {
           <Stack.Screen name="verify-email" />
           <Stack.Screen name="reset-password" />
         </Stack.Protected>
+        {/* Public legal screens: ungated so they are reachable both before
+            login (during registration) and while authenticated (from Profile).
+            They MUST be declared after the guarded groups: when the initial
+            URL targets an unavailable guarded screen, expo-router falls back
+            to the first available screen in declaration order, and that must
+            be (tabs) or login, never terms. */}
+        <Stack.Screen name="terms" />
+        <Stack.Screen name="privacy" />
       </Stack>
     </SafeAreaProvider>
   );
