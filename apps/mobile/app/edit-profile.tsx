@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -12,8 +13,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { UpdateProfileSchema } from "@lenda/schemas";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, Camera } from "lucide-react-native";
 import { theme } from "../theme";
 import { authApi } from "../api/auth";
 import { ApiError } from "../api/client";
@@ -32,6 +34,53 @@ export default function EditProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+
+  const initials = (user?.fullName ?? user?.email ?? "U")
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const pickPhoto = async () => {
+    setPhotoError(null);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setPhotoError(
+        "Photo library access is needed to pick an image. You can enable it in your device settings.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+      allowsEditing: true,
+      aspect: [1, 1],
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+
+    setIsUploadingPhoto(true);
+    try {
+      const res = await authApi.uploadProfilePhoto({
+        uri: asset.uri,
+        name: asset.fileName ?? "avatar.jpg",
+        mimeType: asset.mimeType ?? "image/jpeg",
+      });
+      updateUser(res.user);
+    } catch (err) {
+      setPhotoError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not upload your photo. Please try again.",
+      );
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const save = async () => {
     setFormError(null);
@@ -89,6 +138,39 @@ export default function EditProfileScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.avatarSection}>
+            {user?.photoUrl ? (
+              <Image source={{ uri: user.photoUrl }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarFallback]}>
+                <Text style={styles.avatarInitials}>{initials}</Text>
+              </View>
+            )}
+            <Pressable
+              style={[
+                styles.photoButton,
+                isUploadingPhoto && styles.saveButtonDisabled,
+              ]}
+              onPress={pickPhoto}
+              disabled={isUploadingPhoto}
+            >
+              {isUploadingPhoto ? (
+                <ActivityIndicator color={theme.colors.gold} />
+              ) : (
+                <>
+                  <Camera
+                    size={theme.typography.size.sm}
+                    color={theme.colors.gold}
+                  />
+                  <Text style={styles.photoButtonText}>
+                    {user?.photoUrl ? "Change photo" : "Add photo"}
+                  </Text>
+                </>
+              )}
+            </Pressable>
+            {photoError && <Text style={styles.photoErrorText}>{photoError}</Text>}
+          </View>
+
           <View style={styles.field}>
             <Text style={styles.label}>Full name</Text>
             <TextInput
@@ -184,6 +266,48 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: theme.spacing.lg,
     gap: theme.spacing.md,
+  },
+  avatarSection: {
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  avatar: {
+    width: theme.spacing.xxl * 2,
+    height: theme.spacing.xxl * 2,
+    borderRadius: theme.radius.pill,
+  },
+  avatarFallback: {
+    backgroundColor: theme.colors.secondary,
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xxl,
+    fontFamily: theme.typography.font.displayBold,
+  },
+  photoButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.xs,
+    borderColor: theme.colors.gold,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  photoButtonText: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  photoErrorText: {
+    color: theme.colors.error,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlign: "center",
   },
   field: {
     gap: theme.spacing.xs,

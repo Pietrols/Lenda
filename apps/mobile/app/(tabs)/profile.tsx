@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -94,9 +95,13 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials}</Text>
-        </View>
+        {user?.photoUrl ? (
+          <Image source={{ uri: user.photoUrl }} style={styles.avatarPhoto} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initials}</Text>
+          </View>
+        )}
 
         <Text style={styles.name}>{user?.fullName ?? user?.email}</Text>
         {user?.fullName && <Text style={styles.email}>{user.email}</Text>}
@@ -284,6 +289,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: theme.spacing.sm,
+  },
+  avatarPhoto: {
+    width: theme.spacing.xxl + theme.spacing.lg,
+    height: theme.spacing.xxl + theme.spacing.lg,
+    borderRadius: theme.radius.pill,
     marginBottom: theme.spacing.sm,
   },
   avatarText: {

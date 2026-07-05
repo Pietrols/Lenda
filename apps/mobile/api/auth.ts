@@ -1,5 +1,5 @@
 import type { UpdateProfileInput } from "@lenda/schemas";
-import { api, AUTH_URL } from "./client";
+import { api, ApiError, AUTH_URL } from "./client";
 import { useAuthStore } from "../store/auth.store";
 import type { AuthUser, AuthTokens } from "../store/auth.store";
 
@@ -53,6 +53,48 @@ export const authApi = {
       token,
       AUTH_URL,
     );
+  },
+
+  // Multipart upload (field name "photo" per the multer route config); the
+  // JSON api client cannot send FormData, so this uses fetch directly, the
+  // same pattern as the KYC document upload.
+  uploadProfilePhoto: async (file: {
+    uri: string;
+    name: string;
+    mimeType: string;
+  }): Promise<{ user: AuthUser }> => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+
+    const formData = new FormData();
+    formData.append("photo", {
+      uri: file.uri,
+      name: file.name,
+      type: file.mimeType,
+    } as unknown as Blob);
+
+    const res = await fetch(`${AUTH_URL}/profiles/me/photo`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    let data: unknown = null;
+    const text = await res.text();
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      data = null;
+    }
+
+    if (!res.ok) {
+      const errBody = data as { message?: string } | null;
+      throw new ApiError(
+        errBody?.message ?? `Upload failed (${res.status})`,
+        res.status,
+      );
+    }
+
+    return data as { user: AuthUser };
   },
 
   addRole: (role: string) => {
