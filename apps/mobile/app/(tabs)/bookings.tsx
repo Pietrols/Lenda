@@ -14,6 +14,7 @@ import { ImageOff } from "lucide-react-native";
 import { theme } from "../../theme";
 import { bookingsApi, type BookingListItem } from "../../api/bookings";
 import { ApiError } from "../../api/client";
+import { useAuthStore } from "../../store/auth.store";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
 import { ErrorState } from "../../components/ErrorState";
 import { RowCardSkeleton } from "../../components/Skeleton";
@@ -68,8 +69,21 @@ function BookingCard({
   );
 }
 
+type RoleSegment = "ALL" | "GUEST" | "HOST";
+
+const segments: { value: RoleSegment; label: string }[] = [
+  { value: "ALL", label: "All" },
+  { value: "GUEST", label: "As guest" },
+  { value: "HOST", label: "As host" },
+];
+
 export default function BookingsScreen() {
   const router = useRouter();
+  const userId = useAuthStore((s) => s.user?.id);
+  const isHost = useAuthStore(
+    (s) => s.user?.roles.includes("HOST") ?? false,
+  );
+  const [segment, setSegment] = useState<RoleSegment>("ALL");
   const [bookings, setBookings] = useState<BookingListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -107,6 +121,30 @@ export default function BookingsScreen() {
         <Text style={styles.title}>Bookings</Text>
       </View>
 
+      {isHost && (
+        <View style={styles.segmentRow}>
+          {segments.map((option) => (
+            <Pressable
+              key={option.value}
+              onPress={() => setSegment(option.value)}
+              style={[
+                styles.segmentPill,
+                segment === option.value && styles.segmentPillActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  segment === option.value && styles.segmentTextActive,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       {isLoading ? (
         <View style={styles.listContent}>
           <RowCardSkeleton />
@@ -118,7 +156,13 @@ export default function BookingsScreen() {
         <ErrorState message={error} onRetry={() => fetchBookings()} />
       ) : (
         <FlatList
-          data={bookings}
+          data={bookings.filter((booking) =>
+            segment === "ALL"
+              ? true
+              : segment === "GUEST"
+                ? booking.guestId === userId
+                : booking.hostId === userId,
+          )}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <BookingCard
@@ -163,6 +207,31 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.xl,
     fontFamily: theme.typography.font.displayBold,
     textTransform: "uppercase",
+  },
+  segmentRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+  },
+  segmentPill: {
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.pill,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  segmentPillActive: {
+    backgroundColor: theme.colors.gold,
+    borderColor: theme.colors.gold,
+  },
+  segmentText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  segmentTextActive: {
+    color: theme.colors.primaryForeground,
   },
   center: {
     flex: 1,
