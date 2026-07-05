@@ -22,13 +22,23 @@ import type {
   KycStatus,
 } from "@lenda/types";
 
+// Email handling is case-insensitive: addresses are stored lowercase and every
+// lookup normalizes its input the same way, so "Peter@x.com" and "peter@x.com"
+// are one account. Without this, differently-cased registrations create
+// duplicate accounts that are near-impossible for users to tell apart.
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 // ── Register ──────────────────────────────────────────────────────────────────
 
 export async function register(
   data: RegisterPayload,
 ): Promise<MessageResponse> {
+  const email = normalizeEmail(data.email);
+
   const existing = await prisma.user.findUnique({
-    where: { email: data.email },
+    where: { email },
   });
 
   if (existing) {
@@ -40,7 +50,7 @@ export async function register(
 
   const user = await prisma.user.create({
     data: {
-      email: data.email,
+      email,
       phone: data.phone ?? null,
       passwordHash,
       roles: Array.from(
@@ -63,12 +73,13 @@ export async function register(
 export async function verifyEmail(
   data: VerifyEmailPayload,
 ): Promise<MessageResponse> {
-  const user = await prisma.user.findUnique({ where: { email: data.email } });
+  const email = normalizeEmail(data.email);
+  const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) throw Errors.notFound("No account found with this email.");
   if (user.emailVerified) throw new AppError("Email is already verified.", 400);
 
-  await verifyOtp(redisKeys.emailOtp(data.email), data.otp);
+  await verifyOtp(redisKeys.emailOtp(email), data.otp);
 
   await prisma.user.update({
     where: { id: user.id },
@@ -80,7 +91,10 @@ export async function verifyEmail(
 
 // ── Resend Email OTP ──────────────────────────────────────────────────────────
 
-export async function resendEmailOtp(email: string): Promise<MessageResponse> {
+export async function resendEmailOtp(
+  rawEmail: string,
+): Promise<MessageResponse> {
+  const email = normalizeEmail(rawEmail);
   const user = await prisma.user.findUnique({ where: { email } });
 
   if (!user) throw Errors.notFound("No account found with this email.");
@@ -127,7 +141,9 @@ export async function verifyPhone(
 // ── Login ─────────────────────────────────────────────────────────────────────
 
 export async function login(data: LoginPayload): Promise<AuthResponse> {
-  const user = await prisma.user.findUnique({ where: { email: data.email } });
+  const user = await prisma.user.findUnique({
+    where: { email: normalizeEmail(data.email) },
+  });
 
   // Same error for "not found" and "wrong password" - prevents user enumeration
   const invalidCredentials = new AppError(
@@ -305,7 +321,10 @@ export async function getMe(userId: string) {
 
 import { sendPasswordResetEmail } from "../lib/mailer";
 
-export async function forgotPassword(email: string): Promise<MessageResponse> {
+export async function forgotPassword(
+  rawEmail: string,
+): Promise<MessageResponse> {
+  const email = normalizeEmail(rawEmail);
   const user = await prisma.user.findUnique({ where: { email } });
 
   // Don't reveal whether email exists - always return success
@@ -319,10 +338,11 @@ export async function forgotPassword(email: string): Promise<MessageResponse> {
 }
 
 export async function resetPassword(
-  email: string,
+  rawEmail: string,
   otp: string,
   newPassword: string,
 ): Promise<MessageResponse> {
+  const email = normalizeEmail(rawEmail);
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) throw Errors.notFound("No account found with this email.");
 
