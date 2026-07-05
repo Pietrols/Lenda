@@ -158,6 +158,8 @@ export default function ListingDetailScreen() {
   const [endDate, setEndDate] = useState<Date>(() => daysAfterToday(2));
   const [pickupType, setPickupType] = useState<PickupType>("CLIENT_TO_HOST");
   const [notes, setNotes] = useState("");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [createdBooking, setCreatedBooking] = useState<Booking | null>(null);
@@ -200,6 +202,8 @@ export default function ListingDetailScreen() {
       )
     : [];
 
+  const isNegotiableListing = listing?.pricingMode === "NEGOTIABLE";
+
   const avgRating =
     reviews.length > 0
       ? reviews.reduce((sum, review) => sum + review.rating, 0) /
@@ -217,6 +221,8 @@ export default function ListingDetailScreen() {
     setEndDate(daysAfterToday(2));
     setPickupType("CLIENT_TO_HOST");
     setNotes("");
+    setBudgetMin("");
+    setBudgetMax("");
     setFormError(null);
     setCreatedBooking(null);
     setBookingOpen(true);
@@ -226,12 +232,33 @@ export default function ListingDetailScreen() {
     if (!listing || !dateOrderValid) return;
     setFormError(null);
 
+    if (isNegotiableListing) {
+      if (!budgetMax.trim() || Number(budgetMax) <= 0) {
+        setFormError("Please enter your offer.");
+        return;
+      }
+      if (
+        budgetMin.trim() &&
+        Number(budgetMin) > Number(budgetMax)
+      ) {
+        setFormError("Minimum budget cannot exceed your offer.");
+        return;
+      }
+    }
+
     const parsed = CreateBookingSchema.safeParse({
       listingId: listing.id,
       startDate: atUtcMorning(startDate),
       endDate: atUtcMorning(endDate),
       pickupType,
       notes: notes.trim() || undefined,
+      ...(isNegotiableListing
+        ? {
+            isNegotiable: true,
+            budgetMax: Number(budgetMax),
+            ...(budgetMin.trim() ? { budgetMin: Number(budgetMin) } : {}),
+          }
+        : {}),
     });
 
     if (!parsed.success) {
@@ -561,6 +588,38 @@ export default function ListingDetailScreen() {
                         </View>
                       </View>
 
+                      {isNegotiableListing && (
+                        <View style={styles.field}>
+                          <Text style={styles.formLabel}>
+                            Your offer ({listing.currency}, total)
+                          </Text>
+                          <TextInput
+                            value={budgetMax}
+                            onChangeText={setBudgetMax}
+                            placeholder="e.g. 300"
+                            placeholderTextColor={theme.colors.mutedForeground}
+                            keyboardType="numeric"
+                            style={styles.offerInput}
+                          />
+                          <Text style={styles.formLabel}>
+                            Minimum budget (optional)
+                          </Text>
+                          <TextInput
+                            value={budgetMin}
+                            onChangeText={setBudgetMin}
+                            placeholder="e.g. 100"
+                            placeholderTextColor={theme.colors.mutedForeground}
+                            keyboardType="numeric"
+                            style={styles.offerInput}
+                          />
+                          <Text style={styles.offerHint}>
+                            This host accepts offers. Your offer opens a
+                            negotiation - the host can accept or counter within
+                            2 hours.
+                          </Text>
+                        </View>
+                      )}
+
                       <View style={styles.field}>
                         <Text style={styles.formLabel}>Notes (optional)</Text>
                         <TextInput
@@ -576,15 +635,23 @@ export default function ListingDetailScreen() {
 
                       <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>
-                          {dateOrderValid
-                            ? `${totalDays} ${totalDays === 1 ? "day" : "days"} x ${
-                                listing.currency
-                              } ${Number(listing.pricePerDay).toLocaleString()}`
-                            : "Total"}
+                          {isNegotiableListing
+                            ? "Your offer"
+                            : dateOrderValid
+                              ? `${totalDays} ${totalDays === 1 ? "day" : "days"} x ${
+                                  listing.currency
+                                } ${Number(listing.pricePerDay).toLocaleString()}`
+                              : "Total"}
                         </Text>
                         <Text style={styles.totalValue}>
                           {listing.currency}{" "}
-                          {dateOrderValid ? totalAmount.toLocaleString() : "--"}
+                          {isNegotiableListing
+                            ? budgetMax.trim() && Number(budgetMax) > 0
+                              ? Number(budgetMax).toLocaleString()
+                              : "--"
+                            : dateOrderValid
+                              ? totalAmount.toLocaleString()
+                              : "--"}
                         </Text>
                       </View>
 
@@ -948,6 +1015,22 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   pickupDescription: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  offerInput: {
+    height: theme.spacing.xxl,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.background,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  offerHint: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyRegular,
