@@ -5,6 +5,7 @@ import {
   type StateStorage,
 } from "zustand/middleware";
 import * as SecureStore from "expo-secure-store";
+import { router } from "expo-router";
 import {
   configureApiAuth,
   type AuthTokens as ClientAuthTokens,
@@ -114,5 +115,11 @@ configureApiAuth({
   },
   onSessionExpired: () => {
     useAuthStore.getState().clearAuth();
+    // Route explicitly (rather than relying on the guard redirect alone) so
+    // the login screen can show why the user was signed out.
+    router.replace({
+      pathname: "/login",
+      params: { notice: "Your session expired. Please sign in again." },
+    });
   },
 });
