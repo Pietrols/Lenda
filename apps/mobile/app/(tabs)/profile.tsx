@@ -16,6 +16,7 @@ import {
   ListChecks,
   Shield,
   ShieldCheck,
+  UserPen,
 } from "lucide-react-native";
 import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
@@ -177,6 +178,21 @@ export default function ProfileScreen() {
         )}
 
         <View style={styles.navGroup}>
+          <Pressable
+            style={styles.navRow}
+            onPress={() => router.push("/edit-profile")}
+          >
+            <UserPen
+              size={theme.typography.size.base}
+              color={theme.colors.gold}
+            />
+            <Text style={styles.navRowText}>Edit Profile</Text>
+            <ChevronRight
+              size={theme.typography.size.base}
+              color={theme.colors.mutedForeground}
+            />
+          </Pressable>
+
           {isHost && (
             <Pressable
               style={styles.navRow}

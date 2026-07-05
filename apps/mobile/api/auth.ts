@@ -1,6 +1,9 @@
+import type { UpdateProfileInput } from "@lenda/schemas";
 import { api, AUTH_URL } from "./client";
 import { useAuthStore } from "../store/auth.store";
 import type { AuthUser, AuthTokens } from "../store/auth.store";
+
+export type { UpdateProfileInput };
 
 export type { AuthUser, AuthTokens };
 
@@ -41,6 +44,16 @@ export const authApi = {
     api.post<AuthResponse>("/auth/login", data, undefined, AUTH_URL),
 
   me: (token: string) => api.get<AuthUser>("/auth/me", token, AUTH_URL),
+
+  updateProfile: (input: UpdateProfileInput) => {
+    const token = useAuthStore.getState().tokens?.accessToken;
+    return api.patch<{ user: AuthUser }>(
+      "/profiles/me",
+      input,
+      token,
+      AUTH_URL,
+    );
+  },
 
   addRole: (role: string) => {
     const token = useAuthStore.getState().tokens?.accessToken;
