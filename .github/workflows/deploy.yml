@@ -231,6 +231,15 @@ jobs:
           ssh "${DEPLOY_USER}@${DEPLOY_HOST}" "DATABASE_URL='${DEPLOY_DATABASE_URL}' bash -s" <<'REMOTE'
           set -euo pipefail
           cd ~/lenda
+          # ONE-TIME RECOVERY (2026-07-05): the first deploy of
+          # 20260705205406_normalize_user_emails failed on a case-duplicate
+          # email and left a failed record in _prisma_migrations, which makes
+          # `migrate deploy` refuse to run (P3009). The migration's single
+          # UPDATE rolled back atomically, so marking it rolled back is
+          # accurate; the fixed migration then re-applies. `resolve` errors
+          # once the migration has been applied successfully, so this line is
+          # a no-op afterwards — safe to delete after the next green deploy.
+          pnpm --filter @lenda/database exec prisma migrate resolve --rolled-back 20260705205406_normalize_user_emails || true
           pnpm --filter @lenda/database exec prisma migrate deploy
           pnpm --filter @lenda/database exec prisma generate
           REMOTE
