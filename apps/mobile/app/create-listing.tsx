@@ -20,6 +20,13 @@ import { ApiError } from "../api/client";
 import { useAuthStore } from "../store/auth.store";
 
 type Pillar = "RENTAL" | "SERVICE";
+type PricingMode = "FIXED" | "HOURLY" | "NEGOTIABLE";
+
+const pricingModes: { value: PricingMode; label: string }[] = [
+  { value: "FIXED", label: "Fixed" },
+  { value: "HOURLY", label: "Hourly" },
+  { value: "NEGOTIABLE", label: "Negotiable" },
+];
 
 const pillarOptions: {
   value: Pillar;
@@ -53,6 +60,7 @@ export default function CreateListingScreen() {
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("ZMW");
   const [location, setLocation] = useState("");
+  const [pricingMode, setPricingMode] = useState<PricingMode>("FIXED");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -75,6 +83,7 @@ export default function CreateListingScreen() {
       category: category.trim(),
       pricePerDay: Number(price),
       currency: currency.trim(),
+      pricingMode,
       location: location.trim(),
       metadata: {},
     });
@@ -262,6 +271,38 @@ export default function CreateListingScreen() {
           </View>
 
           <View style={styles.field}>
+            <Text style={styles.label}>Pricing</Text>
+            <View style={styles.modeRow}>
+              {pricingModes.map((mode) => (
+                <Pressable
+                  key={mode.value}
+                  onPress={() => setPricingMode(mode.value)}
+                  disabled={blocked}
+                  style={[
+                    styles.modePill,
+                    pricingMode === mode.value && styles.modePillActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modeText,
+                      pricingMode === mode.value && styles.modeTextActive,
+                    ]}
+                  >
+                    {mode.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {pricingMode === "NEGOTIABLE" && (
+              <Text style={styles.modeHint}>
+                Guests will be able to make offers and negotiate the price
+                with you.
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.field}>
             <Text style={styles.label}>Location</Text>
             <TextInput
               value={location}
@@ -385,6 +426,35 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   pillarDescription: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  modeRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  modePill: {
+    flex: 1,
+    alignItems: "center",
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  modePillActive: {
+    borderColor: theme.colors.gold,
+    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+  },
+  modeText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  modeTextActive: {
+    color: theme.colors.gold,
+  },
+  modeHint: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyRegular,

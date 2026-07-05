@@ -23,6 +23,14 @@ import { useAuthStore } from "../../store/auth.store";
 import { ListingStatusBadge } from "../../components/ListingStatusBadge";
 import { ErrorState } from "../../components/ErrorState";
 
+type PricingMode = "FIXED" | "HOURLY" | "NEGOTIABLE";
+
+const pricingModes: { value: PricingMode; label: string }[] = [
+  { value: "FIXED", label: "Fixed" },
+  { value: "HOURLY", label: "Hourly" },
+  { value: "NEGOTIABLE", label: "Negotiable" },
+];
+
 export default function ManageListingScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,6 +46,7 @@ export default function ManageListingScreen() {
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("");
   const [location, setLocation] = useState("");
+  const [pricingMode, setPricingMode] = useState<PricingMode>("FIXED");
 
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -61,6 +70,7 @@ export default function ManageListingScreen() {
       setPrice(String(Number(res.listing.pricePerDay)));
       setCurrency(res.listing.currency);
       setLocation(res.listing.location);
+      setPricingMode(res.listing.pricingMode as PricingMode);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -89,6 +99,7 @@ export default function ManageListingScreen() {
       category: category.trim(),
       pricePerDay: Number(price),
       currency: currency.trim(),
+      pricingMode,
       location: location.trim(),
     });
 
@@ -363,6 +374,31 @@ export default function ManageListingScreen() {
             </View>
 
             <View style={styles.field}>
+              <Text style={styles.label}>Pricing</Text>
+              <View style={styles.modeRow}>
+                {pricingModes.map((mode) => (
+                  <Pressable
+                    key={mode.value}
+                    onPress={() => setPricingMode(mode.value)}
+                    style={[
+                      styles.modePill,
+                      pricingMode === mode.value && styles.modePillActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modeText,
+                        pricingMode === mode.value && styles.modeTextActive,
+                      ]}
+                    >
+                      {mode.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.field}>
               <Text style={styles.label}>Location</Text>
               <TextInput
                 value={location}
@@ -578,6 +614,30 @@ const styles = StyleSheet.create({
   multiline: {
     minHeight: theme.spacing.xxl * 2,
     textAlignVertical: "top",
+  },
+  modeRow: {
+    flexDirection: "row",
+    gap: theme.spacing.sm,
+  },
+  modePill: {
+    flex: 1,
+    alignItems: "center",
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  modePillActive: {
+    borderColor: theme.colors.gold,
+    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+  },
+  modeText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  modeTextActive: {
+    color: theme.colors.gold,
   },
   rowFields: {
     flexDirection: "row",
