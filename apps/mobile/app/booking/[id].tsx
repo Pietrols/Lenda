@@ -17,7 +17,9 @@ import {
   CircleCheck,
   ImageOff,
   MapPin,
+  Star,
 } from "lucide-react-native";
+import { CreateReviewSchema } from "@lenda/schemas";
 import { theme } from "../../theme";
 import {
   bookingsApi,
@@ -26,6 +28,7 @@ import {
   type BookingStatus,
   type HandoverType,
 } from "../../api/bookings";
+import { reviewsApi, type Review } from "../../api/reviews";
 import { ApiError } from "../../api/client";
 import { useAuthStore } from "../../store/auth.store";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
@@ -61,6 +64,47 @@ const handoverForStatus: Partial<Record<BookingStatus, HandoverType>> = {
   HANDED_OVER: "PICKUP",
   RETURN_PENDING: "RETURN",
 };
+
+// Statuses from which either party may leave a review, per the server's
+// review.service rules: rentals once handover has occurred, services once
+// active. One review per party per booking.
+const reviewableStatuses: Record<"RENTAL" | "SERVICE", BookingStatus[]> = {
+  RENTAL: ["HANDED_OVER", "ACTIVE", "RETURN_PENDING", "RETURNED", "COMPLETED"],
+  SERVICE: ["ACTIVE", "COMPLETED"],
+};
+
+function StarRow({
+  rating,
+  size,
+  onSelect,
+}: {
+  rating: number;
+  size: number;
+  onSelect?: (value: number) => void;
+}) {
+  return (
+    <View style={styles.starRow}>
+      {[1, 2, 3, 4, 5].map((value) => {
+        const filled = value <= rating;
+        const star = (
+          <Star
+            size={size}
+            color={filled ? theme.colors.gold : theme.colors.mutedForeground}
+            fill={filled ? theme.colors.gold : "transparent"}
+          />
+        );
+        if (!onSelect) {
+          return <View key={value}>{star}</View>;
+        }
+        return (
+          <Pressable key={value} onPress={() => onSelect(value)} hitSlop={4}>
+            {star}
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
 
 function TimelineEntry({
   entry,
@@ -99,6 +143,12 @@ export default function BookingDetailScreen() {
 
   const [declineMode, setDeclineMode] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
+  const [myReview, setMyReview] = useState<Review | null>(null);
+  const [reviewChecked, setReviewChecked] = useState(false);
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<
     "CONFIRM" | "DECLINE" | "PROGRESS" | "HANDOVER" | null
   >(null);
@@ -181,6 +231,77 @@ export default function BookingDetailScreen() {
   const nextStep = booking
     ? progressionSteps[booking.listing.pillar][booking.status]
     : undefined;
+
+  const canReview =
+    !!booking &&
+    isParty &&
+    reviewableStatuses[booking.listing.pillar].includes(booking.status);
+  const otherPartyId = booking
+    ? isGuest
+      ? booking.hostId
+      : booking.guestId
+    : null;
+
+  useEffect(() => {
+    if (!canReview || !otherPartyId || !currentUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        // No "my review for this booking" endpoint exists; reviews about the
+        // other party include reviewer + booking, which is enough to find ours.
+        const res = await reviewsApi.getForUser(otherPartyId);
+        if (cancelled) return;
+        const mine = res.reviews.find(
+          (review) =>
+            review.booking.id === booking?.id &&
+            review.reviewer.id === currentUserId,
+        );
+        if (mine) setMyReview(mine);
+      } catch {
+        // Detection is best-effort; a duplicate submit still fails cleanly
+        // server-side with a clear message.
+      } finally {
+        if (!cancelled) setReviewChecked(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canReview, otherPartyId, currentUserId, booking?.id]);
+
+  const submitReview = async () => {
+    if (!booking) return;
+    setReviewError(null);
+
+    const parsed = CreateReviewSchema.safeParse({
+      bookingId: booking.id,
+      rating: reviewRating,
+      comment: reviewComment.trim() || undefined,
+    });
+
+    if (!parsed.success) {
+      setReviewError(
+        reviewRating === 0
+          ? "Please select a star rating."
+          : (parsed.error.issues[0]?.message ?? "Please check your review."),
+      );
+      return;
+    }
+
+    setReviewSubmitting(true);
+    try {
+      const res = await reviewsApi.create(parsed.data);
+      setMyReview(res.review);
+    } catch (err) {
+      setReviewError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not submit your review. Please try again.",
+      );
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   const pendingHandoverType =
     booking && booking.listing.pillar === "RENTAL"
@@ -504,6 +625,69 @@ export default function BookingDetailScreen() {
             </View>
           )}
 
+          {canReview && reviewChecked && (
+            <View style={styles.actionsCard}>
+              <Text style={styles.actionsLabel}>
+                {myReview
+                  ? "Your review"
+                  : isGuest
+                    ? "Rate your host"
+                    : "Rate your guest"}
+              </Text>
+              {myReview ? (
+                <>
+                  <StarRow
+                    rating={myReview.rating}
+                    size={theme.typography.size.xl}
+                  />
+                  {myReview.comment && (
+                    <Text style={styles.reviewCommentText}>
+                      {myReview.comment}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  <StarRow
+                    rating={reviewRating}
+                    size={theme.typography.size.xxl}
+                    onSelect={setReviewRating}
+                  />
+                  <TextInput
+                    value={reviewComment}
+                    onChangeText={setReviewComment}
+                    placeholder="Share a few words (optional)"
+                    placeholderTextColor={theme.colors.mutedForeground}
+                    multiline
+                    numberOfLines={3}
+                    style={styles.reasonInput}
+                  />
+                  {reviewError && (
+                    <Text style={styles.actionErrorText}>{reviewError}</Text>
+                  )}
+                  <Pressable
+                    style={[
+                      styles.progressButton,
+                      reviewSubmitting && styles.buttonDisabled,
+                    ]}
+                    onPress={submitReview}
+                    disabled={reviewSubmitting}
+                  >
+                    {reviewSubmitting ? (
+                      <ActivityIndicator
+                        color={theme.colors.primaryForeground}
+                      />
+                    ) : (
+                      <Text style={styles.confirmButtonText}>
+                        Submit review
+                      </Text>
+                    )}
+                  </Pressable>
+                </>
+              )}
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>Status history</Text>
           <View style={styles.timeline}>
             {booking.history.map((entry, index) => (
@@ -714,6 +898,16 @@ const styles = StyleSheet.create({
   },
   handoverStateConfirmed: {
     color: theme.colors.success,
+  },
+  starRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+  },
+  reviewCommentText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
   },
   confirmButtonText: {
     color: theme.colors.primaryForeground,
