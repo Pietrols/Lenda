@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import Constants from "expo-constants";
 import {
   Briefcase,
   ChevronRight,
@@ -317,6 +318,15 @@ export default function ProfileScreen() {
             </>
           )}
         </Pressable>
+
+        <View style={styles.aboutFooter}>
+          <Text style={styles.aboutText}>
+            Lenda v{Constants.expoConfig?.version ?? "1.0.0"}
+          </Text>
+          <Text style={styles.aboutText}>
+            Operated by Quantic Engineering Limited (Reg No. 120261048940)
+          </Text>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -498,6 +508,17 @@ const styles = StyleSheet.create({
   },
   logoutDisabled: {
     opacity: 0.6,
+  },
+  aboutFooter: {
+    alignItems: "center",
+    gap: theme.spacing.xs / 2,
+    marginTop: theme.spacing.md,
+  },
+  aboutText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+    textAlign: "center",
   },
   logoutText: {
     color: theme.colors.error,
