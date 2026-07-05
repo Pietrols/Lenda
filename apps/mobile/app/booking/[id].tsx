@@ -73,6 +73,13 @@ const reviewableStatuses: Record<"RENTAL" | "SERVICE", BookingStatus[]> = {
   SERVICE: ["ACTIVE", "COMPLETED"],
 };
 
+// Statuses from which either party may raise a dispute, per the server's
+// transition maps. Disputes freeze the booking for admin review.
+const disputableStatuses: Record<"RENTAL" | "SERVICE", BookingStatus[]> = {
+  RENTAL: ["EN_ROUTE", "HANDED_OVER", "ACTIVE", "RETURN_PENDING"],
+  SERVICE: ["ACTIVE"],
+};
+
 function TimelineEntry({
   entry,
   isLast,
@@ -124,10 +131,12 @@ export default function BookingDetailScreen() {
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<
-    "CONFIRM" | "DECLINE" | "PROGRESS" | "HANDOVER" | "CANCEL" | null
+    "CONFIRM" | "DECLINE" | "PROGRESS" | "HANDOVER" | "CANCEL" | "DISPUTE" | null
   >(null);
   const [cancelMode, setCancelMode] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [disputeMode, setDisputeMode] = useState(false);
+  const [disputeReason, setDisputeReason] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchBooking = useCallback(async () => {
@@ -154,7 +163,7 @@ export default function BookingDetailScreen() {
 
   const runTransition = async (
     status: BookingStatus,
-    loadingKey: "CONFIRM" | "DECLINE" | "PROGRESS" | "CANCEL",
+    loadingKey: "CONFIRM" | "DECLINE" | "PROGRESS" | "CANCEL" | "DISPUTE",
     reason?: string,
   ) => {
     if (!id) return;
@@ -166,6 +175,8 @@ export default function BookingDetailScreen() {
       setDeclineReason("");
       setCancelMode(false);
       setCancelReason("");
+      setDisputeMode(false);
+      setDisputeReason("");
       await fetchBooking();
     } catch (err) {
       setActionError(
@@ -271,6 +282,11 @@ export default function BookingDetailScreen() {
     (booking.status === "CONFIRMED" ||
       (booking.status === "PENDING" &&
         !(isHost && !booking.isNegotiable)));
+
+  const canDispute =
+    !!booking &&
+    isParty &&
+    disputableStatuses[booking.listing.pillar].includes(booking.status);
 
   const canReview =
     !!booking &&
@@ -841,6 +857,85 @@ export default function BookingDetailScreen() {
             </View>
           )}
 
+          {canDispute && (
+            <View style={styles.actionsCard}>
+              {disputeMode ? (
+                <>
+                  <Text style={styles.actionsLabel}>
+                    What went wrong?
+                  </Text>
+                  <TextInput
+                    value={disputeReason}
+                    onChangeText={setDisputeReason}
+                    placeholder="Describe the problem - photos and messages can be provided to support later"
+                    placeholderTextColor={theme.colors.mutedForeground}
+                    multiline
+                    numberOfLines={3}
+                    style={styles.reasonInput}
+                  />
+                  <Text style={styles.disputeHint}>
+                    Raising a dispute freezes this booking for review by the
+                    Lenda team.
+                  </Text>
+                  <View style={styles.actionRow}>
+                    <Pressable
+                      style={styles.secondaryButton}
+                      onPress={() => {
+                        setDisputeMode(false);
+                        setDisputeReason("");
+                        setActionError(null);
+                      }}
+                      disabled={actionLoading !== null}
+                    >
+                      <Text style={styles.secondaryButtonText}>Back</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[
+                        styles.declineButton,
+                        (actionLoading !== null ||
+                          disputeReason.trim().length === 0) &&
+                          styles.buttonDisabled,
+                      ]}
+                      onPress={() =>
+                        runTransition(
+                          "DISPUTED",
+                          "DISPUTE",
+                          disputeReason.trim(),
+                        )
+                      }
+                      disabled={
+                        actionLoading !== null ||
+                        disputeReason.trim().length === 0
+                      }
+                    >
+                      {actionLoading === "DISPUTE" ? (
+                        <ActivityIndicator color={theme.colors.error} />
+                      ) : (
+                        <Text style={styles.declineButtonText}>
+                          Raise dispute
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </>
+              ) : (
+                <Pressable
+                  style={styles.disputeLink}
+                  onPress={() => {
+                    setDisputeMode(true);
+                    setActionError(null);
+                  }}
+                  hitSlop={6}
+                >
+                  <Text style={styles.disputeLinkText}>Report a problem</Text>
+                </Pressable>
+              )}
+              {actionError && (
+                <Text style={styles.actionErrorText}>{actionError}</Text>
+              )}
+            </View>
+          )}
+
           {canReview && reviewChecked && (
             <View style={styles.actionsCard}>
               <Text style={styles.actionsLabel}>
@@ -1164,6 +1259,20 @@ const styles = StyleSheet.create({
     color: theme.colors.gold,
     fontSize: theme.typography.size.sm,
     fontFamily: theme.typography.font.bodySemibold,
+  },
+  disputeHint: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  disputeLink: {
+    alignItems: "center",
+  },
+  disputeLinkText: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+    textDecorationLine: "underline",
   },
   reviewCommentText: {
     color: theme.colors.mutedForeground,
