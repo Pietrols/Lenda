@@ -330,9 +330,12 @@ export async function resetPassword(
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
 
+  // Entering the OTP we emailed proves ownership of the address, so a
+  // successful reset also verifies the email. Otherwise a user who registered
+  // but never verified stays locked out of login even after proving ownership.
   await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash },
+    data: { passwordHash, emailVerified: true },
   });
 
   return { message: "Password reset successfully. You can now log in." };
