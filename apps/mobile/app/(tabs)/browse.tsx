@@ -27,6 +27,7 @@ import {
   type ListingPillar,
 } from "../../api/listings";
 import { ApiError } from "../../api/client";
+import { categoriesApi, type Category } from "../../api/categories";
 import { ErrorState } from "../../components/ErrorState";
 import { ListingCardSkeleton } from "../../components/Skeleton";
 
@@ -197,8 +198,29 @@ export default function BrowseScreen() {
 
   const [availFrom, setAvailFrom] = useState<Date | null>(null);
   const [availTo, setAvailTo] = useState<Date | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [category, setCategory] = useState<string | undefined>(undefined);
+
+  // Category chips only render when approved categories exist; the dev DB may
+  // have none, in which case this row simply stays hidden.
+  useEffect(() => {
+    let cancelled = false;
+    categoriesApi
+      .getAll(pillar)
+      .then((res) => {
+        if (!cancelled) setCategories(res.categories);
+      })
+      .catch(() => {
+        if (!cancelled) setCategories([]);
+      });
+    setCategory(undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [pillar]);
 
   const filterParams = {
+    category,
     ...(availFrom && availTo
       ? {
           startDate: atUtcMorning(availFrom),
@@ -247,7 +269,7 @@ export default function BrowseScreen() {
     // filterParams derives from debouncedFilters and the availability dates,
     // so those are the real deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pillar, debouncedSearch, debouncedFilters, availFrom, availTo],
+    [pillar, debouncedSearch, debouncedFilters, availFrom, availTo, category],
   );
 
   useEffect(() => {
@@ -388,6 +410,40 @@ export default function BrowseScreen() {
         })}
       </View>
 
+      {categories.length > 0 && (
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={categories}
+          keyExtractor={(item) => item.id}
+          style={styles.categoryRow}
+          contentContainerStyle={styles.categoryRowContent}
+          renderItem={({ item }) => {
+            const isActive = category === item.slug;
+            return (
+              <Pressable
+                onPress={() =>
+                  setCategory(isActive ? undefined : item.slug)
+                }
+                style={[
+                  styles.filterPill,
+                  isActive && styles.filterPillActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterText,
+                    isActive && styles.filterTextActive,
+                  ]}
+                >
+                  {item.name}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
+      )}
+
       {isLoading ? (
         <View style={styles.listContent}>
           <ListingCardSkeleton />
@@ -517,6 +573,14 @@ const styles = StyleSheet.create({
   },
   dateClear: {
     alignSelf: "center",
+  },
+  categoryRow: {
+    flexGrow: 0,
+    marginBottom: theme.spacing.md,
+  },
+  categoryRowContent: {
+    gap: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.lg,
   },
   filterRow: {
     flexDirection: "row",
