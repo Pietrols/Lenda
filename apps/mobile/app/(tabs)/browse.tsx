@@ -6,11 +6,12 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ImageOff, MapPin } from "lucide-react-native";
+import { ImageOff, MapPin, Search } from "lucide-react-native";
 import { theme } from "../../theme";
 import {
   listingsApi,
@@ -89,6 +90,13 @@ export default function BrowseScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pillar, setPillar] = useState<ListingPillar | undefined>(undefined);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchListings = useCallback(
     async (refreshing = false) => {
@@ -99,7 +107,10 @@ export default function BrowseScreen() {
       }
       setError(null);
       try {
-        const res = await listingsApi.getAll({ pillar });
+        const res = await listingsApi.getAll({
+          pillar,
+          search: debouncedSearch || undefined,
+        });
         setListings(res.listings);
       } catch (err) {
         setError(
@@ -112,7 +123,7 @@ export default function BrowseScreen() {
         setIsRefreshing(false);
       }
     },
-    [pillar],
+    [pillar, debouncedSearch],
   );
 
   useEffect(() => {
@@ -123,6 +134,22 @@ export default function BrowseScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
         <Text style={styles.title}>Browse</Text>
+      </View>
+
+      <View style={styles.searchRow}>
+        <Search
+          size={theme.typography.size.base}
+          color={theme.colors.mutedForeground}
+        />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search listings"
+          placeholderTextColor={theme.colors.mutedForeground}
+          autoCapitalize="none"
+          returnKeyType="search"
+          style={styles.searchInput}
+        />
       </View>
 
       <View style={styles.filterRow}>
@@ -200,6 +227,25 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.size.xl,
     fontFamily: theme.typography.font.displayBold,
     textTransform: "uppercase",
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
+    marginHorizontal: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
+    paddingHorizontal: theme.spacing.md,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card,
+  },
+  searchInput: {
+    flex: 1,
+    height: theme.spacing.xxl,
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodyRegular,
   },
   filterRow: {
     flexDirection: "row",
