@@ -1,5 +1,7 @@
 import { useCallback, useState } from "react";
 import {
+  FlatList,
+  Image,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -18,10 +20,20 @@ import {
 import { theme } from "../../theme";
 import { useAuthStore } from "../../store/auth.store";
 import { bookingsApi, type BookingListItem } from "../../api/bookings";
+import { listingsApi, type Listing } from "../../api/listings";
 import { BookingStatusBadge } from "../../components/BookingStatusBadge";
 import { formatDateRange } from "../../lib/dates";
 
 const RECENT_BOOKINGS_SHOWN = 3;
+const FEATURED_SHOWN = 6;
+
+function featuredImage(listing: Listing): string | null {
+  return (
+    listing.images.find((image) => image.isPrimary)?.url ??
+    listing.images[0]?.url ??
+    null
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -29,6 +41,7 @@ export default function HomeScreen() {
 
   const [bookings, setBookings] = useState<BookingListItem[]>([]);
   const [bookingsLoaded, setBookingsLoaded] = useState(false);
+  const [featured, setFeatured] = useState<Listing[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const displayName = user?.fullName?.split(" ")[0] ?? user?.email ?? "there";
@@ -41,11 +54,18 @@ export default function HomeScreen() {
   const fetchBookings = useCallback(async (refreshing = false) => {
     if (refreshing) setIsRefreshing(true);
     try {
-      const res = await bookingsApi.getAll();
-      setBookings(res.bookings);
-    } catch {
-      // The home screen degrades gracefully without bookings; the Bookings
-      // tab surfaces errors properly.
+      // Featured listings ride along; both degrade gracefully — Browse and
+      // the Bookings tab own the proper error states.
+      const [bookingsRes, listingsRes] = await Promise.allSettled([
+        bookingsApi.getAll(),
+        listingsApi.getAll(),
+      ]);
+      if (bookingsRes.status === "fulfilled") {
+        setBookings(bookingsRes.value.bookings);
+      }
+      if (listingsRes.status === "fulfilled") {
+        setFeatured(listingsRes.value.listings.slice(0, FEATURED_SHOWN));
+      }
     } finally {
       setBookingsLoaded(true);
       setIsRefreshing(false);
@@ -126,6 +146,54 @@ export default function HomeScreen() {
             </Pressable>
           )}
         </View>
+
+        {featured.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Featured</Text>
+              <Pressable onPress={() => router.push("/browse")} hitSlop={6}>
+                <Text style={styles.sectionLink}>Browse all</Text>
+              </Pressable>
+            </View>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={featured}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.featuredRow}
+              renderItem={({ item }) => {
+                const imageUrl = featuredImage(item);
+                return (
+                  <Pressable
+                    style={styles.featuredCard}
+                    onPress={() => router.push(`/listing/${item.id}`)}
+                  >
+                    {imageUrl ? (
+                      <Image
+                        source={{ uri: imageUrl }}
+                        style={styles.featuredImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <View
+                        style={[styles.featuredImage, styles.featuredEmpty]}
+                      />
+                    )}
+                    <View style={styles.featuredBody}>
+                      <Text style={styles.featuredTitle} numberOfLines={1}>
+                        {item.title}
+                      </Text>
+                      <Text style={styles.featuredPrice}>
+                        {item.currency}{" "}
+                        {Number(item.pricePerDay).toLocaleString()}/day
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              }}
+            />
+          </>
+        )}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent bookings</Text>
@@ -243,6 +311,38 @@ const styles = StyleSheet.create({
   actionLabel: {
     color: theme.colors.foreground,
     fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  featuredRow: {
+    gap: theme.spacing.md,
+  },
+  featuredCard: {
+    width: theme.spacing.xxl * 4,
+    backgroundColor: theme.colors.card,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.radius.lg,
+    overflow: "hidden",
+  },
+  featuredImage: {
+    width: "100%",
+    height: theme.spacing.xxl * 2 + theme.spacing.md,
+  },
+  featuredEmpty: {
+    backgroundColor: theme.colors.muted,
+  },
+  featuredBody: {
+    padding: theme.spacing.sm,
+    gap: theme.spacing.xs / 2,
+  },
+  featuredTitle: {
+    color: theme.colors.foreground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  featuredPrice: {
+    color: theme.colors.gold,
+    fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodySemibold,
   },
   sectionHeader: {

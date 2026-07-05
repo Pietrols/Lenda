@@ -159,6 +159,7 @@ export default function ListingDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [activeImage, setActiveImage] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -401,20 +402,40 @@ export default function ListingDetailScreen() {
         <>
           <ScrollView contentContainerStyle={styles.scrollContent}>
             {sortedImages.length > 0 ? (
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-              >
-                {sortedImages.map((image) => (
-                  <Image
-                    key={image.id}
-                    source={{ uri: image.url }}
-                    style={[styles.image, { width }]}
-                    resizeMode="cover"
-                  />
-                ))}
-              </ScrollView>
+              <View>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={(e) =>
+                    setActiveImage(
+                      Math.round(e.nativeEvent.contentOffset.x / width),
+                    )
+                  }
+                >
+                  {sortedImages.map((image) => (
+                    <Image
+                      key={image.id}
+                      source={{ uri: image.url }}
+                      style={[styles.image, { width }]}
+                      resizeMode="cover"
+                    />
+                  ))}
+                </ScrollView>
+                {sortedImages.length > 1 && (
+                  <View style={styles.dotsRow}>
+                    {sortedImages.map((image, index) => (
+                      <View
+                        key={image.id}
+                        style={[
+                          styles.dot,
+                          index === activeImage && styles.dotActive,
+                        ]}
+                      />
+                    ))}
+                  </View>
+                )}
+              </View>
             ) : (
               <View style={[styles.image, styles.imagePlaceholder, { width }]}>
                 <ImageOff
@@ -832,6 +853,24 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.muted,
     alignItems: "center",
     justifyContent: "center",
+  },
+  dotsRow: {
+    position: "absolute",
+    bottom: theme.spacing.sm,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: theme.spacing.xs,
+  },
+  dot: {
+    width: theme.spacing.sm,
+    height: theme.spacing.sm,
+    borderRadius: theme.radius.pill,
+    backgroundColor: "hsla(220, 20%, 97%, 0.4)",
+  },
+  dotActive: {
+    backgroundColor: theme.colors.gold,
   },
   body: {
     padding: theme.spacing.lg,
