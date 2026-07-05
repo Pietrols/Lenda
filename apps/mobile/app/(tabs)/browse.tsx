@@ -25,6 +25,7 @@ import {
 } from "../../api/listings";
 import { ApiError } from "../../api/client";
 import { ErrorState } from "../../components/ErrorState";
+import { ListingCardSkeleton } from "../../components/Skeleton";
 
 const pillarFilters: { label: string; value: ListingPillar | undefined }[] = [
   { label: "All", value: undefined },
@@ -281,8 +282,10 @@ export default function BrowseScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>Loading listings...</Text>
+        <View style={styles.listContent}>
+          <ListingCardSkeleton />
+          <ListingCardSkeleton />
+          <ListingCardSkeleton />
         </View>
       ) : error ? (
         <ErrorState message={error} onRetry={() => fetchListings()} />

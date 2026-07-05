@@ -18,6 +18,7 @@ import {
 import { ApiError } from "../../api/client";
 import { useNotificationsStore } from "../../store/notifications.store";
 import { ErrorState } from "../../components/ErrorState";
+import { RowCardSkeleton } from "../../components/Skeleton";
 import { formatDate } from "../../lib/dates";
 
 function targetFor(notification: Notification): string | null {
@@ -94,8 +95,12 @@ export default function NotificationsScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.center}>
-          <Text style={styles.stateText}>Loading notifications...</Text>
+        <View style={styles.listContent}>
+          <RowCardSkeleton />
+          <RowCardSkeleton />
+          <RowCardSkeleton />
+          <RowCardSkeleton />
+          <RowCardSkeleton />
         </View>
       ) : error ? (
         <ErrorState message={error} onRetry={() => fetchNotifications()} />
