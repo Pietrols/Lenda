@@ -25,8 +25,8 @@ app.use(helmet());
 const allowedOrigins = config.CORS_ORIGINS.split(",").map((o) => o.trim());
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
-app.use(express.json());
-app.use(morgan("dev"));
+app.use(express.json({ limit: "100kb" }));
+app.use(morgan(config.NODE_ENV === "development" ? "dev" : "combined"));
 
 app.use(
   rateLimit({
