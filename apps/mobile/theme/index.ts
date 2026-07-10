@@ -1,42 +1,55 @@
-// Lenda mobile theme - ported from the web design spec (dark palette is default).
+// Lenda mobile theme - the approved light/gold direction ("1B Warm/Textured"):
+// off-white background with gold as a confident supplementary accent. Values
+// mirror the web app's light palette (:root in apps/web/src/index.css), which
+// is the committed source of truth for the approved design system.
 // Colors are hsl() strings (React Native supports these natively).
 // Spacing and radius are in density-independent pixels (numbers), not rem.
 
 export const colors = {
-  background: "hsl(220, 13%, 9%)",
-  foreground: "hsl(220, 20%, 97%)",
+  background: "hsl(220, 20%, 97%)",
+  foreground: "hsl(220, 13%, 9%)",
 
-  card: "hsl(220, 13%, 12%)",
-  cardForeground: "hsl(220, 20%, 97%)",
+  card: "hsl(0, 0%, 100%)",
+  cardForeground: "hsl(220, 13%, 9%)",
 
-  popover: "hsl(220, 13%, 12%)",
-  popoverForeground: "hsl(220, 20%, 97%)",
+  popover: "hsl(0, 0%, 100%)",
+  popoverForeground: "hsl(220, 13%, 9%)",
 
   primary: "hsl(42, 60%, 57%)",
   primaryForeground: "hsl(220, 13%, 9%)",
 
-  secondary: "hsl(220, 13%, 16%)",
-  secondaryForeground: "hsl(220, 20%, 97%)",
+  secondary: "hsl(220, 14%, 93%)",
+  secondaryForeground: "hsl(220, 13%, 9%)",
 
-  muted: "hsl(220, 13%, 16%)",
-  mutedForeground: "hsl(220, 9%, 55%)",
+  muted: "hsl(220, 14%, 93%)",
+  mutedForeground: "hsl(220, 9%, 46%)",
 
-  accent: "hsl(220, 13%, 16%)",
-  accentForeground: "hsl(220, 20%, 97%)",
+  accent: "hsl(220, 14%, 93%)",
+  accentForeground: "hsl(220, 13%, 9%)",
 
-  destructive: "hsl(0, 62%, 30%)",
+  destructive: "hsl(0, 84%, 60%)",
   destructiveForeground: "hsl(0, 0%, 98%)",
 
-  border: "hsl(220, 13%, 18%)",
-  input: "hsl(220, 13%, 18%)",
+  border: "hsl(220, 13%, 89%)",
+  input: "hsl(220, 13%, 89%)",
   ring: "hsl(42, 60%, 57%)",
 
   gold: "hsl(42, 60%, 57%)",
   goldGlow: "hsl(42, 80%, 70%)",
 
-  success: "hsl(142, 71%, 45%)",
-  warning: "hsl(38, 92%, 50%)",
-  error: "hsl(0, 84%, 60%)",
+  success: "hsl(142, 71%, 35%)",
+  warning: "hsl(35, 92%, 40%)",
+  error: "hsl(0, 84%, 50%)",
+
+  // Semantic surfaces derived from the accents. Use these instead of inline
+  // hsla() strings so a future palette change stays a one-file edit.
+  goldTint: "hsla(42, 60%, 57%, 0.12)",
+  successTint: "hsla(142, 71%, 45%, 0.12)",
+  errorTint: "hsla(0, 84%, 60%, 0.10)",
+  // Dark scrims stay dark in a light theme: they sit over content/photos.
+  scrim: "hsla(220, 13%, 9%, 0.55)",
+  imageScrim: "hsla(220, 13%, 9%, 0.75)",
+  dotInactive: "hsla(0, 0%, 100%, 0.5)",
 } as const;
 
 export const spacing = {

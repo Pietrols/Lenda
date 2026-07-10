@@ -89,7 +89,7 @@ export default function RootLayout() {
   if (!hasHydrated) {
     return (
       <SafeAreaProvider>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <HydrationScreen />
       </SafeAreaProvider>
     );
@@ -97,7 +97,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <Stack
         screenOptions={{
           headerShown: false,
