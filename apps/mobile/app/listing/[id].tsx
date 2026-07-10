@@ -867,7 +867,7 @@ const styles = StyleSheet.create({
     width: theme.spacing.sm,
     height: theme.spacing.sm,
     borderRadius: theme.radius.pill,
-    backgroundColor: "hsla(220, 20%, 97%, 0.4)",
+    backgroundColor: theme.colors.dotInactive,
   },
   dotActive: {
     backgroundColor: theme.colors.gold,
@@ -1065,7 +1065,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "hsla(220, 13%, 4%, 0.7)",
+    backgroundColor: theme.colors.scrim,
   },
   modalAvoider: {
     justifyContent: "flex-end",
@@ -1144,7 +1144,7 @@ const styles = StyleSheet.create({
   },
   pickupCardSelected: {
     borderColor: theme.colors.gold,
-    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+    backgroundColor: theme.colors.goldTint,
   },
   pickupLabel: {
     color: theme.colors.foreground,
@@ -1210,7 +1210,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.font.bodyRegular,
   },
   formErrorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,

@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: "hsla(220, 13%, 9%, 0.75)",
+    backgroundColor: theme.colors.imageScrim,
     paddingVertical: theme.spacing.xs / 2,
   },
   primaryTagText: {
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
   },
   modePillActive: {
     borderColor: theme.colors.gold,
-    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+    backgroundColor: theme.colors.goldTint,
   },
   modeText: {
     color: theme.colors.mutedForeground,
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     width: theme.spacing.xxl * 2,
   },
   errorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,

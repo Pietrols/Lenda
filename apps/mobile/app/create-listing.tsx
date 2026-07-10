@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   },
   pillarCardSelected: {
     borderColor: theme.colors.gold,
-    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+    backgroundColor: theme.colors.goldTint,
   },
   pillarLabel: {
     color: theme.colors.foreground,
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
   },
   modePillActive: {
     borderColor: theme.colors.gold,
-    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+    backgroundColor: theme.colors.goldTint,
   },
   modeText: {
     color: theme.colors.mutedForeground,
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     width: theme.spacing.xxl * 2,
   },
   formErrorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,

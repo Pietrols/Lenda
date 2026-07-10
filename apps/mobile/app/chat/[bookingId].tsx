@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs / 2,
   },
   bubbleMine: {
-    backgroundColor: "hsla(42, 60%, 57%, 0.15)",
+    backgroundColor: theme.colors.goldTint,
     borderColor: theme.colors.gold,
     borderWidth: 1,
   },

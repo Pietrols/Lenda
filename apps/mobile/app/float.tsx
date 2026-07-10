@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   },
   providerPillActive: {
     borderColor: theme.colors.gold,
-    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+    backgroundColor: theme.colors.goldTint,
   },
   providerText: {
     color: theme.colors.mutedForeground,

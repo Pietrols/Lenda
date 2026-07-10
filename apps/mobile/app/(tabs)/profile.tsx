@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   },
   upgradedBox: {
     alignSelf: "stretch",
-    backgroundColor: "hsla(142, 71%, 45%, 0.08)",
+    backgroundColor: theme.colors.successTint,
     borderColor: theme.colors.success,
     borderWidth: 1,
     borderRadius: theme.radius.md,

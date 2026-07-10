@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.background,
   },
   formErrorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,

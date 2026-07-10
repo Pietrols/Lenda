@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.font.bodyRegular,
   },
   formErrorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "hsl(42, 60%, 57%, 0.15)",
+    backgroundColor: theme.colors.goldTint,
     alignItems: "center",
     justifyContent: "center",
   },

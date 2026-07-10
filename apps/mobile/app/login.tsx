@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.font.bodyRegular,
   },
   noticeBox: {
-    backgroundColor: "hsla(42, 60%, 57%, 0.08)",
+    backgroundColor: theme.colors.goldTint,
     borderColor: theme.colors.gold,
     borderWidth: 1,
     borderRadius: theme.radius.md,
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.font.bodyMedium,
   },
   formErrorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,

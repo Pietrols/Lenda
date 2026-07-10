@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   },
   roleCardSelected: {
     borderColor: theme.colors.gold,
-    backgroundColor: "hsl(42, 60%, 57%, 0.08)",
+    backgroundColor: theme.colors.goldTint,
   },
   roleLabel: {
     color: theme.colors.foreground,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.font.bodyRegular,
   },
   formErrorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,

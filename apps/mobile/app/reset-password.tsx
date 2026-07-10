@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   passwordInput: { paddingRight: 44 },
   eyeButton: { position: "absolute", right: theme.spacing.md },
   formErrorBox: {
-    backgroundColor: "hsl(0, 62%, 14%)",
+    backgroundColor: theme.colors.errorTint,
     borderColor: theme.colors.error,
     borderWidth: 1,
     borderRadius: theme.radius.md,
