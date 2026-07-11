@@ -4,6 +4,13 @@ import { AppError, Errors } from "../lib/AppError";
 import { getSignedDownloadUrl } from "../lib/r2";
 import { config } from "../config";
 
+// Free launch period: every newly approved host starts at the top tier so
+// the listing limit never blocks anyone. The tier automation in
+// booking-service keeps computing real tiers in the background (it never
+// demotes), so reverting to earned tiers later only requires lowering this
+// starting value again.
+const LAUNCH_LISTING_TIER = 3;
+
 export async function approveKyc(userId: string, adminId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw Errors.notFound("User not found.");
@@ -14,7 +21,7 @@ export async function approveKyc(userId: string, adminId: string) {
     where: { id: userId },
     data: {
       kycStatus: "APPROVED" as any,
-      listingTier: { increment: 1 },
+      listingTier: Math.max(user.listingTier, LAUNCH_LISTING_TIER),
     },
     select: {
       id: true,
