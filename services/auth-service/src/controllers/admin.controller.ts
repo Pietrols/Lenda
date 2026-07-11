@@ -120,8 +120,13 @@ export async function suspendUserHandler(
   next: NextFunction,
 ) {
   try {
-    const { suspend } = req.body;
-    const user = await suspendUser(req.params.id, req.user!.sub, suspend);
+    const { suspend, durationDays } = req.body;
+    const user = await suspendUser(
+      req.params.id,
+      req.user!.sub,
+      suspend,
+      durationDays,
+    );
     res.json({ user });
   } catch (err) {
     next(err);

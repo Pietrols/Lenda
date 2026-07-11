@@ -113,6 +113,7 @@ export async function suspendUser(
   userId: string,
   adminId: string,
   suspend: boolean = true,
+  durationDays?: number,
 ) {
   const user = await prisma.user.findUnique({
     where: { id: userId, deletedAt: null },
@@ -126,11 +127,33 @@ export async function suspendUser(
   if (!suspend && user.isActive) {
     throw new AppError("User is not suspended", 400);
   }
+  if (durationDays !== undefined) {
+    if (!Number.isInteger(durationDays) || durationDays <= 0) {
+      throw new AppError("durationDays must be a positive whole number", 400);
+    }
+    if (durationDays > 365) {
+      throw new AppError("durationDays cannot exceed 365", 400);
+    }
+  }
+
+  // A suspension with a duration expires on its own (checked at login);
+  // without one it is permanent until an admin lifts it. Unsuspending
+  // always clears any remaining expiry.
+  const suspendedUntil =
+    suspend && durationDays !== undefined
+      ? new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000)
+      : null;
 
   const updated = await prisma.user.update({
     where: { id: userId },
-    data: { isActive: !suspend },
-    select: { id: true, email: true, fullName: true, isActive: true },
+    data: { isActive: !suspend, suspendedUntil },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      isActive: true,
+      suspendedUntil: true,
+    },
   });
 
   return updated;

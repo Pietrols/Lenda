@@ -132,6 +132,7 @@ model User {
   phoneVerified      Boolean            @default(false)
   kycStatus          KycStatus          @default(PENDING)
   isActive           Boolean            @default(true)
+  suspendedUntil     DateTime?
   fullName           String?
   photoUrl           String?
   bio                String?

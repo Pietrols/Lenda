@@ -158,11 +158,32 @@ export async function login(data: LoginPayload): Promise<AuthResponse> {
   if (!passwordValid) throw invalidCredentials;
 
   if (!user.isActive) {
-    throw new AppError(
-      "Your account has been suspended. Please contact support.",
-      403,
-      "ACCOUNT_SUSPENDED",
-    );
+    if (user.suspendedUntil && user.suspendedUntil.getTime() <= Date.now()) {
+      // Timed suspension has expired: reactivate on this login attempt.
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isActive: true, suspendedUntil: null },
+      });
+      user.isActive = true;
+      user.suspendedUntil = null;
+    } else if (user.suspendedUntil) {
+      const until = user.suspendedUntil.toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+      throw new AppError(
+        `Your account is suspended until ${until}. Please contact support if you believe this is a mistake.`,
+        403,
+        "ACCOUNT_SUSPENDED",
+      );
+    } else {
+      throw new AppError(
+        "Your account has been suspended. Please contact support.",
+        403,
+        "ACCOUNT_SUSPENDED",
+      );
+    }
   }
 
   if (!user.emailVerified) {
