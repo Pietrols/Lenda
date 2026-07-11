@@ -200,8 +200,17 @@ export default function ListingDetailScreen() {
 
   const totalDays = endDate ? daysBetween(startDate, endDate) : 0;
   const dateOrderValid = totalDays > 0;
+  // Mirrors the server's pricing: the delivery fee is added only on
+  // fixed-price bookings where the host delivers to the guest.
+  const deliveryFee =
+    listing &&
+    !isNegotiableListing &&
+    pickupType === "HOST_TO_CLIENT" &&
+    listing.deliveryFee !== null
+      ? Number(listing.deliveryFee)
+      : 0;
   const totalAmount = listing
-    ? Math.max(totalDays, 0) * Number(listing.pricePerDay)
+    ? Math.max(totalDays, 0) * Number(listing.pricePerDay) + deliveryFee
     : 0;
 
   const openBooking = () => {
@@ -674,6 +683,15 @@ export default function ListingDetailScreen() {
                           style={styles.notesInput}
                         />
                       </View>
+
+                      {deliveryFee > 0 && (
+                        <View style={styles.totalRow}>
+                          <Text style={styles.totalLabel}>Delivery fee</Text>
+                          <Text style={styles.totalLabel}>
+                            {listing.currency} {deliveryFee.toLocaleString()}
+                          </Text>
+                        </View>
+                      )}
 
                       <View style={styles.totalRow}>
                         <Text style={styles.totalLabel}>

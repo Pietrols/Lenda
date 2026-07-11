@@ -59,6 +59,7 @@ export default function CreateListingScreen() {
   const [pillar, setPillar] = useState<Pillar>("RENTAL");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState("");
   const [currency, setCurrency] = useState("ZMW");
   const [location, setLocation] = useState("");
   const [pricingMode, setPricingMode] = useState<PricingMode>("FIXED");
@@ -105,6 +106,7 @@ export default function CreateListingScreen() {
       pillar,
       category: category.trim(),
       pricePerDay: Number(price),
+      deliveryFee: deliveryFee.trim() ? Number(deliveryFee) : undefined,
       currency: currency.trim(),
       pricingMode,
       location: location.trim(),
@@ -307,6 +309,23 @@ export default function CreateListingScreen() {
                 style={styles.input}
               />
             </View>
+          </View>
+
+          <View style={styles.field}>
+            <Text style={styles.label}>Delivery fee (optional)</Text>
+            <TextInput
+              value={deliveryFee}
+              onChangeText={setDeliveryFee}
+              editable={!blocked}
+              placeholder="0"
+              placeholderTextColor={theme.colors.mutedForeground}
+              keyboardType="numeric"
+              style={styles.input}
+            />
+            <Text style={styles.modeHint}>
+              Charged on top of the booking total when you deliver the item to
+              the guest. Leave empty if you do not offer delivery pricing.
+            </Text>
           </View>
 
           <View style={styles.field}>

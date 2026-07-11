@@ -44,6 +44,7 @@ export default function ManageListingScreen() {
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("");
   const [price, setPrice] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState("");
   const [currency, setCurrency] = useState("");
   const [location, setLocation] = useState("");
   const [pricingMode, setPricingMode] = useState<PricingMode>("FIXED");
@@ -68,6 +69,11 @@ export default function ManageListingScreen() {
       setDescription(res.listing.description);
       setCategory(res.listing.category);
       setPrice(String(Number(res.listing.pricePerDay)));
+      setDeliveryFee(
+        res.listing.deliveryFee === null
+          ? ""
+          : String(Number(res.listing.deliveryFee)),
+      );
       setCurrency(res.listing.currency);
       setLocation(res.listing.location);
       setPricingMode(res.listing.pricingMode as PricingMode);
@@ -98,6 +104,7 @@ export default function ManageListingScreen() {
       description: description.trim(),
       category: category.trim(),
       pricePerDay: Number(price),
+      deliveryFee: deliveryFee.trim() ? Number(deliveryFee) : null,
       currency: currency.trim(),
       pricingMode,
       location: location.trim(),
@@ -371,6 +378,18 @@ export default function ManageListingScreen() {
                   style={styles.input}
                 />
               </View>
+            </View>
+
+            <View style={styles.field}>
+              <Text style={styles.label}>Delivery fee (optional)</Text>
+              <TextInput
+                value={deliveryFee}
+                onChangeText={setDeliveryFee}
+                keyboardType="numeric"
+                placeholder="No delivery fee"
+                placeholderTextColor={theme.colors.mutedForeground}
+                style={styles.input}
+              />
             </View>
 
             <View style={styles.field}>

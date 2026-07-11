@@ -30,6 +30,7 @@ export type Listing = {
   title: string;
   description: string;
   pricePerDay: string;
+  deliveryFee: string | null;
   currency: string;
   pricingMode: string;
   location: string;

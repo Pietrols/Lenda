@@ -72,6 +72,7 @@ export type BookingListingSummary = {
 export type BookingListingDetail = BookingListingSummary & {
   pillar: "RENTAL" | "SERVICE";
   pricePerDay: string;
+  deliveryFee: string | null;
 };
 
 export type BookingParty = {
