@@ -55,6 +55,7 @@ export default function ProfileScreen() {
   );
 
   const isHost = roles.includes("HOST");
+  const isAdmin = (user?.roles ?? []).includes("ADMIN");
 
   const kycStatus = user?.kycStatus ?? "NOT_SUBMITTED";
   const kycColor = kycColors[kycStatus] ?? theme.colors.mutedForeground;
@@ -296,6 +297,23 @@ export default function ProfileScreen() {
                 color={theme.colors.gold}
               />
               <Text style={styles.navRowText}>Float &amp; Earnings</Text>
+              <ChevronRight
+                size={theme.typography.size.base}
+                color={theme.colors.mutedForeground}
+              />
+            </Pressable>
+          )}
+
+          {isAdmin && (
+            <Pressable
+              style={styles.navRow}
+              onPress={() => router.push("/admin")}
+            >
+              <ShieldCheck
+                size={theme.typography.size.base}
+                color={theme.colors.gold}
+              />
+              <Text style={styles.navRowText}>Admin</Text>
               <ChevronRight
                 size={theme.typography.size.base}
                 color={theme.colors.mutedForeground}

@@ -120,6 +120,11 @@ export default function RootLayout() {
           <Stack.Screen name="saved" />
           <Stack.Screen name="chat/[bookingId]" />
           <Stack.Screen name="help-safety" />
+          <Stack.Screen name="admin/index" />
+          <Stack.Screen name="admin/users" />
+          <Stack.Screen name="admin/users/[id]" />
+          <Stack.Screen name="admin/listings" />
+          <Stack.Screen name="admin/bookings" />
         </Stack.Protected>
         <Stack.Protected guard={!isAuthenticated}>
           <Stack.Screen name="login" />
