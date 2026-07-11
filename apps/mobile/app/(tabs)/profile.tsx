@@ -18,6 +18,7 @@ import {
   FileText,
   Heart,
   History,
+  LifeBuoy,
   LogOut,
   ListChecks,
   Shield,
@@ -301,6 +302,21 @@ export default function ProfileScreen() {
               />
             </Pressable>
           )}
+
+          <Pressable
+            style={styles.navRow}
+            onPress={() => router.push("/help-safety")}
+          >
+            <LifeBuoy
+              size={theme.typography.size.base}
+              color={theme.colors.gold}
+            />
+            <Text style={styles.navRowText}>Help &amp; Safety</Text>
+            <ChevronRight
+              size={theme.typography.size.base}
+              color={theme.colors.mutedForeground}
+            />
+          </Pressable>
 
           <Pressable
             style={styles.navRow}
