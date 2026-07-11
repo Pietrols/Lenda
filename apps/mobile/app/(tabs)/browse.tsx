@@ -79,7 +79,7 @@ function DateFilterField({
           mode="date"
           display="compact"
           minimumDate={minimumDate}
-          themeVariant="dark"
+          themeVariant="light"
           accentColor={theme.colors.gold}
           onChange={(_, date) => date && onChange(date)}
         />
