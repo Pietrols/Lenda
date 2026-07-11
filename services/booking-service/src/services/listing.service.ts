@@ -61,6 +61,7 @@ export async function createListing(hostId: string, data: CreateListingInput) {
       category: data.category,
       subcategory: data.subcategory,
       pricePerDay: data.pricePerDay,
+      deliveryFee: data.deliveryFee,
       currency: data.currency,
       pricingMode: (data.pricingMode ?? "FIXED") as any,
       location: data.location,

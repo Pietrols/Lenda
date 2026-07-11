@@ -91,6 +91,7 @@ export async function createBooking(
       hostId: true,
       status: true,
       pricePerDay: true,
+      deliveryFee: true,
       currency: true,
       title: true,
     },
@@ -116,9 +117,17 @@ export async function createBooking(
   );
 
   const priceSnapshot = Number(listing.pricePerDay);
+  // Delivery fee applies only to fixed-price bookings where the host brings
+  // the item to the client; negotiated totals are all-in by definition.
+  const deliveryFee =
+    !data.isNegotiable &&
+    data.pickupType === "HOST_TO_CLIENT" &&
+    listing.deliveryFee !== null
+      ? Number(listing.deliveryFee)
+      : 0;
   const totalAmount = data.isNegotiable
     ? (data.budgetMax ?? 0)
-    : priceSnapshot * totalDays;
+    : priceSnapshot * totalDays + deliveryFee;
 
   const activeBooking = await prisma.booking.findFirst({
     where: {
@@ -704,6 +713,7 @@ export async function getBookingById(
           pillar: true,
           location: true,
           pricePerDay: true,
+          deliveryFee: true,
           images: { orderBy: { order: "asc" } },
         },
       },

@@ -208,6 +208,7 @@ model Listing {
   pricePerDay    Decimal       @db.Decimal(10, 2)
   currency       String        @default("USD")
   pricingMode    PricingMode   @default(FIXED)
+  deliveryFee    Decimal?      @db.Decimal(10, 2)
   location       String
   status         ListingStatus @default(DRAFT)
   metadata       Json          @default("{}")
