@@ -132,6 +132,7 @@ export default function BookingDetailScreen() {
   const [reviewChecked, setReviewChecked] = useState(false);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
+  const [reviewJustSubmitted, setReviewJustSubmitted] = useState(false);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<
@@ -352,6 +353,7 @@ export default function BookingDetailScreen() {
     try {
       const res = await reviewsApi.create(parsed.data);
       setMyReview(res.review);
+      setReviewJustSubmitted(true);
     } catch (err) {
       setReviewError(
         err instanceof ApiError
@@ -992,6 +994,11 @@ export default function BookingDetailScreen() {
               </Text>
               {myReview ? (
                 <>
+                  {reviewJustSubmitted && (
+                    <Text style={styles.reviewThanksText}>
+                      Thanks for your review.
+                    </Text>
+                  )}
                   <StarRating
                     rating={myReview.rating}
                     size={theme.typography.size.xl}
@@ -1016,8 +1023,22 @@ export default function BookingDetailScreen() {
                     placeholderTextColor={theme.colors.mutedForeground}
                     multiline
                     numberOfLines={3}
+                    maxLength={1000}
                     style={styles.reasonInput}
                   />
+                  {reviewComment.trim().length > 0 && (
+                    <Text
+                      style={[
+                        styles.reviewCharCount,
+                        reviewComment.trim().length < 10 &&
+                          styles.reviewCharCountShort,
+                      ]}
+                    >
+                      {reviewComment.trim().length < 10
+                        ? `Comments need at least 10 characters (${reviewComment.trim().length}/10)`
+                        : `${reviewComment.trim().length}/1000 characters`}
+                    </Text>
+                  )}
                   {reviewError && (
                     <Text style={styles.actionErrorText}>{reviewError}</Text>
                   )}
@@ -1345,6 +1366,19 @@ const styles = StyleSheet.create({
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.size.sm,
     fontFamily: theme.typography.font.bodyRegular,
+  },
+  reviewThanksText: {
+    color: theme.colors.success,
+    fontSize: theme.typography.size.sm,
+    fontFamily: theme.typography.font.bodySemibold,
+  },
+  reviewCharCount: {
+    color: theme.colors.mutedForeground,
+    fontSize: theme.typography.size.xs,
+    fontFamily: theme.typography.font.bodyRegular,
+  },
+  reviewCharCountShort: {
+    color: theme.colors.warning,
   },
   confirmButtonText: {
     color: theme.colors.primaryForeground,
