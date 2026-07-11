@@ -18,6 +18,7 @@ import {
   ImageOff,
   MapPin,
   MessageCircle,
+  Navigation,
 } from "lucide-react-native";
 import { CreateReviewSchema } from "@lenda/schemas";
 import { theme } from "../../theme";
@@ -35,6 +36,7 @@ import { BookingStatusBadge } from "../../components/BookingStatusBadge";
 import { StarRating } from "../../components/StarRating";
 import { ErrorState } from "../../components/ErrorState";
 import { formatDate, formatDateRange } from "../../lib/dates";
+import { openDirections } from "../../lib/maps";
 
 const pickupLabels: Record<BookingDetail["pickupType"], string> = {
   CLIENT_TO_HOST: "Pick up from host",
@@ -441,27 +443,44 @@ export default function BookingDetailScreen() {
           <View style={styles.statusRow}>
             <BookingStatusBadge status={booking.status} />
             {isParty && (
-              <Pressable
-                style={styles.chatButton}
-                onPress={() =>
-                  router.push({
-                    pathname: "/chat/[bookingId]",
-                    params: {
-                      bookingId: booking.id,
-                      title: isHost ? "Message guest" : "Message host",
-                    },
-                  })
-                }
-                hitSlop={6}
-              >
-                <MessageCircle
-                  size={theme.typography.size.base}
-                  color={theme.colors.gold}
-                />
-                <Text style={styles.chatButtonText}>
-                  {isHost ? "Message guest" : "Message host"}
-                </Text>
-              </Pressable>
+              <View style={styles.statusActions}>
+                <Pressable
+                  style={styles.chatButton}
+                  onPress={() =>
+                    openDirections(
+                      booking.pickupLocation ?? booking.listing.location,
+                    )
+                  }
+                  hitSlop={6}
+                >
+                  <Navigation
+                    size={theme.typography.size.base}
+                    color={theme.colors.gold}
+                  />
+                  <Text style={styles.chatButtonText}>Directions</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.chatButton}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/chat/[bookingId]",
+                      params: {
+                        bookingId: booking.id,
+                        title: isHost ? "Message guest" : "Message host",
+                      },
+                    })
+                  }
+                  hitSlop={6}
+                >
+                  <MessageCircle
+                    size={theme.typography.size.base}
+                    color={theme.colors.gold}
+                  />
+                  <Text style={styles.chatButtonText}>
+                    {isHost ? "Message guest" : "Message host"}
+                  </Text>
+                </Pressable>
+              </View>
             )}
           </View>
 
@@ -1124,6 +1143,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+  },
+  statusActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: theme.spacing.sm,
   },
   chatButton: {
     flexDirection: "row",
