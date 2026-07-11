@@ -16,11 +16,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import {
   ArrowLeft,
   BadgeCheck,
-  Calendar,
   Heart,
   ImageOff,
   MapPin,
@@ -37,6 +35,7 @@ import { reviewsApi, type ListingReview } from "../../api/reviews";
 import { likesApi } from "../../api/likes";
 import { ApiError, SessionExpiredError } from "../../api/client";
 import { StarRating } from "../../components/StarRating";
+import { CalendarRange } from "../../components/CalendarRange";
 import { ErrorState } from "../../components/ErrorState";
 import { formatDate } from "../../lib/dates";
 
@@ -92,62 +91,6 @@ function daysBetween(start: Date, end: Date): number {
   );
 }
 
-function DateField({
-  label,
-  value,
-  minimumDate,
-  onChange,
-}: {
-  label: string;
-  value: Date;
-  minimumDate: Date;
-  onChange: (date: Date) => void;
-}) {
-  const [show, setShow] = useState(false);
-
-  if (Platform.OS === "ios") {
-    return (
-      <View style={styles.dateField}>
-        <Text style={styles.formLabel}>{label}</Text>
-        <DateTimePicker
-          value={value}
-          mode="date"
-          display="compact"
-          minimumDate={minimumDate}
-          themeVariant="dark"
-          accentColor={theme.colors.gold}
-          onChange={(_, date) => date && onChange(date)}
-        />
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.dateField}>
-      <Text style={styles.formLabel}>{label}</Text>
-      <Pressable style={styles.dateButton} onPress={() => setShow(true)}>
-        <Calendar
-          size={theme.typography.size.sm}
-          color={theme.colors.mutedForeground}
-        />
-        <Text style={styles.dateButtonText}>{value.toDateString()}</Text>
-      </Pressable>
-      {show && (
-        <DateTimePicker
-          value={value}
-          mode="date"
-          display="default"
-          minimumDate={minimumDate}
-          onChange={(_, date) => {
-            setShow(false);
-            if (date) onChange(date);
-          }}
-        />
-      )}
-    </View>
-  );
-}
-
 export default function ListingDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -200,7 +143,7 @@ export default function ListingDetailScreen() {
 
   const [bookingOpen, setBookingOpen] = useState(false);
   const [startDate, setStartDate] = useState<Date>(() => daysAfterToday(1));
-  const [endDate, setEndDate] = useState<Date>(() => daysAfterToday(2));
+  const [endDate, setEndDate] = useState<Date | null>(() => daysAfterToday(2));
   const [pickupType, setPickupType] = useState<PickupType>("CLIENT_TO_HOST");
   const [notes, setNotes] = useState("");
   const [budgetMin, setBudgetMin] = useState("");
@@ -255,7 +198,7 @@ export default function ListingDetailScreen() {
         reviews.length
       : null;
 
-  const totalDays = daysBetween(startDate, endDate);
+  const totalDays = endDate ? daysBetween(startDate, endDate) : 0;
   const dateOrderValid = totalDays > 0;
   const totalAmount = listing
     ? Math.max(totalDays, 0) * Number(listing.pricePerDay)
@@ -274,7 +217,7 @@ export default function ListingDetailScreen() {
   };
 
   const submitBooking = async () => {
-    if (!listing || !dateOrderValid) return;
+    if (!listing || !dateOrderValid || !endDate) return;
     setFormError(null);
 
     if (isNegotiableListing) {
@@ -637,23 +580,22 @@ export default function ListingDetailScreen() {
                       contentContainerStyle={styles.formContent}
                       keyboardShouldPersistTaps="handled"
                     >
-                      <View style={styles.dateRow}>
-                        <DateField
-                          label="Start date"
-                          value={startDate}
+                      <View style={styles.field}>
+                        <Text style={styles.formLabel}>Dates</Text>
+                        <CalendarRange
+                          start={startDate}
+                          end={endDate}
                           minimumDate={new Date()}
-                          onChange={setStartDate}
-                        />
-                        <DateField
-                          label="End date"
-                          value={endDate}
-                          minimumDate={startDate}
-                          onChange={setEndDate}
+                          onChange={(nextStart, nextEnd) => {
+                            setStartDate(nextStart);
+                            setEndDate(nextEnd);
+                          }}
                         />
                       </View>
                       {!dateOrderValid && (
-                        <Text style={styles.errorText}>
-                          End date must be after start date.
+                        <Text style={styles.offerHint}>
+                          Tap a start date, then an end date, to see the
+                          total.
                         </Text>
                       )}
 
@@ -1100,34 +1042,10 @@ const styles = StyleSheet.create({
   field: {
     gap: theme.spacing.xs,
   },
-  dateRow: {
-    flexDirection: "row",
-    gap: theme.spacing.md,
-  },
-  dateField: {
-    flex: 1,
-    gap: theme.spacing.xs,
-  },
   formLabel: {
     color: theme.colors.mutedForeground,
     fontSize: theme.typography.size.xs,
     fontFamily: theme.typography.font.bodyMedium,
-  },
-  dateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: theme.spacing.sm,
-    height: theme.spacing.xxl,
-    paddingHorizontal: theme.spacing.md,
-    borderRadius: theme.radius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    backgroundColor: theme.colors.background,
-  },
-  dateButtonText: {
-    color: theme.colors.foreground,
-    fontSize: theme.typography.size.xs,
-    fontFamily: theme.typography.font.bodyRegular,
   },
   pickupGrid: {
     flexDirection: "row",
